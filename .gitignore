@@ -1,0 +1,12 @@
+.venv
+__pycache__
+.pytest_cache
+tmp_script.py
+src/dataprep/artifacts/
+tests/fixtures/**_1M.**
+.coverage
+htmlcov/
+dist/
+*.egg-info/
+*.pyc
+*.pyo
