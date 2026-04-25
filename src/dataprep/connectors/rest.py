@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import time
 from typing import AsyncGenerator, Any
 
@@ -21,6 +22,22 @@ def _extract_by_path(data: Any, path: str) -> list[dict]:
     if isinstance(data, list):
         return data
     return [data]
+
+
+def _json_default(o: Any) -> Any:
+    if isinstance(o, (datetime.date, datetime.datetime)):
+        return o.isoformat()
+    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
+
+def _serialize_record(record: dict) -> dict:
+    out = {}
+    for k, v in record.items():
+        if isinstance(v, (datetime.date, datetime.datetime)):
+            out[k] = v.isoformat()
+        else:
+            out[k] = v
+    return out
 
 
 class RESTConnector(BaseConnector):
@@ -60,21 +77,25 @@ class RESTConnector(BaseConnector):
                     resp.raise_for_status()
                     if self._rate_limit_delay:
                         await asyncio.sleep(self._rate_limit_delay)
-                    return await resp.json()
+                    content_type = resp.headers.get("Content-Type", "")
+                    if "application/json" in content_type:
+                        return await resp.json()
+                    return await resp.text()
             except (aiohttp.ClientConnectionError, aiohttp.ServerDisconnectedError) as exc:
                 last_exc = exc
                 await asyncio.sleep(base_backoff * (2**attempt))
 
         raise last_exc
 
-    async def _paginate(
+    async def _collect_pages(
         self,
         session: aiohttp.ClientSession,
         endpoint: str,
         params: dict,
-    ) -> AsyncGenerator[list[dict], None]:
+    ) -> list[list[dict]]:
         url = f"{self._base_url}{endpoint}"
         pagination_type = self._pagination.get("type", "none")
+        pages: list[list[dict]] = []
 
         if pagination_type == "offset":
             limit = self._pagination.get("limit", 100)
@@ -87,7 +108,7 @@ class RESTConnector(BaseConnector):
                 rows = _extract_by_path(data, self._response_path)
                 if not rows:
                     break
-                yield rows
+                pages.append(rows)
                 if len(rows) < limit:
                     break
                 offset += limit
@@ -104,7 +125,7 @@ class RESTConnector(BaseConnector):
                 rows = _extract_by_path(data, self._response_path)
                 if not rows:
                     break
-                yield rows
+                pages.append(rows)
                 cursor = data.get(cursor_path)
                 if not cursor:
                     break
@@ -117,26 +138,28 @@ class RESTConnector(BaseConnector):
                     data = await resp.json()
                     rows = _extract_by_path(data, self._response_path)
                     if rows:
-                        yield rows
+                        pages.append(rows)
                     link = resp.headers.get("Link", "")
                     current_url = _parse_link_next(link)
+
         else:
             data = await self._request_with_retry(session, "GET", url, params=params)
             rows = _extract_by_path(data, self._response_path)
             if rows:
-                yield rows
+                pages.append(rows)
+
+        return pages
 
     async def read(
         self, query: dict[str, Any], options: dict[str, Any] | None = None
     ) -> pl.DataFrame:
         endpoint = query.get("endpoint", "")
         params = query.get("params", {})
-        frames = []
         async with self._session() as session:
-            async for rows in self._paginate(session, endpoint, params):
-                frames.append(pl.DataFrame(rows))
-        if not frames:
+            pages = await self._collect_pages(session, endpoint, params)
+        if not pages:
             return pl.DataFrame()
+        frames = [pl.DataFrame(rows) for rows in pages]
         return pl.concat(frames)
 
     async def read_stream(
@@ -145,8 +168,9 @@ class RESTConnector(BaseConnector):
         endpoint = query.get("endpoint", "")
         params = query.get("params", {})
         async with self._session() as session:
-            async for rows in self._paginate(session, endpoint, params):
-                yield pl.DataFrame(rows)
+            pages = await self._collect_pages(session, endpoint, params)
+        for rows in pages:
+            yield pl.DataFrame(rows)
 
     async def schema(self) -> SchemaInfo:
         endpoint = self.config.get("default_endpoint", "")
@@ -185,7 +209,7 @@ class RESTConnector(BaseConnector):
         endpoint = target["endpoint"]
         method = opts.get("method", "POST")
         url = f"{self._base_url}{endpoint}"
-        records = df.to_dicts()
+        records = [_serialize_record(r) for r in df.to_dicts()]
         t0 = time.perf_counter()
         async with self._session() as session:
             for record in records:

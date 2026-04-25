@@ -72,19 +72,29 @@ class MySQLConnector(BaseConnector):
         self._pool: asyncmy.Pool | None = None
 
     async def _get_pool(self) -> asyncmy.Pool:
-        if self._pool is None or self._pool._closed:
-            self._pool = await asyncmy.create_pool(
-                host=self.config["host"],
-                port=self.config.get("port", 3306),
-                db=self.config["database"],
-                user=self.config["user"],
-                password=self.config["password"],
-                minsize=1,
-                maxsize=self.config.get("max_connections", 5),
-                connect_timeout=self.config.get("timeout_seconds", 30),
-                charset="utf8mb4",
-                autocommit=True,
-            )
+        if self._pool is not None and not self._pool._closed:
+            return self._pool
+
+        if self._pool is not None:
+            try:
+                self._pool.close()
+                await self._pool.wait_closed()
+            except Exception:
+                pass
+            self._pool = None
+
+        self._pool = await asyncmy.create_pool(
+            host=self.config["host"],
+            port=self.config.get("port", 3306),
+            db=self.config["database"],
+            user=self.config["user"],
+            password=self.config["password"],
+            minsize=1,
+            maxsize=self.config.get("max_connections", 5),
+            connect_timeout=self.config.get("timeout_seconds", 30),
+            charset="utf8mb4",
+            autocommit=True,
+        )
         return self._pool
 
     def _build_sql(self, query: dict[str, Any]) -> str:
@@ -107,9 +117,9 @@ class MySQLConnector(BaseConnector):
         self, query: dict[str, Any], options: dict[str, Any] | None = None
     ) -> pl.DataFrame:
         sql = self._build_sql(query)
-        pool = await self._get_pool()
 
         async def _fetch():
+            pool = await self._get_pool()
             async with pool.acquire() as conn:
                 async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
                     await cur.execute(sql)
@@ -148,14 +158,18 @@ class MySQLConnector(BaseConnector):
             ORDER BY ordinal_position
         """
         count_sql = f"SELECT COUNT(*) AS n FROM `{database}`.`{table}`"
-        pool = await self._get_pool()
 
-        async with pool.acquire() as conn:
-            async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
-                await cur.execute(col_sql, (database, table))
-                col_rows = await cur.fetchall()
-                await cur.execute(count_sql)
-                count_row = await cur.fetchone()
+        async def _fetch_schema():
+            pool = await self._get_pool()
+            async with pool.acquire() as conn:
+                async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
+                    await cur.execute(col_sql, (database, table))
+                    col_rows = await cur.fetchall()
+                    await cur.execute(count_sql)
+                    count_row = await cur.fetchone()
+            return col_rows, count_row
+
+        col_rows, count_row = await _with_retry(_fetch_schema)
 
         columns = [
             ColumnMeta(
@@ -172,14 +186,20 @@ class MySQLConnector(BaseConnector):
 
     async def test_connection(self) -> ConnectionStatus:
         t0 = time.perf_counter()
-        try:
-            pool = await self._get_pool()
-            async with pool.acquire() as conn:
-                async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
-                    await cur.execute("SELECT 1")
-            return ConnectionStatus(ok=True, latency_ms=(time.perf_counter() - t0) * 1000)
-        except Exception as exc:
-            return ConnectionStatus(ok=False, error=str(exc))
+        last_exc: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                pool = await self._get_pool()
+                async with pool.acquire() as conn:
+                    async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
+                        await cur.execute("SELECT 1")
+                return ConnectionStatus(ok=True, latency_ms=(time.perf_counter() - t0) * 1000)
+            except Exception as exc:
+                last_exc = exc
+                self._pool = None
+                wait = _BASE_BACKOFF * (2**attempt) + random.uniform(0, 0.3)
+                await asyncio.sleep(wait)
+        return ConnectionStatus(ok=False, error=str(last_exc))
 
     async def write(
         self,
@@ -222,3 +242,4 @@ class MySQLConnector(BaseConnector):
         if self._pool and not self._pool._closed:
             self._pool.close()
             await self._pool.wait_closed()
+        self._pool = None

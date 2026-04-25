@@ -1,35 +1,25 @@
 import asyncio
+import asyncmy
+import json
 import subprocess
 import time
 from pathlib import Path
-from typing import AsyncGenerator
 
-import asyncpg
 import polars as pl
 import pytest
-import pytest_asyncio
-
-from dataprep.connectors.local_file import LocalFileConnector
-from dataprep.connectors.postgresql import PostgreSQLConnector
-from dataprep.core.context import PipelineContext
-from dataprep.storage.artifact import ArtifactStore
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 DATA_CSV = FIXTURES_DIR / "data.csv"
-DATA_XLSX = FIXTURES_DIR / "data.xlsx"
 
 COMPOSE_FILE = "docker-compose.test.yml"
 
-PG_CONFIG: dict = {
-    "host": "localhost",
-    "port": 5433,
-    "database": "testdb",
-    "user": "testuser",
-    "password": "testpass",
-}
+_HEALTHY_SERVICES = ["postgres", "mysql", "minio"]
+_HEALTH_TIMEOUT = 120
+_HEALTH_POLL = 3
 
-LONG_RUNNING_SERVICES = ["postgres", "mysql", "minio"]
+_MYSQL_READY_RETRIES = 20
+_MYSQL_READY_INTERVAL = 3
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -40,8 +30,6 @@ def pytest_configure(config: pytest.Config) -> None:
 
 def pytest_sessionstart(session: pytest.Session) -> None:
     _docker_up()
-    _wait_for_postgres(timeout=30)
-    _wait_for_minio(timeout=30)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
@@ -51,73 +39,120 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     )
 
 
-def _docker_up() -> None:
-    # Bước 1: khởi động toàn bộ (bao gồm minio-init).
-    # --wait trả về exit code != 0 khi có bất kỳ container nào exited,
-    # kể cả minio-init exit 0 (thành công). Nên bỏ qua returncode ở đây
-    # và tự kiểm tra riêng từng long-running service bên dưới.
-    subprocess.run(
-        ["docker", "compose", "-f", COMPOSE_FILE, "up", "-d", "--wait"],
+def _compose(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["docker", "compose", "-f", COMPOSE_FILE, *args],
         capture_output=True,
         text=True,
     )
 
-    # Bước 2: xác nhận các long-running service thực sự healthy.
-    for svc in LONG_RUNNING_SERVICES:
-        result = subprocess.run(
-            ["docker", "compose", "-f", COMPOSE_FILE, "ps", svc],
-            capture_output=True,
-            text=True,
-        )
-        output = result.stdout
-        if "(healthy)" not in output:
-            raise RuntimeError(
-                f"Service '{svc}' không healthy sau khi khởi động.\n"
-                f"Output: {output}\nStderr: {result.stderr}"
-            )
 
-    # Bước 3: xác nhận minio-init đã chạy xong thành công (exit 0).
+def _container_id(service: str) -> str | None:
+    result = _compose("ps", "-q", service)
+    cid = result.stdout.strip()
+    return cid if cid else None
+
+
+def _health_status(container_id: str) -> str:
     result = subprocess.run(
-        ["docker", "compose", "-f", COMPOSE_FILE, "ps", "-a", "minio-init"],
+        ["docker", "inspect", "--format", "{{json .State.Health}}", container_id],
         capture_output=True,
         text=True,
     )
-    output = result.stdout
-    # docker compose ps in ra "Exited (0)" nếu thành công
-    if "Exited (0)" not in output and "exited (0)" not in output.lower():
+    raw = result.stdout.strip()
+    if not raw or raw == "null":
+        return "none"
+    try:
+        return json.loads(raw).get("Status", "none")
+    except json.JSONDecodeError:
+        return "none"
+
+
+def _wait_healthy(service: str) -> None:
+    deadline = time.monotonic() + _HEALTH_TIMEOUT
+    while time.monotonic() < deadline:
+        cid = _container_id(service)
+        if cid and _health_status(cid) == "healthy":
+            return
+        time.sleep(_HEALTH_POLL)
+
+    cid = _container_id(service)
+    status = _health_status(cid) if cid else "container not found"
+    logs = _compose("logs", "--tail", "30", service).stdout
+    raise RuntimeError(
+        f"Service '{service}' not healthy after {_HEALTH_TIMEOUT}s "
+        f"(status={status!r}).\nLogs:\n{logs}"
+    )
+
+
+def _wait_minio_init() -> None:
+    deadline = time.monotonic() + _HEALTH_TIMEOUT
+    while time.monotonic() < deadline:
+        result = _compose("ps", "-a", "--format", "json", "minio-init")
+        for line in result.stdout.strip().splitlines():
+            try:
+                data = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            exit_code = data.get("ExitCode", -1)
+            state = data.get("State", "")
+            if state == "exited" and exit_code == 0:
+                return
+            if state == "exited" and exit_code != 0:
+                logs = _compose("logs", "minio-init").stdout
+                raise RuntimeError(
+                    f"minio-init exited with code {exit_code}.\nLogs:\n{logs}"
+                )
+        time.sleep(_HEALTH_POLL)
+
+    raise RuntimeError(f"minio-init did not finish within {_HEALTH_TIMEOUT}s.")
+
+
+def _docker_up() -> None:
+    result = _compose("up", "-d")
+    if result.returncode != 0:
         raise RuntimeError(
-            f"minio-init chưa hoàn thành hoặc thất bại.\nOutput: {output}"
+            f"docker compose up failed (rc={result.returncode}).\n"
+            f"Stdout:\n{result.stdout}\nStderr:\n{result.stderr}"
         )
 
+    for svc in _HEALTHY_SERVICES:
+        _wait_healthy(svc)
 
-def _wait_for_postgres(timeout: float = 30) -> None:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        loop = asyncio.new_event_loop()
+    _wait_minio_init()
+
+
+async def _wait_mysql_accepting(
+    host: str,
+    port: int,
+    database: str,
+    user: str,
+    password: str,
+    retries: int = _MYSQL_READY_RETRIES,
+    interval: float = _MYSQL_READY_INTERVAL,
+) -> None:
+    last_exc: Exception | None = None
+    for attempt in range(retries):
         try:
-            conn = loop.run_until_complete(asyncpg.connect(**PG_CONFIG))
-            loop.run_until_complete(conn.close())
-            return
-        except Exception:
-            time.sleep(0.5)
-        finally:
-            loop.close()
-    raise RuntimeError("PostgreSQL did not become ready in time")
-
-
-def _wait_for_minio(timeout: float = 30) -> None:
-    import urllib.request
-
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            urllib.request.urlopen(
-                "http://localhost:9000/minio/health/live", timeout=2
+            conn = await asyncmy.connect(
+                host=host,
+                port=port,
+                db=database,
+                user=user,
+                password=password,
             )
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT 1")
+            await conn.ensure_closed()
             return
-        except Exception:
-            time.sleep(0.5)
-    raise RuntimeError("MinIO did not become ready in time")
+        except Exception as exc:
+            last_exc = exc
+            await asyncio.sleep(interval)
+
+    raise RuntimeError(
+        f"MySQL at {host}:{port} not accepting queries after "
+        f"{retries * interval}s: {last_exc}"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -125,70 +160,14 @@ def sample_df() -> pl.DataFrame:
     return pl.read_csv(DATA_CSV, try_parse_dates=True)
 
 
-@pytest.fixture
-def local_connector() -> LocalFileConnector:
-    return LocalFileConnector()
+@pytest.fixture(scope="session")
+async def mysql_ready(sample_df: pl.DataFrame) -> None:
+    from tests.test_connectors.test_mysql import MYSQL_CONFIG
 
-
-@pytest.fixture
-def pg_connector() -> PostgreSQLConnector:
-    return PostgreSQLConnector(PG_CONFIG)
-
-
-@pytest_asyncio.fixture(scope="function")
-async def pg_table(sample_df: pl.DataFrame) -> AsyncGenerator[dict, None]:
-    table_name = f"test_data_{int(time.time() * 1000)}"
-    conn = await asyncpg.connect(**PG_CONFIG)
-
-    await conn.execute(f'CREATE TABLE "{table_name}" ({_df_to_pg_ddl(sample_df)})')
-    await _insert_rows(conn, table_name, sample_df)
-    await conn.close()
-
-    yield {"table": table_name, "schema": "public", "row_count": len(sample_df)}
-
-    conn = await asyncpg.connect(**PG_CONFIG)
-    await conn.execute(f'DROP TABLE IF EXISTS "{table_name}"')
-    await conn.close()
-
-
-async def _insert_rows(conn: asyncpg.Connection, table: str, df: pl.DataFrame) -> None:
-    cols = df.columns
-    placeholders = ", ".join(f"${i + 1}" for i in range(len(cols)))
-    col_names = ", ".join(f'"{c}"' for c in cols)
-    sql = f'INSERT INTO "{table}" ({col_names}) VALUES ({placeholders})'
-    await conn.executemany(sql, [tuple(row) for row in df.iter_rows()])
-
-
-def _df_to_pg_ddl(df: pl.DataFrame) -> str:
-    _TYPE_MAP = {
-        "Int8": "SMALLINT",
-        "Int16": "SMALLINT",
-        "Int32": "INTEGER",
-        "Int64": "BIGINT",
-        "UInt8": "SMALLINT",
-        "UInt16": "INTEGER",
-        "UInt32": "BIGINT",
-        "UInt64": "BIGINT",
-        "Float32": "REAL",
-        "Float64": "DOUBLE PRECISION",
-        "Boolean": "BOOLEAN",
-        "Utf8": "TEXT",
-        "String": "TEXT",
-        "Date": "DATE",
-        "Datetime": "TIMESTAMP",
-    }
-    parts = [
-        f'"{col}" {_TYPE_MAP.get(str(dtype), "TEXT")}'
-        for col, dtype in zip(df.columns, df.dtypes)
-    ]
-    return ", ".join(parts)
-
-
-@pytest.fixture
-def tmp_artifact_store(tmp_path: Path) -> ArtifactStore:
-    return ArtifactStore(base_path=str(tmp_path / "artifacts"))
-
-
-@pytest.fixture
-def pipeline_context(tmp_artifact_store: ArtifactStore) -> PipelineContext:
-    return PipelineContext(run_id="test_run", artifact_store=tmp_artifact_store)
+    await _wait_mysql_accepting(
+        host=MYSQL_CONFIG["host"],
+        port=MYSQL_CONFIG["port"],
+        database=MYSQL_CONFIG["database"],
+        user=MYSQL_CONFIG["user"],
+        password=MYSQL_CONFIG["password"],
+    )

@@ -13,7 +13,8 @@ _ADAPTIVE_TARGET_MB  = 50
 
 def _adaptive_batch_size(df: pl.DataFrame, hint: int | None) -> int:
     if hint is not None:
-        return max(_ADAPTIVE_MIN_BATCH, min(hint, _ADAPTIVE_MAX_BATCH))
+        return max(1, hint)
+
     if len(df) == 0:
         return _ADAPTIVE_MIN_BATCH
     mem_mb = df.estimated_size("mb")
