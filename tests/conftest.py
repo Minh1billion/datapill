@@ -1,21 +1,26 @@
 import asyncio
 import subprocess
 import time
-import tempfile
 from pathlib import Path
-from typing import AsyncGenerator, Any
+from typing import AsyncGenerator
+
+import asyncpg
+import polars as pl
 import pytest
 import pytest_asyncio
-import polars as pl
-import asyncpg
 
-from dataprep.connectors.base import BaseConnector, SchemaInfo, ColumnMeta, ConnectionStatus, WriteResult
 from dataprep.connectors.local_file import LocalFileConnector
 from dataprep.connectors.postgresql import PostgreSQLConnector
-from dataprep.storage.artifact import ArtifactStore
 from dataprep.core.context import PipelineContext
+from dataprep.storage.artifact import ArtifactStore
 
-PG_CONFIG = {
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
+DATA_CSV = FIXTURES_DIR / "data.csv"
+DATA_XLSX = FIXTURES_DIR / "data.xlsx"
+
+
+PG_CONFIG: dict = {
     "host": "localhost",
     "port": 5433,
     "database": "testdb",
@@ -23,16 +28,14 @@ PG_CONFIG = {
     "password": "testpass",
 }
 
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
-DATA_CSV = FIXTURES_DIR / "data.csv"
-DATA_XLSX = FIXTURES_DIR / "data.xlsx"
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers", "integration: mark test as requiring Docker/PostgreSQL"
+    )
 
 
-def pytest_configure(config):
-    config.addinivalue_line("markers", "integration: mark test as requiring Docker/PostgreSQL")
-
-
-def pytest_sessionstart(session):
+def pytest_sessionstart(session: pytest.Session) -> None:
     result = subprocess.run(
         ["docker", "compose", "-f", "docker-compose.test.yml", "up", "-d", "--wait"],
         capture_output=True,
@@ -41,24 +44,27 @@ def pytest_sessionstart(session):
     if result.returncode != 0:
         raise RuntimeError(f"Failed to start Docker services:\n{result.stderr}")
 
-    deadline = time.time() + 30
-    while time.time() < deadline:
-        try:
-            conn = asyncio.get_event_loop().run_until_complete(
-                asyncpg.connect(**PG_CONFIG)
-            )
-            asyncio.get_event_loop().run_until_complete(conn.close())
-            return
-        except Exception:
-            time.sleep(0.5)
-    raise RuntimeError("PostgreSQL did not become ready in time")
+    _wait_for_postgres(timeout=30)
 
 
-def pytest_sessionfinish(session, exitstatus):
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     subprocess.run(
         ["docker", "compose", "-f", "docker-compose.test.yml", "down", "-v"],
         capture_output=True,
     )
+
+
+def _wait_for_postgres(timeout: float = 30) -> None:
+    loop = asyncio.get_event_loop()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            conn = loop.run_until_complete(asyncpg.connect(**PG_CONFIG))
+            loop.run_until_complete(conn.close())
+            return
+        except Exception:
+            time.sleep(0.5)
+    raise RuntimeError("PostgreSQL did not become ready in time")
 
 
 @pytest.fixture(scope="session")
@@ -73,20 +79,23 @@ def sample_df() -> pl.DataFrame:
     return pl.read_csv(DATA_CSV, try_parse_dates=True)
 
 
+@pytest.fixture
+def local_connector() -> LocalFileConnector:
+    return LocalFileConnector()
+
+
+@pytest.fixture
+def pg_connector() -> PostgreSQLConnector:
+    return PostgreSQLConnector(PG_CONFIG)
+
+
 @pytest_asyncio.fixture(scope="function")
 async def pg_table(sample_df: pl.DataFrame) -> AsyncGenerator[dict, None]:
     table_name = f"test_data_{int(time.time() * 1000)}"
     conn = await asyncpg.connect(**PG_CONFIG)
 
-    col_defs = _polars_schema_to_pg_ddl(sample_df)
-    await conn.execute(f'CREATE TABLE "{table_name}" ({col_defs})')
-
-    cols = sample_df.columns
-    placeholders = ", ".join(f"${i+1}" for i in range(len(cols)))
-    col_names = ", ".join(f'"{c}"' for c in cols)
-    insert_sql = f'INSERT INTO "{table_name}" ({col_names}) VALUES ({placeholders})'
-    records = [tuple(row) for row in sample_df.iter_rows()]
-    await conn.executemany(insert_sql, records)
+    await conn.execute(f'CREATE TABLE "{table_name}" ({_df_to_pg_ddl(sample_df)})')
+    await _insert_rows(conn, table_name, sample_df)
     await conn.close()
 
     yield {"table": table_name, "schema": "public", "row_count": len(sample_df)}
@@ -96,31 +105,16 @@ async def pg_table(sample_df: pl.DataFrame) -> AsyncGenerator[dict, None]:
     await conn.close()
 
 
-@pytest.fixture
-def pg_connector() -> PostgreSQLConnector:
-    return PostgreSQLConnector(PG_CONFIG)
+async def _insert_rows(conn: asyncpg.Connection, table: str, df: pl.DataFrame) -> None:
+    cols = df.columns
+    placeholders = ", ".join(f"${i + 1}" for i in range(len(cols)))
+    col_names = ", ".join(f'"{c}"' for c in cols)
+    sql = f'INSERT INTO "{table}" ({col_names}) VALUES ({placeholders})'
+    await conn.executemany(sql, [tuple(row) for row in df.iter_rows()])
 
 
-@pytest.fixture
-def local_connector() -> LocalFileConnector:
-    return LocalFileConnector()
-
-
-@pytest.fixture
-def tmp_artifact_store(tmp_path: Path) -> ArtifactStore:
-    return ArtifactStore(base_path=str(tmp_path / "artifacts"))
-
-
-@pytest.fixture
-def pipeline_context(tmp_artifact_store: ArtifactStore) -> PipelineContext:
-    return PipelineContext(
-        run_id="test_run",
-        artifact_store=tmp_artifact_store,
-    )
-
-
-def _polars_schema_to_pg_ddl(df: pl.DataFrame) -> str:
-    type_map = {
+def _df_to_pg_ddl(df: pl.DataFrame) -> str:
+    _TYPE_MAP = {
         "Int8": "SMALLINT",
         "Int16": "SMALLINT",
         "Int32": "INTEGER",
@@ -137,8 +131,18 @@ def _polars_schema_to_pg_ddl(df: pl.DataFrame) -> str:
         "Date": "DATE",
         "Datetime": "TIMESTAMP",
     }
-    parts = []
-    for col, dtype in zip(df.columns, df.dtypes):
-        pg_type = type_map.get(str(dtype), "TEXT")
-        parts.append(f'"{col}" {pg_type}')
+    parts = [
+        f'"{col}" {_TYPE_MAP.get(str(dtype), "TEXT")}'
+        for col, dtype in zip(df.columns, df.dtypes)
+    ]
     return ", ".join(parts)
+
+
+@pytest.fixture
+def tmp_artifact_store(tmp_path: Path) -> ArtifactStore:
+    return ArtifactStore(base_path=str(tmp_path / "artifacts"))
+
+
+@pytest.fixture
+def pipeline_context(tmp_artifact_store: ArtifactStore) -> PipelineContext:
+    return PipelineContext(run_id="test_run", artifact_store=tmp_artifact_store)
