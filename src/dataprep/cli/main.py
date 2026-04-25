@@ -1,5 +1,5 @@
-from __future__ import annotations
 import asyncio
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -9,15 +9,23 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
+from dataprep.connectors.base import BaseConnector
+from dataprep.connectors.kafka import KafkaConnector
 from dataprep.connectors.local_file import LocalFileConnector
+from dataprep.connectors.mysql import MySQLConnector
+from dataprep.connectors.postgresql import PostgreSQLConnector
+from dataprep.connectors.rest import RESTConnector
+from dataprep.connectors.s3 import S3Connector
 from dataprep.core.context import PipelineContext
 from dataprep.core.events import EventType
 from dataprep.features.ingest.pipeline import IngestConfig, IngestPipeline
 from dataprep.features.profile.pipeline import ProfileOptions, ProfilePipeline
 from dataprep.storage.artifact import ArtifactStore
 
-app = typer.Typer(name="dp", help="DataPrep CLI - data preprocessing framework", no_args_is_help=True)
+app = typer.Typer(name="dp", help="DataPrep CLI", no_args_is_help=True)
 console = Console()
+
+_SOURCES = "local_file | postgresql | mysql | s3 | rest | kafka"
 
 
 def _run(coro):
@@ -28,32 +36,118 @@ def _make_context(out: str) -> PipelineContext:
     return PipelineContext(artifact_store=ArtifactStore(out))
 
 
+def _load_config(config_path: str | None) -> dict:
+    if not config_path:
+        return {}
+    p = Path(config_path)
+    if not p.exists():
+        console.print(f"[red]Config file not found: {config_path}[/red]")
+        raise typer.Exit(1)
+    with p.open() as f:
+        return json.load(f)
+
+
+def _build_connector(
+    source: str,
+    config: dict,
+    path: str | None = None,
+    table: str | None = None,
+    url: str | None = None,
+    topic: str | None = None,
+    endpoint: str | None = None,
+) -> tuple[BaseConnector, dict]:
+    if source == "local_file":
+        if not path:
+            console.print("[red]--path is required for local_file[/red]")
+            raise typer.Exit(1)
+        return LocalFileConnector(config), {"path": path}
+
+    if source == "postgresql":
+        _require_db_config(config, source)
+        query: dict = {}
+        if table:
+            query["table"] = table
+        elif "sql" in config:
+            query["sql"] = config.pop("sql")
+        else:
+            console.print("[red]--table or 'sql' in config is required for postgresql[/red]")
+            raise typer.Exit(1)
+        return PostgreSQLConnector(config), query
+
+    if source == "mysql":
+        _require_db_config(config, source)
+        query = {}
+        if table:
+            query["table"] = table
+        elif "sql" in config:
+            query["sql"] = config.pop("sql")
+        else:
+            console.print("[red]--table or 'sql' in config is required for mysql[/red]")
+            raise typer.Exit(1)
+        return MySQLConnector(config), query
+
+    if source == "s3":
+        if not url and not config.get("default_url"):
+            console.print("[red]--url or 'default_url' in config is required for s3[/red]")
+            raise typer.Exit(1)
+        return S3Connector(config), {"url": url or config["default_url"]}
+
+    if source == "rest":
+        if not endpoint and not config.get("default_endpoint"):
+            console.print("[red]--endpoint or 'default_endpoint' in config is required for rest[/red]")
+            raise typer.Exit(1)
+        if "base_url" not in config:
+            console.print("[red]'base_url' is required in config for rest[/red]")
+            raise typer.Exit(1)
+        ep = endpoint or config["default_endpoint"]
+        return RESTConnector(config), {"endpoint": ep}
+
+    if source == "kafka":
+        if not topic and not config.get("default_topic"):
+            console.print("[red]--topic or 'default_topic' in config is required for kafka[/red]")
+            raise typer.Exit(1)
+        if "bootstrap_servers" not in config:
+            console.print("[red]'bootstrap_servers' is required in config for kafka[/red]")
+            raise typer.Exit(1)
+        t = topic or config["default_topic"]
+        return KafkaConnector(config), {"topic": t}
+
+    console.print(f"[red]Unknown source: {source}. Available: {_SOURCES}[/red]")
+    raise typer.Exit(1)
+
+
+def _require_db_config(config: dict, source: str) -> None:
+    required = ["host", "database", "user", "password"]
+    missing = [k for k in required if k not in config]
+    if missing:
+        console.print(f"[red]{source} config missing keys: {missing}[/red]")
+        raise typer.Exit(1)
+
+
 @app.command("ingest")
 def cmd_ingest(
-    source: str = typer.Option(..., "--source", "-s", help="Connector type: local_file | postgresql"),
-    path: Optional[str] = typer.Option(None, "--path", help="File path (local_file connector)"),
+    source: str = typer.Option(..., "--source", "-s", help=f"Connector type: {_SOURCES}"),
+    config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to JSON config file for connector"),
+    path: Optional[str] = typer.Option(None, "--path", help="File path (local_file)"),
+    table: Optional[str] = typer.Option(None, "--table", help="Table name (postgresql | mysql)"),
+    url: Optional[str] = typer.Option(None, "--url", help="S3 URL, e.g. s3://bucket/key.parquet"),
+    topic: Optional[str] = typer.Option(None, "--topic", help="Kafka topic name"),
+    endpoint: Optional[str] = typer.Option(None, "--endpoint", help="REST endpoint, e.g. /users"),
     out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact output directory"),
     limit: Optional[int] = typer.Option(None, "--limit", "-n", help="Max rows to read"),
     batch_size: int = typer.Option(50_000, "--batch-size", help="Rows per batch"),
+    max_records: Optional[int] = typer.Option(None, "--max-records", help="Max records (kafka)"),
 ):
     """Ingest data from a connector into artifact store."""
     async def _run_ingest():
-        if source == "local_file":
-            if not path:
-                console.print("[red]--path is required for local_file connector[/red]")
-                raise typer.Exit(1)
-            connector = LocalFileConnector()
-            query = {"path": path}
-        elif source == "postgresql":
-            console.print("[red]postgresql connector requires config file - not yet supported via CLI flags[/red]")
-            raise typer.Exit(1)
-        else:
-            console.print(f"[red]Unknown source: {source}[/red]")
-            raise typer.Exit(1)
+        config = _load_config(config_file)
+        connector, query = _build_connector(source, config, path, table, url, topic, endpoint)
 
         options: dict = {"batch_size": batch_size}
         if limit:
             options["n_rows"] = limit
+        if max_records:
+            options["max_records"] = max_records
 
         pipeline = IngestPipeline(IngestConfig(connector=connector, query=query, options=options))
         ctx = _make_context(out)
@@ -66,7 +160,9 @@ def cmd_ingest(
 
         plan = pipeline.plan(ctx)
 
-        with Progress(SpinnerColumn(), TextColumn("{task.description}"), TimeElapsedColumn(), console=console) as progress:
+        with Progress(
+            SpinnerColumn(), TextColumn("{task.description}"), TimeElapsedColumn(), console=console
+        ) as progress:
             task = progress.add_task("Ingesting...", total=None)
             async for event in pipeline.execute(plan, ctx):
                 progress.update(task, description=event.message)
@@ -75,6 +171,7 @@ def cmd_ingest(
                     console.print(f"\n[green]✓ {event.message}[/green]")
                     console.print(f"  Artifact: [cyan]{payload.get('output_artifact_id')}[/cyan]")
                     console.print(f"  Schema:   [cyan]{payload.get('schema_artifact_id')}[/cyan]")
+                    console.print(f"  Rows:     [cyan]{payload.get('rows_read', 0):,}[/cyan]")
                 elif event.event_type == EventType.ERROR:
                     console.print(f"\n[red]✗ {event.message}[/red]")
                     raise typer.Exit(1)
@@ -84,7 +181,7 @@ def cmd_ingest(
 
 @app.command("profile")
 def cmd_profile(
-    input: str = typer.Option(..., "--input", "-i", help="Artifact ID or Parquet file path"),
+    input: str = typer.Option(..., "--input", "-i", help="Artifact ID or .parquet file path"),
     mode: str = typer.Option("full", "--mode", "-m", help="full | summary"),
     sample_strategy: str = typer.Option("none", "--sample-strategy", help="none | random | reservoir"),
     sample_size: int = typer.Option(100_000, "--sample-size"),
@@ -140,35 +237,189 @@ def cmd_profile(
 
 @app.command("connector")
 def cmd_connector(
-    action: str = typer.Argument(..., help="test | info"),
-    source: str = typer.Option(..., "--source", "-s"),
+    action: str = typer.Argument(..., help="test | schema"),
+    source: str = typer.Option(..., "--source", "-s", help=f"Connector type: {_SOURCES}"),
+    config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to JSON config file"),
     path: Optional[str] = typer.Option(None, "--path"),
+    table: Optional[str] = typer.Option(None, "--table"),
+    url: Optional[str] = typer.Option(None, "--url"),
+    topic: Optional[str] = typer.Option(None, "--topic"),
+    endpoint: Optional[str] = typer.Option(None, "--endpoint"),
 ):
-    """Test or inspect a connector."""
+    """Test connection or inspect schema of a connector."""
     async def _run_connector():
+        config = _load_config(config_file)
+
         if source == "local_file":
-            connector = LocalFileConnector({"default_path": path or "."})
+            connector: BaseConnector = LocalFileConnector({"default_path": path or "."})
+        elif source == "postgresql":
+            _require_db_config(config, source)
+            if table:
+                config["default_table"] = table
+            connector = PostgreSQLConnector(config)
+        elif source == "mysql":
+            _require_db_config(config, source)
+            if table:
+                config["default_table"] = table
+            connector = MySQLConnector(config)
+        elif source == "s3":
+            if url:
+                config["default_url"] = url
+            connector = S3Connector(config)
+        elif source == "rest":
+            if endpoint:
+                config["default_endpoint"] = endpoint
+            connector = RESTConnector(config)
+        elif source == "kafka":
+            if topic:
+                config["default_topic"] = topic
+            connector = KafkaConnector(config)
         else:
-            console.print(f"[red]Unknown source: {source}[/red]")
+            console.print(f"[red]Unknown source: {source}. Available: {_SOURCES}[/red]")
             raise typer.Exit(1)
 
         if action == "test":
             status = await connector.test_connection()
             if status.ok:
-                console.print(f"[green]✓ Connection OK ({status.latency_ms:.1f}ms)[/green]")
+                ms = f"{status.latency_ms:.1f}ms" if status.latency_ms is not None else "n/a"
+                console.print(f"[green]✓ Connection OK ({ms})[/green]")
             else:
                 console.print(f"[red]✗ Connection failed: {status.error}[/red]")
-        elif action == "info" and path:
+
+        elif action == "schema":
             schema = await connector.schema()
-            table = Table(title=f"Schema: {path}")
-            table.add_column("Column")
-            table.add_column("Type")
-            table.add_column("Nullable")
+            if not schema.columns:
+                console.print("[yellow]No schema returned (topic/table/path may be empty or not configured)[/yellow]")
+                return
+            title = path or table or url or topic or endpoint or source
+            t = Table(title=f"Schema: {title}", show_lines=True)
+            t.add_column("Column", style="bold")
+            t.add_column("Type")
+            t.add_column("Nullable")
             for col in schema.columns:
-                table.add_row(col.name, col.dtype, "yes" if col.nullable else "no")
-            console.print(table)
+                t.add_row(col.name, col.dtype, "yes" if col.nullable else "no")
+            if schema.row_count_estimate is not None:
+                console.print(f"  Row estimate: [cyan]{schema.row_count_estimate:,}[/cyan]")
+            console.print(t)
+
+        else:
+            console.print(f"[red]Unknown action: {action}. Use: test | schema[/red]")
+            raise typer.Exit(1)
+
+        await connector.close()
 
     _run(_run_connector())
+
+
+@app.command("run")
+def cmd_run(
+    config_file: str = typer.Argument(..., help="Path to pipeline JSON config file"),
+    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o"),
+):
+    """Run a full ingest + profile pipeline from a JSON config file.
+
+    Config format:
+    {
+        "source": "postgresql",
+        "connector": { "host": "...", "database": "...", "user": "...", "password": "..." },
+        "query": { "table": "orders" },
+        "ingest": { "batch_size": 10000 },
+        "profile": { "mode": "full", "correlation": "pearson" }
+    }
+    """
+    async def _run_pipeline():
+        cfg = _load_config(config_file)
+        source = cfg.get("source")
+        if not source:
+            console.print("[red]'source' is required in config[/red]")
+            raise typer.Exit(1)
+
+        connector_cfg: dict = cfg.get("connector", {})
+        raw_query: dict = cfg.get("query", {})
+        ingest_opts: dict = cfg.get("ingest", {})
+        profile_opts: dict = cfg.get("profile", {})
+
+        connector, query = _build_connector(
+            source,
+            connector_cfg,
+            path=raw_query.get("path"),
+            table=raw_query.get("table"),
+            url=raw_query.get("url"),
+            topic=raw_query.get("topic"),
+            endpoint=raw_query.get("endpoint"),
+        )
+
+        ctx = _make_context(out)
+
+        console.rule("[bold]Ingest")
+        ingest_pipeline = IngestPipeline(IngestConfig(
+            connector=connector,
+            query=query,
+            options=ingest_opts,
+        ))
+        result = ingest_pipeline.validate(ctx)
+        if not result.ok:
+            for err in result.errors:
+                console.print(f"[red]{err}[/red]")
+            raise typer.Exit(1)
+
+        ingest_plan = ingest_pipeline.plan(ctx)
+        output_artifact_id: str | None = None
+
+        with Progress(SpinnerColumn(), TextColumn("{task.description}"), TimeElapsedColumn(), console=console) as p:
+            task = p.add_task("Ingesting...", total=None)
+            async for event in ingest_pipeline.execute(ingest_plan, ctx):
+                p.update(task, description=event.message)
+                if event.event_type == EventType.DONE:
+                    payload = event.payload or {}
+                    output_artifact_id = payload.get("output_artifact_id")
+                    console.print(f"[green]✓ {event.message}[/green]")
+                elif event.event_type == EventType.ERROR:
+                    console.print(f"[red]✗ {event.message}[/red]")
+                    raise typer.Exit(1)
+
+        await connector.close()
+
+        if not output_artifact_id:
+            console.print("[yellow]No artifact produced, skipping profile.[/yellow]")
+            return
+
+        console.rule("[bold]Profile")
+        profile_pipeline = ProfilePipeline(ProfileOptions(
+            mode=profile_opts.get("mode", "full"),
+            sample_strategy=profile_opts.get("sample_strategy", "none"),
+            sample_size=profile_opts.get("sample_size", 100_000),
+            correlation_method=profile_opts.get("correlation", "pearson"),
+        ))
+        result = profile_pipeline.validate(ctx)
+        if not result.ok:
+            for err in result.errors:
+                console.print(f"[red]{err}[/red]")
+            raise typer.Exit(1)
+
+        profile_plan = profile_pipeline.plan(ctx)
+        profile_plan.metadata["input_artifact_id"] = output_artifact_id
+
+        with Progress(
+            SpinnerColumn(), BarColumn(),
+            TextColumn("{task.description}"),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            console=console,
+        ) as p:
+            task = p.add_task("Profiling...", total=100)
+            async for event in profile_pipeline.execute(profile_plan, ctx):
+                pct = int((event.progress_pct or 0) * 100)
+                p.update(task, completed=pct, description=event.message)
+                if event.event_type == EventType.DONE:
+                    payload = event.payload or {}
+                    console.print(f"[green]✓ {event.message}[/green]")
+                    _print_profile_table(ctx, payload.get("summary_artifact_id"))
+                elif event.event_type == EventType.ERROR:
+                    console.print(f"[red]✗ {event.message}[/red]")
+                    raise typer.Exit(1)
+
+    _run(_run_pipeline())
 
 
 def _print_profile_table(ctx: PipelineContext, summary_id: str | None) -> None:
@@ -178,16 +429,16 @@ def _print_profile_table(ctx: PipelineContext, summary_id: str | None) -> None:
         summary = asyncio.get_event_loop().run_until_complete(
             ctx.artifact_store.load_json(summary_id)
         )
-        table = Table(title="Column Summary", show_lines=True)
-        table.add_column("Column", style="bold")
-        table.add_column("Type")
-        table.add_column("Null%", justify="right")
-        table.add_column("Distinct", justify="right")
-        table.add_column("Min")
-        table.add_column("Max")
-        table.add_column("Warnings", style="yellow")
+        t = Table(title="Column Summary", show_lines=True)
+        t.add_column("Column", style="bold")
+        t.add_column("Type")
+        t.add_column("Null%", justify="right")
+        t.add_column("Distinct", justify="right")
+        t.add_column("Min")
+        t.add_column("Max")
+        t.add_column("Warnings", style="yellow")
         for col in summary.get("columns", []):
-            table.add_row(
+            t.add_row(
                 col["name"],
                 col["dtype"],
                 f"{col['null_pct'] * 100:.1f}%",
@@ -196,7 +447,7 @@ def _print_profile_table(ctx: PipelineContext, summary_id: str | None) -> None:
                 str(col.get("max", "")),
                 ", ".join(col.get("warnings", [])),
             )
-        console.print(table)
+        console.print(t)
     except Exception:
         pass
 

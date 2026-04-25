@@ -1,11 +1,14 @@
 import time
+import uuid
 from dataclasses import dataclass, field
 from typing import AsyncGenerator, Any
+
 import polars as pl
-from dataprep.core.interfaces import FeaturePipeline, ValidationResult, ExecutionPlan
-from dataprep.core.context import PipelineContext
-from dataprep.core.events import ProgressEvent, EventType
+
 from dataprep.connectors.base import BaseConnector
+from dataprep.core.context import PipelineContext
+from dataprep.core.events import EventType, ProgressEvent
+from dataprep.core.interfaces import ExecutionPlan, FeaturePipeline, ValidationResult
 
 
 @dataclass
@@ -29,7 +32,11 @@ class IngestPipeline(FeaturePipeline):
 
     def plan(self, context: PipelineContext) -> ExecutionPlan:
         return ExecutionPlan(
-            steps=[{"name": "stream_read"}, {"name": "materialize_parquet"}, {"name": "save_schema"}],
+            steps=[
+                {"name": "stream_read"},
+                {"name": "materialize_parquet"},
+                {"name": "save_schema"},
+            ],
             metadata={"query": self.config.query, "options": self.config.options},
         )
 
@@ -48,7 +55,7 @@ class IngestPipeline(FeaturePipeline):
             async for chunk in self.config.connector.read_stream(
                 self.config.query, self.config.options
             ):
-                if schema_snapshot is None:
+                if schema_snapshot is None and not chunk.is_empty():
                     schema_snapshot = _extract_schema(chunk)
 
                 rows_read += len(chunk)
