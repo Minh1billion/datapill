@@ -16,7 +16,7 @@ from dataprep.features.ingest.pipeline import IngestConfig, IngestPipeline
 from dataprep.features.profile.pipeline import ProfileOptions, ProfilePipeline
 from dataprep.storage.artifact import ArtifactStore
 
-app = typer.Typer(name="dp", help="DataPrep CLI — data preprocessing framework", no_args_is_help=True)
+app = typer.Typer(name="dp", help="DataPrep CLI - data preprocessing framework", no_args_is_help=True)
 console = Console()
 
 
@@ -45,7 +45,7 @@ def cmd_ingest(
             connector = LocalFileConnector()
             query = {"path": path}
         elif source == "postgresql":
-            console.print("[red]postgresql connector requires config file — not yet supported via CLI flags[/red]")
+            console.print("[red]postgresql connector requires config file - not yet supported via CLI flags[/red]")
             raise typer.Exit(1)
         else:
             console.print(f"[red]Unknown source: {source}[/red]")

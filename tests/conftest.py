@@ -19,6 +19,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 DATA_CSV = FIXTURES_DIR / "data.csv"
 DATA_XLSX = FIXTURES_DIR / "data.xlsx"
 
+COMPOSE_FILE = "docker-compose.test.yml"
 
 PG_CONFIG: dict = {
     "host": "localhost",
@@ -28,50 +29,95 @@ PG_CONFIG: dict = {
     "password": "testpass",
 }
 
+LONG_RUNNING_SERVICES = ["postgres", "mysql", "minio"]
+
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
-        "markers", "integration: mark test as requiring Docker/PostgreSQL"
+        "markers", "integration: mark test as requiring Docker services"
     )
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
-    result = subprocess.run(
-        ["docker", "compose", "-f", "docker-compose.test.yml", "up", "-d", "--wait"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Failed to start Docker services:\n{result.stderr}")
-
+    _docker_up()
     _wait_for_postgres(timeout=30)
+    _wait_for_minio(timeout=30)
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     subprocess.run(
-        ["docker", "compose", "-f", "docker-compose.test.yml", "down", "-v"],
+        ["docker", "compose", "-f", COMPOSE_FILE, "down", "-v"],
         capture_output=True,
     )
 
 
+def _docker_up() -> None:
+    # Bước 1: khởi động toàn bộ (bao gồm minio-init).
+    # --wait trả về exit code != 0 khi có bất kỳ container nào exited,
+    # kể cả minio-init exit 0 (thành công). Nên bỏ qua returncode ở đây
+    # và tự kiểm tra riêng từng long-running service bên dưới.
+    subprocess.run(
+        ["docker", "compose", "-f", COMPOSE_FILE, "up", "-d", "--wait"],
+        capture_output=True,
+        text=True,
+    )
+
+    # Bước 2: xác nhận các long-running service thực sự healthy.
+    for svc in LONG_RUNNING_SERVICES:
+        result = subprocess.run(
+            ["docker", "compose", "-f", COMPOSE_FILE, "ps", svc],
+            capture_output=True,
+            text=True,
+        )
+        output = result.stdout
+        if "(healthy)" not in output:
+            raise RuntimeError(
+                f"Service '{svc}' không healthy sau khi khởi động.\n"
+                f"Output: {output}\nStderr: {result.stderr}"
+            )
+
+    # Bước 3: xác nhận minio-init đã chạy xong thành công (exit 0).
+    result = subprocess.run(
+        ["docker", "compose", "-f", COMPOSE_FILE, "ps", "-a", "minio-init"],
+        capture_output=True,
+        text=True,
+    )
+    output = result.stdout
+    # docker compose ps in ra "Exited (0)" nếu thành công
+    if "Exited (0)" not in output and "exited (0)" not in output.lower():
+        raise RuntimeError(
+            f"minio-init chưa hoàn thành hoặc thất bại.\nOutput: {output}"
+        )
+
+
 def _wait_for_postgres(timeout: float = 30) -> None:
-    loop = asyncio.get_event_loop()
     deadline = time.time() + timeout
     while time.time() < deadline:
+        loop = asyncio.new_event_loop()
         try:
             conn = loop.run_until_complete(asyncpg.connect(**PG_CONFIG))
             loop.run_until_complete(conn.close())
             return
         except Exception:
             time.sleep(0.5)
+        finally:
+            loop.close()
     raise RuntimeError("PostgreSQL did not become ready in time")
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+def _wait_for_minio(timeout: float = 30) -> None:
+    import urllib.request
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            urllib.request.urlopen(
+                "http://localhost:9000/minio/health/live", timeout=2
+            )
+            return
+        except Exception:
+            time.sleep(0.5)
+    raise RuntimeError("MinIO did not become ready in time")
 
 
 @pytest.fixture(scope="session")
