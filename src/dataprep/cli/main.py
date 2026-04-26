@@ -29,7 +29,7 @@ _SOURCES = "local_file | postgresql | mysql | s3 | rest | kafka"
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def _make_context(out: str) -> PipelineContext:
@@ -168,12 +168,12 @@ def cmd_ingest(
                 progress.update(task, description=event.message)
                 if event.event_type == EventType.DONE:
                     payload = event.payload or {}
-                    console.print(f"\n[green]✓ {event.message}[/green]")
+                    console.print(f"\n[green][OK] {event.message}[/green]")
                     console.print(f"  Artifact: [cyan]{payload.get('output_artifact_id')}[/cyan]")
                     console.print(f"  Schema:   [cyan]{payload.get('schema_artifact_id')}[/cyan]")
                     console.print(f"  Rows:     [cyan]{payload.get('rows_read', 0):,}[/cyan]")
                 elif event.event_type == EventType.ERROR:
-                    console.print(f"\n[red]✗ {event.message}[/red]")
+                    console.print(f"\n[red][ERROR] {event.message}[/red]")
                     raise typer.Exit(1)
 
     _run(_run_ingest())
@@ -223,13 +223,13 @@ def cmd_profile(
                 progress.update(task, completed=pct, description=event.message)
                 if event.event_type == EventType.DONE:
                     payload = event.payload or {}
-                    console.print(f"\n[green]✓ {event.message}[/green]")
+                    console.print(f"\n[green][OK] {event.message}[/green]")
                     console.print(f"  Profile ID: [cyan]{payload.get('profile_id')}[/cyan]")
                     console.print(f"  Detail:     [cyan]{payload.get('detail_artifact_id')}[/cyan]")
                     console.print(f"  Summary:    [cyan]{payload.get('summary_artifact_id')}[/cyan]")
                     _print_profile_table(ctx, payload.get("summary_artifact_id"))
                 elif event.event_type == EventType.ERROR:
-                    console.print(f"\n[red]✗ {event.message}[/red]")
+                    console.print(f"\n[red][ERROR] {event.message}[/red]")
                     raise typer.Exit(1)
 
     _run(_run_profile())
@@ -282,9 +282,9 @@ def cmd_connector(
             status = await connector.test_connection()
             if status.ok:
                 ms = f"{status.latency_ms:.1f}ms" if status.latency_ms is not None else "n/a"
-                console.print(f"[green]✓ Connection OK ({ms})[/green]")
+                console.print(f"[green][OK] Connection OK ({ms})[/green]")
             else:
-                console.print(f"[red]✗ Connection failed: {status.error}[/red]")
+                console.print(f"[red][ERROR] Connection failed: {status.error}[/red]")
 
         elif action == "schema":
             schema = await connector.schema()
@@ -373,9 +373,9 @@ def cmd_run(
                 if event.event_type == EventType.DONE:
                     payload = event.payload or {}
                     output_artifact_id = payload.get("output_artifact_id")
-                    console.print(f"[green]✓ {event.message}[/green]")
+                    console.print(f"[green][OK] {event.message}[/green]")
                 elif event.event_type == EventType.ERROR:
-                    console.print(f"[red]✗ {event.message}[/red]")
+                    console.print(f"[red][ERROR] {event.message}[/red]")
                     raise typer.Exit(1)
 
         await connector.close()
@@ -413,10 +413,10 @@ def cmd_run(
                 p.update(task, completed=pct, description=event.message)
                 if event.event_type == EventType.DONE:
                     payload = event.payload or {}
-                    console.print(f"[green]✓ {event.message}[/green]")
+                    console.print(f"[green][OK] {event.message}[/green]")
                     _print_profile_table(ctx, payload.get("summary_artifact_id"))
                 elif event.event_type == EventType.ERROR:
-                    console.print(f"[red]✗ {event.message}[/red]")
+                    console.print(f"[red][ERROR] {event.message}[/red]")
                     raise typer.Exit(1)
 
     _run(_run_pipeline())
@@ -426,9 +426,7 @@ def _print_profile_table(ctx: PipelineContext, summary_id: str | None) -> None:
     if not summary_id:
         return
     try:
-        summary = asyncio.get_event_loop().run_until_complete(
-            ctx.artifact_store.load_json(summary_id)
-        )
+        summary = asyncio.run(ctx.artifact_store.load_json(summary_id))
         t = Table(title="Column Summary", show_lines=True)
         t.add_column("Column", style="bold")
         t.add_column("Type")

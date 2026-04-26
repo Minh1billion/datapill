@@ -5,6 +5,7 @@ from typing import AsyncGenerator, Any
 
 import aiohttp
 import polars as pl
+from urllib.parse import urljoin
 
 from .base import BaseConnector, ColumnMeta, ConnectionStatus, SchemaInfo, WriteResult
 
@@ -93,7 +94,11 @@ class RESTConnector(BaseConnector):
         endpoint: str,
         params: dict,
     ) -> list[list[dict]]:
-        url = f"{self._base_url}{endpoint}"
+        endpoint = endpoint.strip()
+        if endpoint.startswith("http"):
+            url = endpoint
+        else:
+            url = f"{self._base_url}/{endpoint.lstrip('/')}"
         pagination_type = self._pagination.get("type", "none")
         pages: list[list[dict]] = []
 
@@ -177,7 +182,12 @@ class RESTConnector(BaseConnector):
         if not endpoint:
             return SchemaInfo(columns=[])
         async with self._session() as session:
-            data = await self._request_with_retry(session, "GET", f"{self._base_url}{endpoint}")
+            endpoint = endpoint.strip()
+            if endpoint.startswith("http"):
+                url = endpoint
+            else:
+                url = f"{self._base_url}/{endpoint.lstrip('/')}"
+            data = await self._request_with_retry(session, "GET", url)
         rows = _extract_by_path(data, self._response_path)
         if not rows:
             return SchemaInfo(columns=[])
@@ -192,10 +202,19 @@ class RESTConnector(BaseConnector):
         t0 = time.perf_counter()
         try:
             health = self.config.get("health_endpoint", "/")
+
+            health = health.strip()
+            if health.startswith("http"):
+                url = health
+            else:
+                url = f"{self._base_url}/{health.lstrip('/')}"
+
             async with self._session() as session:
-                async with session.get(f"{self._base_url}{health}") as resp:
+                async with session.get(url) as resp:
                     resp.raise_for_status()
+
             return ConnectionStatus(ok=True, latency_ms=(time.perf_counter() - t0) * 1000)
+
         except Exception as exc:
             return ConnectionStatus(ok=False, error=str(exc))
 
@@ -208,7 +227,11 @@ class RESTConnector(BaseConnector):
         opts = options or {}
         endpoint = target["endpoint"]
         method = opts.get("method", "POST")
-        url = f"{self._base_url}{endpoint}"
+        endpoint = endpoint.strip()
+        if endpoint.startswith("http"):
+            url = endpoint
+        else:
+            url = f"{self._base_url}/{endpoint.lstrip('/')}"
         records = [_serialize_record(r) for r in df.to_dicts()]
         t0 = time.perf_counter()
         async with self._session() as session:
