@@ -218,9 +218,13 @@ def compute_correlation_matrix(
         for col_b in numeric_cols[i + 1:]:
             try:
                 if method == "pearson":
-                    val = sample.select(pl.pearson_corr(col_a, col_b)).item()
+                    val = sample.select(pl.corr(col_a, col_b)).to_series()[0]
                 elif method == "spearman":
-                    val = sample.select(pl.spearman_rank_corr(col_a, col_b)).item()
+                    ranked = sample.select([
+                        pl.col(col_a).rank().alias(col_a),
+                        pl.col(col_b).rank().alias(col_b),
+                    ])
+                    val = ranked.select(pl.corr(col_a, col_b)).to_series()[0]
                 else:
                     continue
                 if val is not None and abs(val) >= threshold:
