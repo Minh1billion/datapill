@@ -18,7 +18,10 @@ from dataprep.connectors.rest import RESTConnector
 from dataprep.connectors.s3 import S3Connector
 from dataprep.core.context import PipelineContext
 from dataprep.core.events import EventType
+from dataprep.features.export.pipeline import ExportPipeline, WriteConfig
 from dataprep.features.ingest.pipeline import IngestConfig, IngestPipeline
+from dataprep.features.preprocess.pipeline import PreprocessPipeline
+from dataprep.features.preprocess.schema import StepConfig
 from dataprep.features.profile.pipeline import ProfileOptions, ProfilePipeline
 from dataprep.storage.artifact import ArtifactStore
 
@@ -26,6 +29,7 @@ app = typer.Typer(name="dp", help="DataPrep CLI", no_args_is_help=True)
 console = Console()
 
 _SOURCES = "local_file | postgresql | mysql | s3 | rest | kafka"
+_FORMATS = "csv | parquet | json | jsonl | excel"
 
 
 def _run(coro):
@@ -233,6 +237,174 @@ def cmd_profile(
                     raise typer.Exit(1)
 
     _run(_run_profile())
+
+
+@app.command("preprocess")
+def cmd_preprocess(
+    input: str = typer.Option(..., "--input", "-i", help="Artifact ID or .parquet file path"),
+    pipeline_file: str = typer.Option(..., "--pipeline", "-p", help="Path to pipeline JSON config file"),
+    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact output directory"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Run on first 1000 rows, no artifact saved"),
+    checkpoint: bool = typer.Option(False, "--checkpoint", help="Save checkpoint parquet after each step"),
+):
+    """Apply a preprocess pipeline to an ingested dataset.
+
+    Pipeline JSON format:
+    {
+        "steps": [
+            {"type": "impute_mean", "scope": {"columns": ["age", "income"]}},
+            {"type": "clip_iqr",    "scope": {"columns": ["income"]}},
+            {"type": "standard_scaler", "scope": {"columns": ["age", "income"]}}
+        ]
+    }
+    """
+    async def _run_preprocess():
+        cfg = _load_config(pipeline_file)
+        raw_steps = cfg.get("steps", [])
+        if not raw_steps:
+            console.print("[red]Pipeline config has no steps[/red]")
+            raise typer.Exit(1)
+
+        steps = [
+            StepConfig(
+                step=s["type"],
+                columns=s.get("scope", {}).get("columns") or [],
+            )
+            for s in raw_steps
+        ]
+
+        pipeline = PreprocessPipeline(steps=steps, checkpoint=checkpoint)
+        ctx = _make_context(out)
+
+        result = pipeline.validate(ctx)
+        if not result.ok:
+            for err in result.errors:
+                console.print(f"[red]Validation error: {err}[/red]")
+            raise typer.Exit(1)
+
+        plan = pipeline.plan(ctx)
+        plan.metadata["dry_run"] = dry_run
+
+        if Path(input).exists() and Path(input).suffix == ".parquet":
+            plan.metadata["dataframe"] = pl.read_parquet(input)
+        else:
+            plan.metadata["input_artifact_id"] = input
+
+        with Progress(
+            SpinnerColumn(), BarColumn(),
+            TextColumn("{task.description}"),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Preprocessing...", total=100)
+            async for event in pipeline.execute(plan, ctx):
+                pct = int((event.progress_pct or 0) * 100)
+                progress.update(task, completed=pct, description=event.message)
+                if event.event_type == EventType.DONE:
+                    payload = event.payload or {}
+                    console.print(f"\n[green][OK] {event.message}[/green]")
+                    if dry_run:
+                        console.print("  [yellow]Dry run — no artifact saved[/yellow]")
+                    else:
+                        console.print(f"  Output:  [cyan]{payload.get('output_artifact_id')}[/cyan]")
+                        console.print(f"  Config:  [cyan]{payload.get('config_artifact_id')}[/cyan]")
+                    console.print(f"  Run ID:  [cyan]{payload.get('run_id')}[/cyan]")
+                elif event.event_type == EventType.ERROR:
+                    console.print(f"\n[red][ERROR] {event.message}[/red]")
+                    raise typer.Exit(1)
+
+        if pipeline.run_id and hasattr(pipeline, '_detect_conflicts'):
+            warnings = pipeline._detect_conflicts()
+            for w in warnings:
+                console.print(f"[yellow]Warning: {w}[/yellow]")
+
+    _run(_run_preprocess())
+
+
+@app.command("export")
+def cmd_export(
+    input: str = typer.Option(..., "--input", "-i", help="Artifact ID or .parquet file path"),
+    format: str = typer.Option(..., "--format", "-f", help=f"Output format: {_FORMATS}"),
+    out_path: Optional[str] = typer.Option(None, "--out-path", help="Output file path"),
+    write_mode: str = typer.Option("replace", "--write-mode", help="replace | append | upsert"),
+    primary_keys: Optional[str] = typer.Option(None, "--primary-keys", help="Comma-separated keys for upsert"),
+    connector_file: Optional[str] = typer.Option(None, "--connector", "-c", help="Connector config JSON for write-back"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print first 10 rows, skip write"),
+    compression: Optional[str] = typer.Option(None, "--compression", help="Compression (parquet: snappy|zstd|gzip)"),
+    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact store directory"),
+):
+    """Export a dataset to file or write back to a connector.
+
+    Export to file:
+        dp export -i <artifact_id> -f parquet --out-path output/result.parquet
+
+    Write back to PostgreSQL:
+        dp export -i <artifact_id> -f parquet --connector pg.json --write-mode upsert --primary-keys id
+    """
+    async def _run_export():
+        connector_config: dict | None = None
+        if connector_file:
+            connector_config = _load_config(connector_file)
+            if not connector_config.get("source"):
+                console.print("[red]connector config must have 'source' field (postgresql | mysql | s3)[/red]")
+                raise typer.Exit(1)
+
+        if connector_config is None and not out_path:
+            console.print("[red]--out-path is required when not using --connector[/red]")
+            raise typer.Exit(1)
+
+        options: dict = {}
+        if compression:
+            options["compression"] = compression
+
+        pkeys = [k.strip() for k in primary_keys.split(",")] if primary_keys else []
+
+        cfg = WriteConfig(
+            format=format,
+            path=Path(out_path) if out_path else None,
+            options=options,
+            write_mode=write_mode,
+            primary_keys=pkeys,
+            connector_config=connector_config,
+        )
+
+        pipeline = ExportPipeline(cfg)
+        ctx = _make_context(out)
+
+        result = pipeline.validate(ctx)
+        if not result.ok:
+            for err in result.errors:
+                console.print(f"[red]Validation error: {err}[/red]")
+            raise typer.Exit(1)
+
+        plan = pipeline.plan(ctx)
+        plan.metadata["dry_run"] = dry_run
+
+        if Path(input).exists() and Path(input).suffix == ".parquet":
+            plan.metadata["dataframe"] = pl.read_parquet(input)
+        else:
+            plan.metadata["input_artifact_id"] = input
+
+        with Progress(
+            SpinnerColumn(), TextColumn("{task.description}"), TimeElapsedColumn(), console=console
+        ) as progress:
+            task = progress.add_task("Exporting...", total=None)
+            async for event in pipeline.execute(plan, ctx):
+                progress.update(task, description=event.message)
+                if event.event_type == EventType.DONE:
+                    payload = event.payload or {}
+                    console.print(f"\n[green][OK] {event.message}[/green]")
+                    if dry_run:
+                        console.print("  [yellow]Dry run — no data written[/yellow]")
+                    else:
+                        console.print(f"  Destination: [cyan]{payload.get('destination')}[/cyan]")
+                        console.print(f"  Rows:        [cyan]{payload.get('rows_written', 0):,}[/cyan]")
+                elif event.event_type == EventType.ERROR:
+                    console.print(f"\n[red][ERROR] {event.message}[/red]")
+                    raise typer.Exit(1)
+
+    _run(_run_export())
 
 
 @app.command("connector")

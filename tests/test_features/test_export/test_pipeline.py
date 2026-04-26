@@ -1,9 +1,13 @@
-from pathlib import Path
+import asyncio
 
 import polars as pl
 import pytest
 
 from dataprep.features.export.pipeline import ExportPipeline, WriteConfig
+
+
+def run(pipeline, df, **kwargs):
+    return asyncio.run(pipeline.run(df, **kwargs))
 
 
 @pytest.fixture
@@ -31,7 +35,7 @@ def pg_connector():
 def test_export_csv(df, tmp_path):
     path = tmp_path / "out.csv"
     cfg = WriteConfig(format="csv", path=path)
-    result = ExportPipeline(cfg).run(df)
+    result = run(ExportPipeline(cfg), df)
     assert result.rows_written == 3
     assert path.exists()
 
@@ -39,7 +43,7 @@ def test_export_csv(df, tmp_path):
 def test_export_parquet(df, tmp_path):
     path = tmp_path / "out.parquet"
     cfg = WriteConfig(format="parquet", path=path, options={"compression": "snappy"})
-    result = ExportPipeline(cfg).run(df)
+    result = run(ExportPipeline(cfg), df)
     assert result.rows_written == 3
     loaded = pl.read_parquet(path)
     assert len(loaded) == 3
@@ -48,7 +52,7 @@ def test_export_parquet(df, tmp_path):
 def test_dry_run_no_file(df, tmp_path):
     path = tmp_path / "out.csv"
     cfg = WriteConfig(format="csv", path=path)
-    result = ExportPipeline(cfg).run(df, dry_run=True)
+    result = run(ExportPipeline(cfg), df, dry_run=True)
     assert result.rows_written == 0
     assert not path.exists()
 
@@ -56,7 +60,7 @@ def test_dry_run_no_file(df, tmp_path):
 def test_export_no_path_no_connector_raises(df):
     cfg = WriteConfig(format="csv")
     with pytest.raises(ValueError, match="path or connector_config"):
-        ExportPipeline(cfg).run(df)
+        run(ExportPipeline(cfg), df)
 
 
 def test_invalid_write_mode_raises(df):
@@ -66,7 +70,7 @@ def test_invalid_write_mode_raises(df):
         write_mode="invalid",
     )
     with pytest.raises(ValueError):
-        ExportPipeline(cfg).run(df)
+        run(ExportPipeline(cfg), df)
 
 
 @pytest.mark.integration
@@ -82,10 +86,8 @@ class TestPostgresWriteback:
 
     @pytest.fixture(autouse=True)
     def create_table(self, pg_connector):
-        import asyncio
-        import asyncpg
-
         async def _setup():
+            import asyncpg
             conn = await asyncpg.connect(
                 host=pg_connector["host"], port=pg_connector["port"],
                 database=pg_connector["database"],
@@ -105,25 +107,23 @@ class TestPostgresWriteback:
 
     def test_pg_replace(self, df, pg_connector):
         cfg = WriteConfig(format="parquet", connector_config=pg_connector, write_mode="replace")
-        result = ExportPipeline(cfg).run(df)
+        result = run(ExportPipeline(cfg), df)
         assert result.rows_written == 3
 
     def test_pg_append(self, df, pg_connector):
         cfg = WriteConfig(format="parquet", connector_config=pg_connector, write_mode="append")
 
-        ExportPipeline(cfg).run(df)
+        run(ExportPipeline(cfg), df)
 
         df2 = pl.DataFrame({
             "id": [4, 5, 6],
             "name": ["dave", "eve", "frank"],
             "score": [40.0, 50.0, 60.0],
         })
-        ExportPipeline(cfg).run(df2)
-
-        import asyncio
-        import asyncpg
+        run(ExportPipeline(cfg), df2)
 
         async def _count():
+            import asyncpg
             conn = await asyncpg.connect(
                 host=pg_connector["host"], port=pg_connector["port"],
                 database=pg_connector["database"],
@@ -140,19 +140,17 @@ class TestPostgresWriteback:
             format="parquet", connector_config=pg_connector,
             write_mode="replace",
         )
-        ExportPipeline(cfg_insert).run(df)
+        run(ExportPipeline(cfg_insert), df)
 
         updated = pl.DataFrame({"id": [1, 2], "name": ["ALICE", "BOB"], "score": [99.0, 88.0]})
         cfg_upsert = WriteConfig(
             format="parquet", connector_config=pg_connector,
             write_mode="upsert", primary_keys=["id"],
         )
-        ExportPipeline(cfg_upsert).run(updated)
-
-        import asyncio
-        import asyncpg
+        run(ExportPipeline(cfg_upsert), updated)
 
         async def _fetch():
+            import asyncpg
             conn = await asyncpg.connect(
                 host=pg_connector["host"], port=pg_connector["port"],
                 database=pg_connector["database"],
@@ -174,4 +172,4 @@ class TestPostgresWriteback:
             write_mode="upsert", primary_keys=[],
         )
         with pytest.raises(ValueError, match="primary_keys"):
-            ExportPipeline(cfg).run(df)
+            run(ExportPipeline(cfg), df)

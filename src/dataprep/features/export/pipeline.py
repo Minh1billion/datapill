@@ -91,7 +91,7 @@ class ExportPipeline(FeaturePipeline):
         )
 
         try:
-            result = self.run(df, dry_run=dry_run)
+            result = await self.run(df, dry_run=dry_run)
         except Exception as exc:
             yield ProgressEvent(EventType.ERROR, str(exc))
             raise
@@ -123,11 +123,11 @@ class ExportPipeline(FeaturePipeline):
             ),
         }
 
-    def run(self, df: pl.DataFrame, dry_run: bool = False) -> ExportResult:
+    async def run(self, df: pl.DataFrame, dry_run: bool = False) -> ExportResult:
         cfg = self.config
 
         if cfg.connector_config:
-            return self._write_back(df, dry_run)
+            return await self._write_back(df, dry_run)
 
         if cfg.path is None:
             raise ValueError("Either path or connector_config must be provided")
@@ -144,9 +144,7 @@ class ExportPipeline(FeaturePipeline):
             destination=str(cfg.path),
         )
 
-    def _write_back(self, df: pl.DataFrame, dry_run: bool) -> ExportResult:
-        import asyncio
-
+    async def _write_back(self, df: pl.DataFrame, dry_run: bool) -> ExportResult:
         cfg = self.config
         source = cfg.connector_config.get("source", "")
 
@@ -155,9 +153,9 @@ class ExportPipeline(FeaturePipeline):
             return ExportResult(self.run_id, 0, None, f"dry_run:{source}")
 
         if source == "postgresql":
-            asyncio.run(_pg_write(df, cfg))
+            await _pg_write(df, cfg)
         elif source == "mysql":
-            asyncio.run(_mysql_write(df, cfg))
+            await _mysql_write(df, cfg)
         elif source == "s3":
             _s3_write(df, cfg)
         else:
