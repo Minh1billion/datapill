@@ -1,8 +1,9 @@
-import pytest
 import asyncio
+
 import asyncmy
 import asyncmy.cursors
 import polars as pl
+import pytest
 
 from dataprep.connectors.mysql import MySQLConnector
 
@@ -40,15 +41,7 @@ _READY_RETRIES = 20
 _READY_INTERVAL = 3
 
 
-def _build_create_table(df: pl.DataFrame) -> str:
-    col_defs = []
-    for name, dtype in zip(df.columns, df.dtypes):
-        mysql_type = _POLARS_TO_MYSQL.get(str(dtype), "TEXT")
-        col_defs.append(f"`{name}` {mysql_type}")
-    return f"CREATE TABLE IF NOT EXISTS testdb.test_table ({', '.join(col_defs)})"
-
-
-async def _raw_conn() -> asyncmy.Connection:
+async def _wait_mysql_accepting() -> None:
     last_exc: Exception | None = None
     for attempt in range(_READY_RETRIES):
         try:
@@ -61,21 +54,39 @@ async def _raw_conn() -> asyncmy.Connection:
             )
             async with conn.cursor() as cur:
                 await cur.execute("SELECT 1")
-            return conn
+            await conn.ensure_closed()
+            return
         except Exception as exc:
             last_exc = exc
             print(f"MySQL not ready, retry {attempt + 1}/{_READY_RETRIES}...")
             await asyncio.sleep(_READY_INTERVAL)
-
     raise RuntimeError(
         f"MySQL at {MYSQL_CONFIG['host']}:{MYSQL_CONFIG['port']} not accepting "
         f"queries after {_READY_RETRIES * _READY_INTERVAL}s: {last_exc}"
     )
 
 
+async def _raw_conn() -> asyncmy.Connection:
+    return await asyncmy.connect(
+        host=MYSQL_CONFIG["host"],
+        port=MYSQL_CONFIG["port"],
+        db=MYSQL_CONFIG["database"],
+        user=MYSQL_CONFIG["user"],
+        password=MYSQL_CONFIG["password"],
+    )
+
+
+def _build_create_table(df: pl.DataFrame) -> str:
+    col_defs = []
+    for name, dtype in zip(df.columns, df.dtypes):
+        mysql_type = _POLARS_TO_MYSQL.get(str(dtype), "TEXT")
+        col_defs.append(f"`{name}` {mysql_type}")
+    return f"CREATE TABLE IF NOT EXISTS testdb.test_table ({', '.join(col_defs)})"
+
+
 @pytest.fixture(scope="module", autouse=True)
 async def mysql_ready():
-    await _raw_conn()
+    await _wait_mysql_accepting()
 
 
 @pytest.fixture(scope="module")

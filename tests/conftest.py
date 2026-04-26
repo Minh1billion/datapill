@@ -18,10 +18,6 @@ _HEALTHY_SERVICES = ["postgres", "mysql", "minio"]
 _HEALTH_TIMEOUT = 120
 _HEALTH_POLL = 3
 
-_MYSQL_READY_RETRIES = 20
-_MYSQL_READY_INTERVAL = 3
-
-
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers", "integration: mark test as requiring Docker services"
@@ -122,52 +118,6 @@ def _docker_up() -> None:
     _wait_minio_init()
 
 
-async def _wait_mysql_accepting(
-    host: str,
-    port: int,
-    database: str,
-    user: str,
-    password: str,
-    retries: int = _MYSQL_READY_RETRIES,
-    interval: float = _MYSQL_READY_INTERVAL,
-) -> None:
-    last_exc: Exception | None = None
-    for attempt in range(retries):
-        try:
-            conn = await asyncmy.connect(
-                host=host,
-                port=port,
-                db=database,
-                user=user,
-                password=password,
-            )
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT 1")
-            await conn.ensure_closed()
-            return
-        except Exception as exc:
-            last_exc = exc
-            await asyncio.sleep(interval)
-
-    raise RuntimeError(
-        f"MySQL at {host}:{port} not accepting queries after "
-        f"{retries * interval}s: {last_exc}"
-    )
-
-
 @pytest.fixture(scope="session")
 def sample_df() -> pl.DataFrame:
     return pl.read_csv(DATA_CSV, try_parse_dates=True)
-
-
-@pytest.fixture(scope="session")
-async def mysql_ready(sample_df: pl.DataFrame) -> None:
-    from tests.test_connectors.test_mysql import MYSQL_CONFIG
-
-    await _wait_mysql_accepting(
-        host=MYSQL_CONFIG["host"],
-        port=MYSQL_CONFIG["port"],
-        database=MYSQL_CONFIG["database"],
-        user=MYSQL_CONFIG["user"],
-        password=MYSQL_CONFIG["password"],
-    )
