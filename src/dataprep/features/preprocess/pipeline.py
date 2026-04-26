@@ -1,8 +1,13 @@
+import time
 import uuid
 from pathlib import Path
+from typing import AsyncGenerator, Any
 
 import polars as pl
 
+from dataprep.core.context import PipelineContext
+from dataprep.core.events import EventType, ProgressEvent
+from dataprep.core.interfaces import ExecutionPlan, FeaturePipeline, ValidationResult
 from .schema import RunReport, StepConfig, StepResult
 from .steps import build_step
 
@@ -16,11 +21,87 @@ _NUMERIC_STEPS = {
 }
 
 
-class PreprocessPipeline:
+class PreprocessPipeline(FeaturePipeline):
     def __init__(self, steps: list[StepConfig], checkpoint: bool = False) -> None:
         self.steps = steps
         self.checkpoint = checkpoint
         self.run_id = uuid.uuid4().hex[:8]
+
+    def validate(self, context: PipelineContext) -> ValidationResult:
+        errors: list[str] = []
+        if not self.steps:
+            errors.append("steps must not be empty")
+        return ValidationResult(ok=len(errors) == 0, errors=errors)
+
+    def plan(self, context: PipelineContext) -> ExecutionPlan:
+        return ExecutionPlan(
+            steps=[{"name": cfg.step, "columns": cfg.columns} for cfg in self.steps],
+            metadata={"checkpoint": self.checkpoint},
+        )
+
+    async def execute(
+        self, plan: ExecutionPlan, context: PipelineContext
+    ) -> AsyncGenerator[ProgressEvent, None]:
+        t0 = time.perf_counter()
+        dry_run: bool = plan.metadata.get("dry_run", False)
+
+        yield ProgressEvent(EventType.STARTED, "Preprocess started", progress_pct=0.0)
+
+        input_ref = plan.metadata.get("input_artifact_id")
+        if input_ref:
+            df = context.artifact_store.scan_parquet(input_ref).collect()
+        elif "dataframe" in plan.metadata:
+            df = plan.metadata["dataframe"]
+        else:
+            yield ProgressEvent(EventType.ERROR, "No input data provided")
+            return
+
+        yield ProgressEvent(
+            EventType.PROGRESS,
+            f"Loaded {len(df):,} rows, {len(df.columns)} columns",
+            progress_pct=0.05,
+        )
+
+        try:
+            report = self.run(df, dry_run=dry_run)
+        except Exception as exc:
+            yield ProgressEvent(EventType.ERROR, str(exc))
+            raise
+
+        output_id = f"{self.run_id}_preprocess_output"
+        await context.artifact_store.save_parquet(output_id, df)
+
+        config_id = f"{self.run_id}_preprocess_config"
+        await context.artifact_store.save_json(config_id, self.serialize())
+
+        duration = time.perf_counter() - t0
+        yield ProgressEvent(
+            EventType.DONE,
+            f"Preprocess complete in {duration:.1f}s — {len(self.steps)} steps",
+            progress_pct=1.0,
+            payload={
+                "run_id": report.run_id,
+                "dry_run": report.dry_run,
+                "output_artifact_id": output_id,
+                "config_artifact_id": config_id,
+                "duration_s": round(duration, 3),
+            },
+        )
+
+    def serialize(self) -> dict[str, Any]:
+        return {
+            "version": "1.0",
+            "feature": "preprocess",
+            "steps": [
+                {
+                    "id": f"step_{i:03d}",
+                    "type": cfg.step,
+                    "scope": {"columns": cfg.columns},
+                }
+                for i, cfg in enumerate(self.steps)
+            ],
+            "checkpoint": self.checkpoint,
+        }
 
     def run(self, df: pl.DataFrame, dry_run: bool = False) -> RunReport:
         warnings = self._detect_conflicts()
@@ -47,7 +128,9 @@ class PreprocessPipeline:
 
         if dry_run:
             report.preview_rows = current.head(_PREVIEW_ROWS).to_dicts()
-            report.output_schema = {col: str(dtype) for col, dtype in zip(current.columns, current.dtypes)}
+            report.output_schema = {
+                col: str(dtype) for col, dtype in zip(current.columns, current.dtypes)
+            }
 
         return report
 
@@ -70,7 +153,6 @@ class PreprocessPipeline:
 
     def _detect_conflicts(self) -> list[str]:
         warnings: list[str] = []
-
         imputed: dict[str, int] = {}
         iqr_cols: dict[str, int] = {}
 

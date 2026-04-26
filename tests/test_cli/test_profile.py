@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-from conftest import dp
+from .conftest import dp
 
 
 def _assert_profile_ok(result):

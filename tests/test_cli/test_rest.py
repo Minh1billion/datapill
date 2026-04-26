@@ -1,4 +1,4 @@
-from conftest import assert_connector_ok, assert_ingest_ok, dp
+from .conftest import assert_connector_ok, assert_ingest_ok, dp
 
 
 def test_connector_test(rest_config):

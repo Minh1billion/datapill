@@ -62,18 +62,10 @@ def test_export_no_path_no_connector_raises(df):
 def test_invalid_write_mode_raises(df):
     cfg = WriteConfig(
         format="csv",
-        connector_config={
-            "source": "postgresql",
-            "host": "localhost",
-            "port": 5433,
-            "database": "testdb",
-            "user": "testuser",
-            "password": "testpass",
-            "table": "t",
-        },
+        connector_config={"source": "unsupported_source"},
         write_mode="invalid",
     )
-    with pytest.raises((ValueError, Exception)):
+    with pytest.raises(ValueError):
         ExportPipeline(cfg).run(df)
 
 

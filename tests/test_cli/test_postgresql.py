@@ -1,6 +1,6 @@
 import pytest
 
-from conftest import assert_connector_ok, assert_ingest_ok, dp, skip_if_down
+from .conftest import assert_connector_ok, assert_ingest_ok, dp, skip_if_down
 
 
 @pytest.fixture(autouse=True)

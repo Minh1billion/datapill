@@ -179,7 +179,6 @@ class TestSandboxIsolation:
 class TestRollback:
 
     def test_apply_raises_on_failure(self, df):
-        # Code passes AST check but fails at runtime
         code = _code("raise RuntimeError('intentional failure'); return df")
         with pytest.raises(RuntimeError, match="Full execution failed"):
             apply(code, df)
@@ -312,7 +311,6 @@ class TestSchemaValidation:
 
 class TestEndToEndWorkflow:
     def test_full_happy_path(self, df):
-        """Clean code → run_sample ok → apply returns transformed data."""
         code = _code("""\
             out = df.with_columns(
                 (pl.col('value') * 2).alias('value_doubled')

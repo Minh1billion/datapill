@@ -1,6 +1,6 @@
 import re
 
-from conftest import dp
+from .conftest import dp
 
 
 def test_dp_run_pipeline(run_config, out_dir):

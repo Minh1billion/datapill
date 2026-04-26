@@ -1,10 +1,14 @@
+import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import AsyncGenerator, Any
 
 import polars as pl
 
+from dataprep.core.context import PipelineContext
+from dataprep.core.events import EventType, ProgressEvent
+from dataprep.core.interfaces import ExecutionPlan, FeaturePipeline, ValidationResult
 from .writers import write
 
 
@@ -26,10 +30,98 @@ class ExportResult:
     destination: str
 
 
-class ExportPipeline:
+class ExportPipeline(FeaturePipeline):
     def __init__(self, config: WriteConfig) -> None:
         self.config = config
         self.run_id = uuid.uuid4().hex[:8]
+
+    def validate(self, context: PipelineContext) -> ValidationResult:
+        errors: list[str] = []
+        if not self.config.format:
+            errors.append("format must not be empty")
+        if self.config.connector_config is None and self.config.path is None:
+            errors.append("Either path or connector_config must be provided")
+        if self.config.write_mode not in ("replace", "append", "upsert"):
+            errors.append(f"Invalid write_mode: {self.config.write_mode}")
+        if self.config.write_mode == "upsert" and not self.config.primary_keys:
+            errors.append("primary_keys required for upsert write_mode")
+        return ValidationResult(ok=len(errors) == 0, errors=errors)
+
+    def plan(self, context: PipelineContext) -> ExecutionPlan:
+        steps = (
+            ["stream_write_back"]
+            if self.config.connector_config
+            else ["write_file"]
+        )
+        destination = (
+            self.config.connector_config.get("source", "")
+            if self.config.connector_config
+            else str(self.config.path)
+        )
+        return ExecutionPlan(
+            steps=[{"name": s} for s in steps],
+            metadata={
+                "format": self.config.format,
+                "write_mode": self.config.write_mode,
+                "destination": destination,
+            },
+        )
+
+    async def execute(
+        self, plan: ExecutionPlan, context: PipelineContext
+    ) -> AsyncGenerator[ProgressEvent, None]:
+        t0 = time.perf_counter()
+        dry_run: bool = plan.metadata.get("dry_run", False)
+
+        yield ProgressEvent(EventType.STARTED, "Export started", progress_pct=0.0)
+
+        input_ref = plan.metadata.get("input_artifact_id")
+        if input_ref:
+            df = context.artifact_store.scan_parquet(input_ref).collect()
+        elif "dataframe" in plan.metadata:
+            df = plan.metadata["dataframe"]
+        else:
+            yield ProgressEvent(EventType.ERROR, "No input data provided")
+            return
+
+        yield ProgressEvent(
+            EventType.PROGRESS,
+            f"Loaded {len(df):,} rows, writing to {plan.metadata['destination']}",
+            progress_pct=0.1,
+        )
+
+        try:
+            result = self.run(df, dry_run=dry_run)
+        except Exception as exc:
+            yield ProgressEvent(EventType.ERROR, str(exc))
+            raise
+
+        duration = time.perf_counter() - t0
+        yield ProgressEvent(
+            EventType.DONE,
+            f"Export complete in {duration:.1f}s — {result.rows_written:,} rows → {result.destination}",
+            progress_pct=1.0,
+            payload={
+                "run_id": result.run_id,
+                "rows_written": result.rows_written,
+                "destination": result.destination,
+                "duration_s": round(duration, 3),
+            },
+        )
+
+    def serialize(self) -> dict[str, Any]:
+        return {
+            "version": "1.0",
+            "feature": "export",
+            "format": self.config.format,
+            "write_mode": self.config.write_mode,
+            "path": str(self.config.path) if self.config.path else None,
+            "connector_source": (
+                self.config.connector_config.get("source")
+                if self.config.connector_config
+                else None
+            ),
+        }
 
     def run(self, df: pl.DataFrame, dry_run: bool = False) -> ExportResult:
         cfg = self.config
@@ -42,12 +134,7 @@ class ExportPipeline:
 
         if dry_run:
             print(df.head(10))
-            return ExportResult(
-                run_id=self.run_id,
-                rows_written=0,
-                path=None,
-                destination="dry_run",
-            )
+            return ExportResult(run_id=self.run_id, rows_written=0, path=None, destination="dry_run")
 
         write(df, cfg.path, cfg.format, **cfg.options)
         return ExportResult(
@@ -98,15 +185,12 @@ async def _pg_write(df: pl.DataFrame, cfg: WriteConfig) -> None:
         if cfg.write_mode == "replace":
             await conn.execute(f'TRUNCATE TABLE "{table}"')
             await _pg_insert(conn, df, table)
-
         elif cfg.write_mode == "append":
             await _pg_insert(conn, df, table)
-
         elif cfg.write_mode == "upsert":
             if not cfg.primary_keys:
-                raise ValueError("primary_keys required for upsert")
+                raise ValueError("primary_keys required for upsert write_mode")
             await _pg_upsert(conn, df, table, cfg.primary_keys)
-
         else:
             raise ValueError(f"Unknown write_mode: {cfg.write_mode}")
     finally:
@@ -127,9 +211,7 @@ async def _pg_upsert(conn, df: pl.DataFrame, table: str, primary_keys: list[str]
     placeholders = ", ".join(f"${i + 1}" for i in range(len(cols)))
     col_list = ", ".join(cols)
     conflict_cols = ", ".join(primary_keys)
-    update_set = ", ".join(
-        f"{c} = EXCLUDED.{c}" for c in cols if c not in primary_keys
-    )
+    update_set = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c not in primary_keys)
     sql = (
         f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) "
         f"ON CONFLICT ({conflict_cols}) DO UPDATE SET {update_set}"
@@ -164,7 +246,9 @@ async def _mysql_write(df: pl.DataFrame, cfg: WriteConfig) -> None:
                     f"INSERT INTO {table} ({col_list}) VALUES ({placeholders})", rows
                 )
             elif cfg.write_mode == "upsert":
-                update_set = ", ".join(f"{c}=VALUES({c})" for c in cols if c not in cfg.primary_keys)
+                update_set = ", ".join(
+                    f"{c}=VALUES({c})" for c in cols if c not in cfg.primary_keys
+                )
                 await cur.executemany(
                     f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) "
                     f"ON DUPLICATE KEY UPDATE {update_set}",
