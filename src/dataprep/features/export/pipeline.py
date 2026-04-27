@@ -191,8 +191,19 @@ async def _pg_insert(conn, df: pl.DataFrame, table: str, batch_size: int) -> Non
     sql = f'INSERT INTO "{table}" ({col_list}) VALUES ({placeholders})'
 
     rows = [tuple(row) for row in df.iter_rows()]
-    for batch in _iter_batches(rows, batch_size):
-        await conn.executemany(sql, batch)
+    try:
+        for batch in _iter_batches(rows, batch_size):
+            await conn.executemany(sql, batch)
+    except Exception as exc:
+        msg = str(exc)
+        if "duplicate key" in msg or "unique constraint" in msg:
+            raise ValueError(
+                f"append failed: duplicate keys detected in table '{table}'. "
+                f"Use --write-mode upsert --primary-keys <col> to handle conflicts, "
+                f"or --write-mode replace to overwrite.\n"
+                f"Detail: {msg}"
+            ) from exc
+        raise
 
 
 async def _pg_upsert(conn, df: pl.DataFrame, table: str, primary_keys: list[str], batch_size: int) -> None:
@@ -234,10 +245,21 @@ async def _mysql_write(df: pl.DataFrame, cfg: WriteConfig) -> None:
                         f"INSERT INTO `{table}` ({col_list}) VALUES ({placeholders})", batch
                     )
             elif cfg.write_mode == "append":
-                for batch in _iter_batches(rows, batch_size):
-                    await cur.executemany(
-                        f"INSERT INTO `{table}` ({col_list}) VALUES ({placeholders})", batch
-                    )
+                try:
+                    for batch in _iter_batches(rows, batch_size):
+                        await cur.executemany(
+                            f"INSERT INTO `{table}` ({col_list}) VALUES ({placeholders})", batch
+                        )
+                except Exception as exc:
+                    msg = str(exc)
+                    if "Duplicate entry" in msg or "duplicate" in msg.lower():
+                        raise ValueError(
+                            f"append failed: duplicate keys detected in table '{table}'. "
+                            f"Use --write-mode upsert --primary-keys <col> to handle conflicts, "
+                            f"or --write-mode replace to overwrite.\n"
+                            f"Detail: {msg}"
+                        ) from exc
+                    raise
             elif cfg.write_mode == "upsert":
                 update_set = ", ".join(
                     f"`{c}`=VALUES(`{c}`)" for c in cols if c not in cfg.primary_keys

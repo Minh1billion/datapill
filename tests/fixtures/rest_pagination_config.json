@@ -1,0 +1,11 @@
+{
+  "base_url": "https://dummyjson.com",
+  "response_path": "products",
+  "health_endpoint": "/products/1",
+  "pagination": {
+    "type": "offset",
+    "limit": 10,
+    "limit_param": "limit",
+    "offset_param": "skip"
+  }
+}

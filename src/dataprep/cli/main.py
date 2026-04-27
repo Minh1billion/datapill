@@ -409,16 +409,43 @@ def cmd_export(
 
 @app.command("connector")
 def cmd_connector(
-    action: str = typer.Argument(..., help="test | schema"),
+    action: str = typer.Argument(..., help="test | schema | upload | download | list | exec | truncate | produce"),
     source: str = typer.Option(..., "--source", "-s", help=f"Connector type: {_SOURCES}"),
     config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to JSON config file"),
-    path: Optional[str] = typer.Option(None, "--path"),
-    table: Optional[str] = typer.Option(None, "--table"),
-    url: Optional[str] = typer.Option(None, "--url"),
-    topic: Optional[str] = typer.Option(None, "--topic"),
-    endpoint: Optional[str] = typer.Option(None, "--endpoint"),
+    # shared
+    path: Optional[str] = typer.Option(None, "--path", help="Local file path"),
+    table: Optional[str] = typer.Option(None, "--table", help="Table name (postgresql | mysql)"),
+    url: Optional[str] = typer.Option(None, "--url", help="S3 URL (s3://bucket/key)"),
+    topic: Optional[str] = typer.Option(None, "--topic", help="Kafka topic name"),
+    endpoint: Optional[str] = typer.Option(None, "--endpoint", help="REST endpoint"),
+    # upload / download
+    src_path: Optional[str] = typer.Option(None, "--src-path", help="Source local file path (upload)"),
+    dest_url: Optional[str] = typer.Option(None, "--dest-url", help="Destination S3 URL (upload)"),
+    out_path: Optional[str] = typer.Option(None, "--out-path", help="Local output path (download)"),
+    # list
+    prefix: Optional[str] = typer.Option(None, "--prefix", help="S3 key prefix filter (list)"),
+    # exec
+    sql: Optional[str] = typer.Option(None, "--sql", help="Raw SQL to execute (exec)"),
+    # produce
+    file: Optional[str] = typer.Option(None, "--file", help="JSON/CSV file to produce to Kafka"),
+    key_column: Optional[str] = typer.Option(None, "--key-column", help="Column to use as Kafka message key"),
 ):
-    """Test connection or inspect schema of a connector."""
+    """Interact with a connector: test | schema | upload | download | list | exec | truncate | produce.
+
+    Examples:
+
+      dp connector upload   --source s3 --config s3.json --src-path data.csv --dest-url s3://bucket/data.csv
+
+      dp connector download --source s3 --config s3.json --url s3://bucket/data.csv --out-path ./data.csv
+
+      dp connector list     --source s3 --config s3.json --prefix input/
+
+      dp connector exec     --source postgresql --config pg.json --sql "DELETE FROM orders WHERE status='cancelled'"
+
+      dp connector truncate --source postgresql --config pg.json --table orders
+
+      dp connector produce  --source kafka --config kafka.json --topic my-topic --file records.json
+    """
     async def _run_connector():
         config = _load_config(config_file)
 
@@ -449,7 +476,7 @@ def cmd_connector(
         else:
             console.print(f"[red]Unknown source: {source}. Available: {_SOURCES}[/red]")
             raise typer.Exit(1)
-
+        
         if action == "test":
             status = await connector.test_connection()
             if status.ok:
@@ -474,13 +501,220 @@ def cmd_connector(
                 console.print(f"  Row estimate: [cyan]{schema.row_count_estimate:,}[/cyan]")
             console.print(t)
 
+        elif action == "upload":
+            if source not in ("s3", "local_file"):
+                console.print("[red]upload is only supported for s3 and local_file[/red]")
+                raise typer.Exit(1)
+            if not src_path:
+                console.print("[red]--src-path is required for upload[/red]")
+                raise typer.Exit(1)
+
+            src = Path(src_path)
+            if not src.exists():
+                console.print(f"[red]Source file not found: {src_path}[/red]")
+                raise typer.Exit(1)
+
+            fmt = src.suffix.lstrip(".").lower() or "csv"
+            df = _read_local(src, fmt)
+
+            if source == "s3":
+                if not dest_url:
+                    console.print("[red]--dest-url is required for s3 upload (e.g. s3://bucket/key.csv)[/red]")
+                    raise typer.Exit(1)
+                result = await connector.write(df, {"url": dest_url})
+            else:
+                if not dest_url:
+                    console.print("[red]--dest-url is required (local destination path)[/red]")
+                    raise typer.Exit(1)
+                result = await connector.write(df, {"path": dest_url})
+
+            console.print(f"[green][OK] Uploaded {result.rows_written:,} rows in {result.duration_s:.2f}s[/green]")
+            console.print(f"  Destination: [cyan]{dest_url}[/cyan]")
+
+        elif action == "download":
+            if source != "s3":
+                console.print("[red]download is only supported for s3[/red]")
+                raise typer.Exit(1)
+            if not url:
+                console.print("[red]--url is required for download (e.g. s3://bucket/key.parquet)[/red]")
+                raise typer.Exit(1)
+            if not out_path:
+                console.print("[red]--out-path is required for download[/red]")
+                raise typer.Exit(1)
+
+            with Progress(SpinnerColumn(), TextColumn("{task.description}"), TimeElapsedColumn(), console=console) as p:
+                task = p.add_task("Downloading...", total=None)
+                df = await connector.read({"url": url})
+                p.update(task, description=f"Downloaded {len(df):,} rows")
+
+            dest = Path(out_path)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            fmt = dest.suffix.lstrip(".").lower() or "parquet"
+            _write_local(df, dest, fmt)
+
+            console.print(f"[green][OK] Downloaded {len(df):,} rows → {out_path}[/green]")
+
+        elif action == "list":
+            if source != "s3":
+                console.print("[red]list is only supported for s3[/red]")
+                raise typer.Exit(1)
+
+            bucket = config.get("bucket")
+            if not bucket:
+                console.print("[red]'bucket' is required in s3 config for list[/red]")
+                raise typer.Exit(1)
+
+            import aioboto3
+            from urllib.parse import urlparse
+
+            session = aioboto3.Session(
+                aws_access_key_id=config.get("aws_access_key_id"),
+                aws_secret_access_key=config.get("aws_secret_access_key"),
+                region_name=config.get("region", "us-east-1"),
+            )
+            client_kwargs = {}
+            if endpoint_url := config.get("endpoint_url"):
+                client_kwargs["endpoint_url"] = endpoint_url
+
+            t = Table(title=f"s3://{bucket}/{prefix or ''}", show_lines=True)
+            t.add_column("Key", style="bold")
+            t.add_column("Size", justify="right")
+            t.add_column("Last Modified")
+
+            total = 0
+            async with session.client("s3", **client_kwargs) as client:
+                paginator = client.get_paginator("list_objects_v2")
+                async for page in paginator.paginate(Bucket=bucket, Prefix=prefix or ""):
+                    for obj in page.get("Contents", []):
+                        size = obj["Size"]
+                        size_str = f"{size / 1024:.1f} KB" if size < 1_048_576 else f"{size / 1_048_576:.1f} MB"
+                        t.add_row(obj["Key"], size_str, str(obj["LastModified"])[:19])
+                        total += 1
+
+            console.print(t)
+            console.print(f"  Total: [cyan]{total}[/cyan] objects")
+
+        elif action == "exec":
+            if source not in ("postgresql", "mysql"):
+                console.print("[red]exec is only supported for postgresql and mysql[/red]")
+                raise typer.Exit(1)
+            if not sql:
+                console.print("[red]--sql is required for exec[/red]")
+                raise typer.Exit(1)
+
+            await _db_exec(source, config, sql)
+
+        elif action == "truncate":
+            if source not in ("postgresql", "mysql"):
+                console.print("[red]truncate is only supported for postgresql and mysql[/red]")
+                raise typer.Exit(1)
+            if not table:
+                console.print("[red]--table is required for truncate[/red]")
+                raise typer.Exit(1)
+
+            if source == "postgresql":
+                await _db_exec(source, config, f'TRUNCATE TABLE "{table}"')
+            else:
+                await _db_exec(source, config, f"TRUNCATE TABLE `{table}`")
+
+        elif action == "produce":
+            if source != "kafka":
+                console.print("[red]produce is only supported for kafka[/red]")
+                raise typer.Exit(1)
+            if not topic:
+                console.print("[red]--topic is required for produce[/red]")
+                raise typer.Exit(1)
+            if not file:
+                console.print("[red]--file is required for produce (JSON or CSV file)[/red]")
+                raise typer.Exit(1)
+
+            src = Path(file)
+            if not src.exists():
+                console.print(f"[red]File not found: {file}[/red]")
+                raise typer.Exit(1)
+
+            fmt = src.suffix.lstrip(".").lower()
+            df = _read_local(src, fmt)
+
+            opts: dict = {}
+            if key_column:
+                opts["key_column"] = key_column
+
+            with Progress(SpinnerColumn(), TextColumn("{task.description}"), TimeElapsedColumn(), console=console) as p:
+                task = p.add_task(f"Producing to {topic}...", total=None)
+                result = await connector.write(df, {"topic": topic}, opts)
+                p.update(task, description=f"Produced {result.rows_written:,} messages")
+
+            console.print(f"[green][OK] Produced {result.rows_written:,} messages to '{topic}' in {result.duration_s:.2f}s[/green]")
+
         else:
-            console.print(f"[red]Unknown action: {action}. Use: test | schema[/red]")
+            console.print(f"[red]Unknown action: {action}. Use: test | schema | upload | download | list | exec | truncate | produce[/red]")
             raise typer.Exit(1)
 
         await connector.close()
 
     _run(_run_connector())
+
+
+def _read_local(path: Path, fmt: str) -> pl.DataFrame:
+    fmt = fmt.lower()
+    if fmt == "csv":
+        return pl.read_csv(path)
+    if fmt == "parquet":
+        return pl.read_parquet(path)
+    if fmt in ("json",):
+        return pl.read_json(path)
+    if fmt in ("jsonl", "ndjson"):
+        return pl.read_ndjson(path)
+    if fmt in ("xlsx", "excel"):
+        return pl.read_excel(path)
+    raise ValueError(f"Unsupported format for read: '{fmt}'")
+
+
+def _write_local(df: pl.DataFrame, path: Path, fmt: str) -> None:
+    fmt = fmt.lower()
+    if fmt == "csv":
+        df.write_csv(path)
+    elif fmt == "parquet":
+        df.write_parquet(path)
+    elif fmt in ("json",):
+        df.write_json(path)
+    elif fmt in ("jsonl", "ndjson"):
+        df.write_ndjson(path)
+    elif fmt in ("xlsx", "excel"):
+        df.write_excel(path)
+    else:
+        raise ValueError(f"Unsupported format for write: '{fmt}'")
+
+
+async def _db_exec(source: str, config: dict, sql: str) -> None:
+    if source == "postgresql":
+        import asyncpg
+        conn = await asyncpg.connect(
+            host=config["host"], port=config.get("port", 5432),
+            database=config["database"], user=config["user"], password=config["password"],
+        )
+        try:
+            result = await conn.execute(sql)
+            console.print(f"[green][OK] {result}[/green]")
+        finally:
+            await conn.close()
+
+    elif source == "mysql":
+        import asyncmy
+        import asyncmy.cursors
+        conn = await asyncmy.connect(
+            host=config["host"], port=config.get("port", 3306),
+            db=config["database"], user=config["user"], password=config["password"],
+        )
+        try:
+            async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
+                await cur.execute(sql)
+                affected = cur.rowcount
+            await conn.commit()
+            console.print(f"[green][OK] {affected} row(s) affected[/green]")
+        finally:
+            conn.close()
 
 
 @app.command("run")
@@ -620,6 +854,7 @@ async def _print_profile_table(ctx: PipelineContext, summary_id: str | None) -> 
         console.print(t)
     except Exception:
         pass
+
 
 if __name__ == "__main__":
     app()
