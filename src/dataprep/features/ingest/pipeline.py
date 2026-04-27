@@ -1,21 +1,13 @@
 import time
 import uuid
-from dataclasses import dataclass, field
 from typing import AsyncGenerator, Any
 
 import polars as pl
 
-from dataprep.connectors.base import BaseConnector
 from dataprep.core.context import PipelineContext
 from dataprep.core.events import EventType, ProgressEvent
 from dataprep.core.interfaces import ExecutionPlan, FeaturePipeline, ValidationResult
-
-
-@dataclass
-class IngestConfig:
-    connector: BaseConnector
-    query: dict[str, Any]
-    options: dict[str, Any] = field(default_factory=dict)
+from .schema import IngestConfig
 
 
 class IngestPipeline(FeaturePipeline):

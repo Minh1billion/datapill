@@ -13,7 +13,6 @@ from .steps import build_step
 
 _DRY_RUN_ROWS = 1000
 _PREVIEW_ROWS = 10
-_CHECKPOINT_DIR = Path("artifacts")
 
 _NUMERIC_STEPS = {
     "impute_mean", "impute_median", "clip_iqr", "clip_zscore",
@@ -68,6 +67,10 @@ class PreprocessPipeline(FeaturePipeline):
             yield ProgressEvent(EventType.ERROR, str(exc))
             raise
 
+        for step_index, checkpoint_df in enumerate(report.checkpoints):
+            checkpoint_id = f"{self.run_id}_checkpoint_step_{step_index}"
+            await context.artifact_store.save_parquet(checkpoint_id, checkpoint_df)
+
         output_id = f"{self.run_id}_preprocess_output"
         await context.artifact_store.save_parquet(output_id, df)
 
@@ -108,6 +111,7 @@ class PreprocessPipeline(FeaturePipeline):
         source = df.head(_DRY_RUN_ROWS) if dry_run else df
 
         results: list[StepResult] = []
+        checkpoints: list[pl.DataFrame] = []
         current = source
 
         for n, cfg in enumerate(self.steps):
@@ -117,7 +121,7 @@ class PreprocessPipeline(FeaturePipeline):
             results.append(result)
 
             if self.checkpoint and not dry_run:
-                self._save_checkpoint(current, n)
+                checkpoints.append(current)
 
         report = RunReport(
             run_id=self.run_id,
@@ -125,6 +129,7 @@ class PreprocessPipeline(FeaturePipeline):
             steps=results,
             warnings=warnings,
         )
+        report.checkpoints = checkpoints
 
         if dry_run:
             report.preview_rows = current.head(_PREVIEW_ROWS).to_dicts()
@@ -135,21 +140,12 @@ class PreprocessPipeline(FeaturePipeline):
         return report
 
     def resume(self, df: pl.DataFrame, from_step: int) -> RunReport:
-        checkpoint_path = _CHECKPOINT_DIR / f"{self.run_id}_checkpoint_step_{from_step - 1}.parquet"
-        if checkpoint_path.exists():
-            df = pl.read_parquet(checkpoint_path)
-
         partial_pipeline = PreprocessPipeline(
             steps=self.steps[from_step:],
             checkpoint=self.checkpoint,
         )
         partial_pipeline.run_id = self.run_id
         return partial_pipeline.run(df)
-
-    def _save_checkpoint(self, df: pl.DataFrame, step_index: int) -> None:
-        _CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-        path = _CHECKPOINT_DIR / f"{self.run_id}_checkpoint_step_{step_index}.parquet"
-        df.write_parquet(path)
 
     def _detect_conflicts(self) -> list[str]:
         warnings: list[str] = []

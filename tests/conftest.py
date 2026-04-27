@@ -1,5 +1,3 @@
-import asyncio
-import asyncmy
 import json
 import subprocess
 import time
@@ -7,7 +5,6 @@ from pathlib import Path
 
 import polars as pl
 import pytest
-
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 DATA_CSV = FIXTURES_DIR / "data.csv"
@@ -17,6 +14,7 @@ COMPOSE_FILE = "docker-compose.test.yml"
 _HEALTHY_SERVICES = ["postgres", "mysql", "minio"]
 _HEALTH_TIMEOUT = 120
 _HEALTH_POLL = 3
+
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
@@ -111,10 +109,8 @@ def _docker_up() -> None:
             f"docker compose up failed (rc={result.returncode}).\n"
             f"Stdout:\n{result.stdout}\nStderr:\n{result.stderr}"
         )
-
     for svc in _HEALTHY_SERVICES:
         _wait_healthy(svc)
-
     _wait_minio_init()
 
 

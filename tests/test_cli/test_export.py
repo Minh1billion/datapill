@@ -2,6 +2,7 @@ import json
 import re
 import socket
 
+import polars as pl
 import pytest
 
 from .conftest import assert_ingest_ok, dp, skip_if_down
@@ -29,8 +30,18 @@ def _ingest_parquet(sample_parquet, out_dir) -> str:
     return m.group(1)
 
 
-def test_export_parquet(sample_parquet, out_dir, tmp_path):
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+@pytest.fixture(scope="module")
+def parquet_from_csv(data_csv, tmp_path_factory):
+    tmp = tmp_path_factory.mktemp("export_fmt")
+    path = tmp / "input.parquet"
+    pl.read_csv(data_csv).write_parquet(path)
+    yield path
+    if path.exists():
+        path.unlink()
+
+
+def test_export_parquet(parquet_from_csv, out_dir, tmp_path):
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     dest = tmp_path / "out.parquet"
     result = dp(
         "export",
@@ -43,8 +54,8 @@ def test_export_parquet(sample_parquet, out_dir, tmp_path):
     assert dest.exists()
 
 
-def test_export_csv(sample_parquet, out_dir, tmp_path):
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+def test_export_csv(parquet_from_csv, out_dir, tmp_path):
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     dest = tmp_path / "out.csv"
     result = dp(
         "export",
@@ -57,8 +68,8 @@ def test_export_csv(sample_parquet, out_dir, tmp_path):
     assert dest.exists()
 
 
-def test_export_json(sample_parquet, out_dir, tmp_path):
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+def test_export_json(parquet_from_csv, out_dir, tmp_path):
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     dest = tmp_path / "out.json"
     result = dp(
         "export",
@@ -71,8 +82,8 @@ def test_export_json(sample_parquet, out_dir, tmp_path):
     assert dest.exists()
 
 
-def test_export_jsonl(sample_parquet, out_dir, tmp_path):
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+def test_export_jsonl(parquet_from_csv, out_dir, tmp_path):
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     dest = tmp_path / "out.jsonl"
     result = dp(
         "export",
@@ -85,8 +96,8 @@ def test_export_jsonl(sample_parquet, out_dir, tmp_path):
     assert dest.exists()
 
 
-def test_export_excel(sample_parquet, out_dir, tmp_path):
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+def test_export_excel(parquet_from_csv, out_dir, tmp_path):
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     dest = tmp_path / "out.xlsx"
     result = dp(
         "export",
@@ -99,8 +110,8 @@ def test_export_excel(sample_parquet, out_dir, tmp_path):
     assert dest.exists()
 
 
-def test_export_parquet_with_compression(sample_parquet, out_dir, tmp_path):
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+def test_export_parquet_with_compression(parquet_from_csv, out_dir, tmp_path):
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     dest = tmp_path / "out_snappy.parquet"
     result = dp(
         "export",
@@ -114,11 +125,11 @@ def test_export_parquet_with_compression(sample_parquet, out_dir, tmp_path):
     assert dest.exists()
 
 
-def test_export_from_parquet_file_directly(sample_parquet, out_dir, tmp_path):
+def test_export_from_parquet_file_directly(parquet_from_csv, out_dir, tmp_path):
     dest = tmp_path / "direct.parquet"
     result = dp(
         "export",
-        "--input", str(sample_parquet),
+        "--input", str(parquet_from_csv),
         "--format", "parquet",
         "--out-path", str(dest),
         out_dir=out_dir,
@@ -127,8 +138,8 @@ def test_export_from_parquet_file_directly(sample_parquet, out_dir, tmp_path):
     assert dest.exists()
 
 
-def test_export_dry_run(sample_parquet, out_dir, tmp_path):
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+def test_export_dry_run(parquet_from_csv, out_dir, tmp_path):
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     dest = tmp_path / "dry.parquet"
     result = dp(
         "export",
@@ -146,8 +157,32 @@ def test_export_dry_run(sample_parquet, out_dir, tmp_path):
     assert not dest.exists()
 
 
+_PG_TYPE_MAP = {
+    "Int64": "BIGINT",
+    "Int32": "INTEGER",
+    "Int16": "SMALLINT",
+    "Int8": "SMALLINT",
+    "Float64": "DOUBLE PRECISION",
+    "Float32": "REAL",
+    "String": "TEXT",
+    "Boolean": "BOOLEAN",
+    "Date": "DATE",
+    "Datetime": "TIMESTAMP",
+}
+
+
+def _csv_to_pg_ddl(data_csv, table: str) -> str:
+    df = pl.read_csv(data_csv, n_rows=0)
+    cols = []
+    for name, dtype in zip(df.columns, df.dtypes):
+        pg_type = _PG_TYPE_MAP.get(str(dtype), "TEXT")
+        pk = " PRIMARY KEY" if name == "id" else ""
+        cols.append(f"  {name} {pg_type}{pk}")
+    return f"DROP TABLE IF EXISTS {table};\nCREATE TABLE {table} (\n" + ",\n".join(cols) + "\n);\n"
+
+
 @pytest.fixture(scope="session")
-def pg_export_table():
+def pg_export_table(data_csv):
     try:
         socket.create_connection(("localhost", 5433), timeout=2).close()
     except OSError:
@@ -156,16 +191,10 @@ def pg_export_table():
     container = subprocess.check_output(
         ["docker", "ps", "-qf", "name=postgres"], text=True
     ).strip()
+    ddl = _csv_to_pg_ddl(data_csv, "export_test")
     subprocess.run(
         ["docker", "exec", "-i", container, "psql", "-U", "testuser", "-d", "testdb"],
-        input=(
-            "CREATE TABLE IF NOT EXISTS export_test ("
-            "  id      INTEGER PRIMARY KEY,"
-            "  name    TEXT,"
-            "  score   DOUBLE PRECISION,"
-            "  active  BOOLEAN"
-            ");\n"
-        ),
+        input=ddl,
         capture_output=True, text=True,
     )
 
@@ -183,9 +212,9 @@ def pg_write_config(tmp_path, pg_export_table):
     return p
 
 
-def test_export_writeback_postgresql(sample_parquet, out_dir, pg_write_config):
+def test_export_writeback_postgresql(parquet_from_csv, out_dir, pg_write_config):
     skip_if_down("localhost", 5433)
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     result = dp(
         "export",
         "--input", artifact_id,
@@ -197,9 +226,9 @@ def test_export_writeback_postgresql(sample_parquet, out_dir, pg_write_config):
     _assert_export_ok(result)
 
 
-def test_export_upsert_postgresql(sample_parquet, out_dir, pg_write_config):
+def test_export_upsert_postgresql(parquet_from_csv, out_dir, pg_write_config):
     skip_if_down("localhost", 5433)
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     result = dp(
         "export",
         "--input", artifact_id,
@@ -212,8 +241,8 @@ def test_export_upsert_postgresql(sample_parquet, out_dir, pg_write_config):
     _assert_export_ok(result)
 
 
-def test_export_missing_out_path_fails(sample_parquet, out_dir):
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+def test_export_missing_out_path_fails(parquet_from_csv, out_dir):
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     result = dp(
         "export",
         "--input", artifact_id,
@@ -234,8 +263,8 @@ def test_export_missing_input_flag(out_dir, tmp_path):
     assert result.returncode != 0
 
 
-def test_export_connector_missing_source_field(sample_parquet, out_dir, tmp_path):
-    artifact_id = _ingest_parquet(sample_parquet, out_dir)
+def test_export_connector_missing_source_field(parquet_from_csv, out_dir, tmp_path):
+    artifact_id = _ingest_parquet(parquet_from_csv, out_dir)
     bad_cfg = tmp_path / "bad_connector.json"
     bad_cfg.write_text(json.dumps({"host": "localhost"}))
     result = dp(

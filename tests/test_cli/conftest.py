@@ -7,6 +7,8 @@ from pathlib import Path
 import polars as pl
 import pytest
 
+_FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
+
 
 @pytest.fixture(scope="session")
 def work_dir():
@@ -15,24 +17,27 @@ def work_dir():
 
 
 @pytest.fixture(scope="session")
-def sample_csv(work_dir):
-    path = work_dir / "sample.csv"
-    _make_df().write_csv(path)
-    return path
+def data_csv():
+    return _FIXTURES_DIR / "data.csv"
 
 
 @pytest.fixture(scope="session")
-def sample_parquet(work_dir):
+def sample_csv(data_csv, work_dir):
+    return data_csv
+
+
+@pytest.fixture(scope="session")
+def sample_parquet(data_csv, work_dir):
     path = work_dir / "sample.parquet"
-    _make_df().write_parquet(path)
-    return path
+    pl.read_csv(data_csv).write_parquet(path)
+    yield path
+    if path.exists():
+        path.unlink()
 
 
 @pytest.fixture(scope="session")
-def out_dir(work_dir):
-    path = work_dir / "artifacts"
-    path.mkdir()
-    return path
+def out_dir(tmp_path_factory):
+    return tmp_path_factory.mktemp("artifacts")
 
 
 @pytest.fixture(scope="session")
@@ -142,15 +147,6 @@ def assert_connector_ok(result):
 def skip_if_down(host, port):
     if not _port_open(host, port):
         pytest.skip(f"{host}:{port} not reachable")
-
-
-def _make_df():
-    return pl.DataFrame({
-        "id": list(range(1, 101)),
-        "name": ["user_" + str(i) for i in range(1, 101)],
-        "score": [round(i * 1.5 + 0.1, 2) for i in range(1, 101)],
-        "active": [i % 2 == 0 for i in range(1, 101)],
-    })
 
 
 def _write_json(path: Path, data: dict) -> Path:

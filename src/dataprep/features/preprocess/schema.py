@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
+import polars as pl
+
 
 @dataclass
 class StepConfig:
@@ -27,3 +29,4 @@ class RunReport:
     preview_rows: list[dict] | None = None
     output_schema: dict[str, str] | None = None
     warnings: list[str] = field(default_factory=list)
+    checkpoints: list[pl.DataFrame] = field(default_factory=list)

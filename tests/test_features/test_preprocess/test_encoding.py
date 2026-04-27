@@ -5,30 +5,38 @@ from dataprep.features.preprocess.schema import StepConfig
 from dataprep.features.preprocess.steps.encoding import OneHotEncoder, OrdinalEncoder
 
 
-@pytest.fixture
-def df():
-    return pl.DataFrame({"color": ["red", "blue", "red", "green"]})
+def test_onehot(csv_encoding):
+    col = "category"
+    cfg = StepConfig(step="onehot", columns=[col])
+    result, stats = OneHotEncoder(cfg).apply(csv_encoding)
+
+    unique_vals = csv_encoding[col].unique().to_list()
+
+    assert col not in result.columns
+    for v in unique_vals:
+        assert f"{col}__{v}" in result.columns
+
+    for v in unique_vals:
+        expected = (csv_encoding[col] == v).cast(pl.Int8).to_list()
+        assert result[f"{col}__{v}"].to_list() == expected
 
 
-def test_onehot(df):
-    cfg = StepConfig(step="onehot", columns=["color"])
-    result, stats = OneHotEncoder(cfg).apply(df)
-    assert "color" not in result.columns
-    assert "color__red" in result.columns
-    assert "color__blue" in result.columns
-    assert "color__green" in result.columns
-    assert result["color__red"].to_list() == [1, 0, 1, 0]
+def test_ordinal_auto(csv_encoding):
+    col = "category"
+    cfg = StepConfig(step="ordinal", columns=[col])
+    result, _ = OrdinalEncoder(cfg).apply(csv_encoding)
+
+    assert result[col].dtype == pl.Int32
+    n_unique = csv_encoding[col].n_unique()
+    assert len(result[col].unique()) == n_unique
 
 
-def test_ordinal_auto(df):
-    cfg = StepConfig(step="ordinal", columns=["color"])
-    result, _ = OrdinalEncoder(cfg).apply(df)
-    assert result["color"].dtype == pl.Int32
-    vals = result["color"].to_list()
-    assert len(set(vals)) == 3
+def test_ordinal_with_order(csv_encoding):
+    col = "region"
+    unique_vals = csv_encoding[col].unique().sort().to_list()
+    cfg = StepConfig(step="ordinal", columns=[col], params={"order": {col: unique_vals}})
+    result, _ = OrdinalEncoder(cfg).apply(csv_encoding)
 
-
-def test_ordinal_with_order(df):
-    cfg = StepConfig(step="ordinal", columns=["color"], params={"order": {"color": ["blue", "green", "red"]}})
-    result, _ = OrdinalEncoder(cfg).apply(df)
-    assert result["color"].to_list() == [2, 0, 2, 1]
+    order_map = {v: i for i, v in enumerate(unique_vals)}
+    expected = [order_map[v] for v in csv_encoding[col].to_list()]
+    assert result[col].to_list() == expected
