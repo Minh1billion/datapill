@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataPrep CLI - Documentation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --aws-squid:    #232f3e;
+      --aws-navy:     #1b2a3b;
+      --aws-orange:   #ff9900;
+      --aws-orange-d: #e88a00;
+      --aws-blue:     #0073bb;
+      --aws-blue-l:   #1a9ad7;
+      --aws-green:    #1d8348;
+      --aws-red:      #c0392b;
+      --surface:      #ffffff;
+      --surface-2:    #f8f9fa;
+      --surface-3:    #f1f3f4;
+      --border:       #d5d8dc;
+      --border-light: #eaecee;
+      --text-primary: #16202c;
+      --text-secondary:#4a5568;
+      --text-muted:   #8896a5;
+      --code-bg:      #1e2a38;
+      --code-text:    #cdd9e5;
+      --code-comment: #6b7f8c;
+      --code-key:     #79c0ff;
+      --code-str:     #a5d6a7;
+      --code-flag:    #ff9900;
+      --sidebar-w:    260px;
+      --header-h:     56px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; font-size: 15px; }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      color: var(--text-primary);
+      background: var(--surface);
+      line-height: 1.7;
+    }
+
+    /* ── TOP HEADER ───────────────────────────────── */
+    .top-header {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--aws-squid);
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0 1.5rem;
+      z-index: 100;
+      border-bottom: 2px solid var(--aws-orange);
+    }
+    .top-header .logo {
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--aws-orange);
+      white-space: nowrap;
+    }
+    .top-header .sep { width: 1px; height: 20px; background: #3d4f62; }
+    .top-header .title {
+      font-size: .85rem;
+      color: #c8d4de;
+      font-weight: 400;
+    }
+    .top-header .version {
+      margin-left: auto;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .72rem;
+      color: var(--text-muted);
+      background: #1b2a3b;
+      padding: .2rem .6rem;
+      border-radius: 3px;
+    }
+
+    /* ── LAYOUT ───────────────────────────────────── */
+    .layout {
+      display: flex;
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
+
+    /* ── SIDEBAR ──────────────────────────────────── */
+    .sidebar {
+      position: fixed;
+      top: var(--header-h);
+      left: 0;
+      width: var(--sidebar-w);
+      height: calc(100vh - var(--header-h));
+      overflow-y: auto;
+      background: var(--surface-2);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0 3rem;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .nav-section {
+      padding: .5rem 1.25rem .25rem;
+      font-size: .67rem;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 1rem;
+    }
+    .nav-section:first-child { margin-top: 0; }
+
+    .nav-link {
+      display: block;
+      padding: .4rem 1.25rem .4rem 1.5rem;
+      font-size: .83rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: all .15s;
+    }
+    .nav-link:hover { color: var(--aws-blue); background: var(--surface-3); }
+    .nav-link.active { color: var(--aws-orange); border-left-color: var(--aws-orange); background: #fff8ee; font-weight: 500; }
+    .nav-sub {
+      padding-left: 2.25rem;
+      font-size: .8rem;
+      color: var(--text-muted);
+    }
+    .nav-sub:hover { color: var(--aws-blue-l); }
+
+    /* ── MAIN CONTENT ─────────────────────────────── */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      padding: 2.5rem 3rem 5rem;
+      max-width: 900px;
+    }
+
+    /* ── SECTIONS ─────────────────────────────────── */
+    .section { margin-bottom: 3.5rem; }
+
+    h1 {
+      font-size: 1.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.2;
+      margin-bottom: .5rem;
+    }
+    h1 .accent { color: var(--aws-orange); }
+
+    .subtitle {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+      font-weight: 300;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 2rem 0 .75rem;
+      padding-bottom: .4rem;
+      border-bottom: 1px solid var(--border-light);
+    }
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--aws-squid);
+      margin: 1.5rem 0 .5rem;
+    }
+
+    p { margin-bottom: .85rem; color: var(--text-secondary); font-size: .92rem; }
+    p:last-child { margin-bottom: 0; }
+
+    a { color: var(--aws-blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    strong { color: var(--text-primary); font-weight: 600; }
+
+    /* ── HERO BAND ────────────────────────────────── */
+    .hero {
+      background: var(--aws-squid);
+      border-radius: 6px;
+      padding: 2rem 2.5rem;
+      margin-bottom: 2.5rem;
+      border-left: 4px solid var(--aws-orange);
+    }
+    .hero h1 { color: #fff; margin-bottom: .4rem; }
+    .hero .subtitle { color: #8fa3b4; margin-bottom: 1.25rem; }
+    .hero-meta { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .hero-badge {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .75rem;
+      background: #1b2a3b;
+      color: var(--aws-orange);
+      padding: .25rem .7rem;
+      border-radius: 3px;
+      border: 1px solid #2d4255;
+    }
+
+    /* ── CODE BLOCKS ──────────────────────────────── */
+    .code-block {
+      background: var(--code-bg);
+      border-radius: 5px;
+      overflow: hidden;
+      margin: .75rem 0 1.25rem;
+      border: 1px solid #2d3f52;
+    }
+    .code-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .45rem 1rem;
+      background: #16202c;
+      border-bottom: 1px solid #2d3f52;
+    }
+    .code-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .7rem;
+      color: var(--text-muted);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .copy-btn {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .68rem;
+      color: var(--text-muted);
+      background: none;
+      border: 1px solid #2d3f52;
+      padding: .15rem .5rem;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .copy-btn:hover { color: var(--aws-orange); border-color: var(--aws-orange); }
+    .copy-btn.copied { color: var(--aws-green); border-color: var(--aws-green); }
+
+    pre {
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .82rem;
+      line-height: 1.75;
+      color: var(--code-text);
+    }
+    pre::-webkit-scrollbar { height: 5px; }
+    pre::-webkit-scrollbar-thumb { background: #2d3f52; border-radius: 2px; }
+
+    .c-comment { color: var(--code-comment); font-style: italic; }
+    .c-cmd     { color: var(--aws-orange); font-weight: 500; }
+    .c-flag    { color: #79c0ff; }
+    .c-val     { color: var(--code-str); }
+    .c-path    { color: #d2a8ff; }
+
+    /* inline code */
+    code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .82em;
+      background: var(--surface-3);
+      color: var(--aws-squid);
+      padding: .1em .35em;
+      border-radius: 3px;
+      border: 1px solid var(--border-light);
+    }
+
+    /* ── TABLES ───────────────────────────────────── */
+    .table-wrap { overflow-x: auto; margin: .75rem 0 1.25rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+    }
+    thead tr { background: var(--aws-squid); color: #fff; }
+    thead th {
+      padding: .6rem 1rem;
+      text-align: left;
+      font-weight: 500;
+      font-size: .78rem;
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--border-light); }
+    tbody tr:hover { background: var(--surface-2); }
+    tbody td { padding: .55rem 1rem; vertical-align: top; }
+    tbody td:first-child { font-family: 'IBM Plex Mono', monospace; font-size: .8rem; color: var(--aws-blue); white-space: nowrap; }
+    tbody td code { background: none; border: none; padding: 0; font-size: .85em; color: var(--text-secondary); }
+
+    /* ── CALLOUTS ─────────────────────────────────── */
+    .callout {
+      display: flex; gap: .75rem;
+      padding: .9rem 1.1rem;
+      border-radius: 5px;
+      margin: 1rem 0;
+      font-size: .88rem;
+    }
+    .callout-icon { font-size: 1rem; flex-shrink: 0; margin-top: .05rem; }
+    .callout.info    { background: #e8f4fd; border-left: 3px solid var(--aws-blue); color: #1a4971; }
+    .callout.warn    { background: #fff8e6; border-left: 3px solid var(--aws-orange); color: #6b4c00; }
+    .callout.success { background: #eaf7ee; border-left: 3px solid var(--aws-green); color: #1a4d30; }
+    .callout.danger  { background: #fdecea; border-left: 3px solid var(--aws-red); color: #6b1a18; }
+
+    /* ── STEP LIST ────────────────────────────────── */
+    .steps { list-style: none; counter-reset: step; }
+    .steps li {
+      counter-increment: step;
+      position: relative;
+      padding: .6rem 0 .6rem 2.75rem;
+      font-size: .9rem;
+      color: var(--text-secondary);
+      border-left: 1px dashed var(--border);
+      margin-left: 1rem;
+    }
+    .steps li::before {
+      content: counter(step);
+      position: absolute; left: -1rem;
+      width: 2rem; height: 2rem;
+      background: var(--aws-squid);
+      color: var(--aws-orange);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .75rem;
+      font-weight: 600;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .steps li:last-child { border-left-color: transparent; }
+
+    /* ── BADGE / PILL ─────────────────────────────── */
+    .badge {
+      display: inline-block;
+      font-size: .68rem;
+      font-weight: 600;
+      padding: .15rem .5rem;
+      border-radius: 3px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      vertical-align: middle;
+      margin-left: .3rem;
+    }
+    .badge-pg     { background: #1d5d8a; color: #fff; }
+    .badge-mysql  { background: #0d5f3c; color: #fff; }
+    .badge-s3     { background: #7d4e00; color: #fff; }
+    .badge-kafka  { background: #3d1f6b; color: #fff; }
+    .badge-rest   { background: #1a3a5c; color: #fff; }
+    .badge-local  { background: #3d3d3d; color: #fff; }
+    .badge-new    { background: var(--aws-orange); color: #fff; }
+
+    /* ── COMMAND QUICK REF GRID ───────────────────── */
+    .cmd-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: .6rem;
+      margin: .75rem 0 1.25rem;
+    }
+    .cmd-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: .8rem 1rem;
+      font-size: .83rem;
+    }
+    .cmd-card .cmd-name {
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 500;
+      color: var(--aws-orange);
+      margin-bottom: .25rem;
+      font-size: .85rem;
+    }
+    .cmd-card .cmd-desc { color: var(--text-muted); font-size: .78rem; }
+
+    /* ── DIVIDER ──────────────────────────────────── */
+    hr { border: none; border-top: 1px solid var(--border-light); margin: 2.5rem 0; }
+
+    /* ── TOC anchor offset ────────────────────────── */
+    [id] { scroll-margin-top: calc(var(--header-h) + 1rem); }
+
+    /* ── RESPONSIVE ───────────────────────────────── */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; padding: 1.5rem 1.25rem 4rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP HEADER -->
+<header class="top-header">
+  <span class="logo">DataPrep</span>
+  <span class="sep"></span>
+  <span class="title">CLI Reference</span>
+  <span class="version">v0.1.0</span>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <span class="nav-section">Getting Started</span>
+    <a class="nav-link active" href="#overview">Overview</a>
+    <a class="nav-link" href="#installation">Installation</a>
+    <a class="nav-link" href="#quickstart">Quick Start</a>
+
+    <span class="nav-section">Environment Setup</span>
+    <a class="nav-link" href="#docker">Docker Services</a>
+    <a class="nav-link" href="#seed">Seeding Test Data</a>
+
+    <span class="nav-section">Commands</span>
+    <a class="nav-link" href="#connector">dp connector</a>
+    <a class="nav-link nav-sub" href="#connector-test">test</a>
+    <a class="nav-link nav-sub" href="#connector-schema">schema</a>
+    <a class="nav-link nav-sub" href="#connector-upload">upload</a>
+    <a class="nav-link nav-sub" href="#connector-download">download</a>
+    <a class="nav-link nav-sub" href="#connector-list">list</a>
+    <a class="nav-link nav-sub" href="#connector-exec">exec</a>
+    <a class="nav-link nav-sub" href="#connector-truncate">truncate</a>
+    <a class="nav-link nav-sub" href="#connector-produce">produce</a>
+    <a class="nav-link" href="#ingest">dp ingest</a>
+    <a class="nav-link" href="#profile">dp profile</a>
+    <a class="nav-link" href="#preprocess">dp preprocess</a>
+    <a class="nav-link" href="#export">dp export</a>
+    <a class="nav-link" href="#run">dp run</a>
+
+    <span class="nav-section">Walkthroughs</span>
+    <a class="nav-link" href="#flow-pg">PostgreSQL end-to-end</a>
+    <a class="nav-link" href="#flow-mysql">MySQL end-to-end</a>
+    <a class="nav-link" href="#flow-s3">S3 / MinIO</a>
+    <a class="nav-link" href="#flow-kafka">Kafka</a>
+    <a class="nav-link" href="#flow-rest">REST API</a>
+
+    <span class="nav-section">Reference</span>
+    <a class="nav-link" href="#configs">Config Files</a>
+    <a class="nav-link" href="#write-modes">Write Modes</a>
+    <a class="nav-link" href="#pipeline-steps">Pipeline Steps</a>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HERO -->
+    <div class="hero" id="overview">
+      <h1><span class="accent">DataPrep CLI</span> - dp </h1>
+      <p class="subtitle">A command-line tool for ingesting, profiling, preprocessing, and exporting data across PostgreSQL, MySQL, S3, Kafka, REST APIs, and local files.</p>
+      <div class="hero-meta">
+        <span class="hero-badge">Python ≥ 3.11</span>
+        <span class="hero-badge">Polars · PyArrow</span>
+        <span class="hero-badge">asyncio-native</span>
+        <span class="hero-badge">entry: dp</span>
+      </div>
+    </div>
+
+    <!-- INSTALLATION -->
+    <section class="section" id="installation">
+      <h2>Installation</h2>
+      <p>Install the package in editable mode from the project root. The <code>dp</code> entry point is registered automatically via <code>pyproject.toml</code>.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># Install with dev dependencies</span>
+<span class="c-cmd">pip</span> install <span class="c-flag">-e</span> <span class="c-val">".[dev]"</span>
+
+<span class="c-comment"># Verify</span>
+<span class="c-cmd">dp</span> <span class="c-flag">--help</span></pre>
+      </div>
+    </section>
+
+    <!-- QUICKSTART -->
+    <section class="section" id="quickstart">
+      <h2>Quick Start</h2>
+      <p>The minimal path from a CSV file to a profiled, preprocessed, exported dataset.</p>
+      <ol class="steps">
+        <li>Ingest a local CSV file into the artifact store.</li>
+        <li>Profile the ingested dataset to understand its structure.</li>
+        <li>Apply preprocessing transformations.</li>
+        <li>Export the result to Parquet or write back to a database.</li>
+      </ol>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> local_file <span class="c-flag">--path</span> <span class="c-path">data.csv</span>
+<span class="c-comment"># -> Artifact: abc123_ingest_output</span>
+
+<span class="c-cmd">dp</span> profile <span class="c-flag">--input</span> <span class="c-val">abc123_ingest_output</span>
+
+<span class="c-cmd">dp</span> preprocess <span class="c-flag">--input</span> <span class="c-val">abc123_ingest_output</span> <span class="c-flag">--pipeline</span> <span class="c-path">pipeline.json</span>
+<span class="c-comment"># -> Output: def456_preprocess_output</span>
+
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">def456_preprocess_output</span> <span class="c-flag">--format</span> parquet <span class="c-flag">--out-path</span> <span class="c-path">output/result.parquet</span></pre>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- DOCKER -->
+    <section class="section" id="docker">
+      <h2>Docker Services</h2>
+      <p>All external services (PostgreSQL, MySQL, MinIO, Kafka) are defined in <code>docker-compose.test.yml</code>.</p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># Start all services</span>
+<span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml up <span class="c-flag">-d</span>
+
+<span class="c-comment"># Check health status</span>
+<span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml ps</pre>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Service</th><th>Image</th><th>Port</th><th>Credentials</th></tr></thead>
+          <tbody>
+            <tr><td>postgres</td><td><code>postgres:16-alpine</code></td><td>5433</td><td>testuser / testpass / testdb</td></tr>
+            <tr><td>mysql</td><td><code>mysql:8-debian</code></td><td>3307</td><td>testuser / testpass / testdb</td></tr>
+            <tr><td>minio</td><td><code>minio/minio:latest</code></td><td>9000 / 9001</td><td>minioadmin / minioadmin</td></tr>
+            <tr><td>kafka</td><td><code>apache/kafka:3.7.0</code></td><td>9092</td><td>-</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SEED -->
+    <section class="section" id="seed">
+      <h2>Seeding Test Data</h2>
+      <div class="callout info"><span class="callout-icon">ℹ</span><span>On Windows with Git Bash, use <code>docker compose exec -T</code> with <code>-c</code> or <code>-e</code> flags instead of heredoc. Avoid <code>/tmp</code> paths as Git Bash maps them to Windows temp directories.</span></div>
+
+      <h3>PostgreSQL</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> postgres \
+  psql <span class="c-flag">-U</span> testuser <span class="c-flag">-d</span> testdb \
+  <span class="c-flag">-c</span> <span class="c-val">"
+CREATE TABLE IF NOT EXISTS orders (
+    id SERIAL PRIMARY KEY,
+    product_name VARCHAR(100),
+    category VARCHAR(50),
+    price NUMERIC(10,2),
+    quantity INTEGER,
+    status VARCHAR(20),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+INSERT INTO orders (product_name, category, price, quantity, status)
+SELECT
+    'Product_' || i,
+    (ARRAY['Electronics','Clothing','Food','Books'])[1 + (i % 4)],
+    round((random() * 1000)::numeric, 2),
+    (random() * 100)::int,
+    (ARRAY['pending','shipped','delivered','cancelled'])[1 + (i % 4)]
+FROM generate_series(1, 50000) i;
+"</span></pre>
+      </div>
+
+      <h3>MySQL</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> mysql \
+  mysql <span class="c-flag">-u</span> testuser <span class="c-flag">-ptestpass</span> testdb \
+  <span class="c-flag">-e</span> <span class="c-val">"
+CREATE TABLE IF NOT EXISTS products (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100), category VARCHAR(50),
+    price DECIMAL(10,2), stock INT
+);
+INSERT INTO products (name, category, price, stock)
+SELECT CONCAT('Product_', seq),
+    ELT(1+(seq%4),'Electronics','Clothing','Food','Books'),
+    ROUND(RAND()*1000,2), FLOOR(RAND()*100)
+FROM ( SELECT a.N+b.N*10+c.N*100+d.N*1000+1 AS seq
+  FROM (SELECT 0 N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+        UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) a,
+       (SELECT 0 N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+        UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) b,
+       (SELECT 0 N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+        UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) c,
+       (SELECT 0 N UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4
+        UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) d
+  LIMIT 10000) t;
+"</span></pre>
+      </div>
+
+      <h3>MinIO - Upload a file</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># Uses Python (boto3) to avoid Windows path issues with mc CLI</span>
+<span class="c-cmd">python</span> <span class="c-flag">-</span> &lt;&lt; <span class="c-val">'EOF'</span>
+import boto3
+s3 = boto3.client(<span class="c-val">"s3"</span>, aws_access_key_id=<span class="c-val">"minioadmin"</span>,
+    aws_secret_access_key=<span class="c-val">"minioadmin"</span>, endpoint_url=<span class="c-val">"http://localhost:9000"</span>,
+    region_name=<span class="c-val">"us-east-1"</span>)
+s3.upload_file(<span class="c-val">"tests/fixtures/data.csv"</span>, <span class="c-val">"testbucket"</span>, <span class="c-val">"input/data.csv"</span>)
+print(<span class="c-val">"Upload OK"</span>)
+<span class="c-val">EOF</span></pre>
+      </div>
+
+      <h3>Kafka - Produce test messages</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># Create topic first (use // prefix on Git Bash to prevent path conversion)</span>
+<span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> kafka \
+  <span class="c-path">//opt/kafka/bin/kafka-topics.sh</span> \
+  <span class="c-flag">--bootstrap-server</span> localhost:9092 \
+  <span class="c-flag">--create</span> <span class="c-flag">--topic</span> test-topic \
+  <span class="c-flag">--partitions</span> 1 <span class="c-flag">--replication-factor</span> 1
+
+<span class="c-comment"># Produce 100 JSON messages</span>
+<span class="c-cmd">python</span> <span class="c-flag">-</span> &lt;&lt; <span class="c-val">'EOF'</span>
+import asyncio, json
+from aiokafka import AIOKafkaProducer
+
+async def produce():
+    p = AIOKafkaProducer(bootstrap_servers=<span class="c-val">"localhost:9092"</span>)
+    await p.start()
+    for i in range(100):
+        msg = json.dumps({<span class="c-val">"id"</span>: i, <span class="c-val">"product_name"</span>: f<span class="c-val">"Product_{i}"</span>,
+            <span class="c-val">"category"</span>: [<span class="c-val">"Electronics"</span>,<span class="c-val">"Clothing"</span>,<span class="c-val">"Food"</span>,<span class="c-val">"Books"</span>][i%4],
+            <span class="c-val">"price"</span>: round(i*10.5,2), <span class="c-val">"quantity"</span>: i%50}).encode()
+        await p.send(<span class="c-val">"test-topic"</span>, msg)
+    await p.stop()
+    print(<span class="c-val">"Produced 100 messages"</span>)
+
+asyncio.run(produce())
+<span class="c-val">EOF</span></pre>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- dp connector -->
+    <section class="section" id="connector">
+      <h2>dp connector</h2>
+      <p>Interact with a connector: inspect, verify, and perform direct operations without going through a full pipeline.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Action</th><th>Supported Sources</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>test</td><td>all</td><td>Verify connectivity and measure latency</td></tr>
+            <tr><td>schema</td><td>all</td><td>Inspect column names, types, and row estimate</td></tr>
+            <tr><td>upload</td><td>s3, local_file</td><td>Upload a local file to S3 or copy locally</td></tr>
+            <tr><td>download</td><td>s3</td><td>Download an S3 object to a local path</td></tr>
+            <tr><td>list</td><td>s3</td><td>List objects in a bucket with optional prefix filter</td></tr>
+            <tr><td>exec</td><td>postgresql, mysql</td><td>Execute a raw SQL statement</td></tr>
+            <tr><td>truncate</td><td>postgresql, mysql</td><td>Truncate a table</td></tr>
+            <tr><td>produce</td><td>kafka</td><td>Produce rows from a JSON/CSV file to a topic</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="connector-test">test</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span>
+<span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> mysql       <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span>
+<span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> s3          <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span>
+<span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> kafka       <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/kafka_config.json</span>
+<span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> rest        <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span></pre>
+      </div>
+
+      <h3 id="connector-schema">schema</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders
+<span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> mysql       <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> <span class="c-flag">--table</span> products
+<span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> s3          <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> <span class="c-flag">--url</span> <span class="c-val">s3://testbucket/input/data.csv</span>
+<span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> local_file  <span class="c-flag">--path</span> <span class="c-path">tests/fixtures/data.csv</span></pre>
+      </div>
+
+      <h3 id="connector-upload">upload <span class="badge badge-new">new</span></h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> connector upload \
+  <span class="c-flag">--source</span>   s3 \
+  <span class="c-flag">--config</span>   <span class="c-path">tests/fixtures/s3_config.json</span> \
+  <span class="c-flag">--src-path</span> <span class="c-path">tests/fixtures/data.csv</span> \
+  <span class="c-flag">--dest-url</span> <span class="c-val">s3://testbucket/upload/data.csv</span></pre>
+      </div>
+
+      <h3 id="connector-download">download <span class="badge badge-new">new</span></h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> connector download \
+  <span class="c-flag">--source</span>   s3 \
+  <span class="c-flag">--config</span>   <span class="c-path">tests/fixtures/s3_config.json</span> \
+  <span class="c-flag">--url</span>      <span class="c-val">s3://testbucket/input/data.csv</span> \
+  <span class="c-flag">--out-path</span> <span class="c-path">output/downloaded.csv</span></pre>
+      </div>
+
+      <h3 id="connector-list">list <span class="badge badge-new">new</span></h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># List all objects</span>
+<span class="c-cmd">dp</span> connector list <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span>
+
+<span class="c-comment"># Filter by prefix</span>
+<span class="c-cmd">dp</span> connector list <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> <span class="c-flag">--prefix</span> <span class="c-val">input/</span></pre>
+      </div>
+
+      <h3 id="connector-exec">exec <span class="badge badge-new">new</span></h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># PostgreSQL - delete rows</span>
+<span class="c-cmd">dp</span> connector exec \
+  <span class="c-flag">--source</span> postgresql \
+  <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> \
+  <span class="c-flag">--sql</span> <span class="c-val">"DELETE FROM orders WHERE status='cancelled'"</span>
+
+<span class="c-comment"># MySQL - update rows</span>
+<span class="c-cmd">dp</span> connector exec \
+  <span class="c-flag">--source</span> mysql \
+  <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> \
+  <span class="c-flag">--sql</span> <span class="c-val">"UPDATE products SET stock=0 WHERE price &gt; 900"</span></pre>
+      </div>
+
+      <h3 id="connector-truncate">truncate <span class="badge badge-new">new</span></h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> connector truncate <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders_processed
+<span class="c-cmd">dp</span> connector truncate <span class="c-flag">--source</span> mysql       <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> <span class="c-flag">--table</span> products_processed</pre>
+      </div>
+
+      <h3 id="connector-produce">produce <span class="badge badge-new">new</span></h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> connector produce \
+  <span class="c-flag">--source</span>     kafka \
+  <span class="c-flag">--config</span>     <span class="c-path">tests/fixtures/kafka_config.json</span> \
+  <span class="c-flag">--topic</span>      test-topic \
+  <span class="c-flag">--file</span>       <span class="c-path">tests/fixtures/data.csv</span>
+
+<span class="c-comment"># With a message key column</span>
+<span class="c-cmd">dp</span> connector produce \
+  <span class="c-flag">--source</span>     kafka \
+  <span class="c-flag">--config</span>     <span class="c-path">tests/fixtures/kafka_config.json</span> \
+  <span class="c-flag">--topic</span>      test-topic \
+  <span class="c-flag">--file</span>       <span class="c-path">tests/fixtures/data.csv</span> \
+  <span class="c-flag">--key-column</span> id</pre>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- dp ingest -->
+    <section class="section" id="ingest">
+      <h2>dp ingest</h2>
+      <p>Read data from a connector and persist it as a Parquet artifact. Returns an <strong>artifact ID</strong> used by downstream commands.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>--source, -s</td><td><em>required</em></td><td>Connector type</td></tr>
+            <tr><td>--config, -c</td><td>-</td><td>Path to connector JSON config</td></tr>
+            <tr><td>--path</td><td>-</td><td>Local file path <code>(local_file)</code></td></tr>
+            <tr><td>--table</td><td>-</td><td>Table name <code>(postgresql | mysql)</code></td></tr>
+            <tr><td>--url</td><td>-</td><td>S3 URL <code>s3://bucket/key</code></td></tr>
+            <tr><td>--topic</td><td>-</td><td>Kafka topic name</td></tr>
+            <tr><td>--endpoint</td><td>-</td><td>REST endpoint path</td></tr>
+            <tr><td>--out, -o</td><td><code>src/dataprep/artifacts</code></td><td>Artifact store directory</td></tr>
+            <tr><td>--limit, -n</td><td>-</td><td>Max rows to read</td></tr>
+            <tr><td>--batch-size</td><td>50 000</td><td>Rows per streaming batch</td></tr>
+            <tr><td>--max-records</td><td>-</td><td>Max messages consumed <code>(kafka)</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># Local CSV</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> local_file <span class="c-flag">--path</span> <span class="c-path">tests/fixtures/data.csv</span>
+
+<span class="c-comment"># Local CSV - large file with row limit</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> local_file <span class="c-flag">--path</span> <span class="c-path">tests/fixtures/data_1M.csv</span> \
+  <span class="c-flag">--batch-size</span> 100000 <span class="c-flag">--limit</span> 50000
+
+<span class="c-comment"># PostgreSQL</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders
+
+<span class="c-comment"># MySQL</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> mysql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> <span class="c-flag">--table</span> products
+
+<span class="c-comment"># S3</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> \
+  <span class="c-flag">--url</span> <span class="c-val">s3://testbucket/input/data.csv</span>
+
+<span class="c-comment"># REST API (no leading slash on Git Bash)</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span> <span class="c-flag">--endpoint</span> posts
+
+<span class="c-comment"># Kafka - consume up to 100 messages</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> kafka <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/kafka_config.json</span> \
+  <span class="c-flag">--topic</span> test-topic <span class="c-flag">--max-records</span> 100</pre>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- dp profile -->
+    <section class="section" id="profile">
+      <h2>dp profile</h2>
+      <p>Compute descriptive statistics, null rates, distinct counts, correlations, and quality warnings for a dataset.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>--input, -i</td><td><em>required</em></td><td>Artifact ID or <code>.parquet</code> file path</td></tr>
+            <tr><td>--mode, -m</td><td><code>full</code></td><td><code>full</code> | <code>summary</code></td></tr>
+            <tr><td>--sample-strategy</td><td><code>none</code></td><td><code>none</code> | <code>random</code> | <code>reservoir</code></td></tr>
+            <tr><td>--sample-size</td><td>100 000</td><td>Rows to sample when strategy ≠ none</td></tr>
+            <tr><td>--correlation</td><td><code>pearson</code></td><td><code>pearson</code> | <code>spearman</code> | <code>none</code></td></tr>
+            <tr><td>--out, -o</td><td><code>src/dataprep/artifacts</code></td><td>Artifact store directory</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># Full profile</span>
+<span class="c-cmd">dp</span> profile <span class="c-flag">--input</span> <span class="c-val">72e0548a_ingest_output</span>
+
+<span class="c-comment"># Full profile with random sampling (large datasets)</span>
+<span class="c-cmd">dp</span> profile <span class="c-flag">--input</span> <span class="c-val">72e0548a_ingest_output</span> \
+  <span class="c-flag">--mode</span> full \
+  <span class="c-flag">--sample-strategy</span> random \
+  <span class="c-flag">--sample-size</span> 10000 \
+  <span class="c-flag">--correlation</span> pearson
+
+<span class="c-comment"># Profile directly from a parquet file</span>
+<span class="c-cmd">dp</span> profile <span class="c-flag">--input</span> <span class="c-path">output/result.parquet</span> <span class="c-flag">--mode</span> summary</pre>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- dp preprocess -->
+    <section class="section" id="preprocess">
+      <h2>dp preprocess</h2>
+      <p>Apply a sequence of transformation steps defined in a JSON pipeline file.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>--input, -i</td><td><em>required</em></td><td>Artifact ID or <code>.parquet</code> file path</td></tr>
+            <tr><td>--pipeline, -p</td><td><em>required</em></td><td>Path to pipeline JSON config</td></tr>
+            <tr><td>--dry-run</td><td>false</td><td>Run on first 1 000 rows, skip artifact save</td></tr>
+            <tr><td>--checkpoint</td><td>false</td><td>Save a Parquet checkpoint after each step</td></tr>
+            <tr><td>--out, -o</td><td><code>src/dataprep/artifacts</code></td><td>Artifact store directory</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Pipeline JSON format</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json - tests/fixtures/preprocess_pipeline.json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre>{
+  <span class="c-key">"steps"</span>: [
+    {<span class="c-key">"type"</span>: <span class="c-val">"impute_mean"</span>,    <span class="c-key">"scope"</span>: {<span class="c-key">"columns"</span>: [<span class="c-val">"price"</span>, <span class="c-val">"quantity"</span>]}},
+    {<span class="c-key">"type"</span>: <span class="c-val">"clip_iqr"</span>,       <span class="c-key">"scope"</span>: {<span class="c-key">"columns"</span>: [<span class="c-val">"price"</span>]}},
+    {<span class="c-key">"type"</span>: <span class="c-val">"standard_scaler"</span>, <span class="c-key">"scope"</span>: {<span class="c-key">"columns"</span>: [<span class="c-val">"price"</span>, <span class="c-val">"quantity"</span>]}}
+  ]
+}</pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># Dry run first</span>
+<span class="c-cmd">dp</span> preprocess \
+  <span class="c-flag">--input</span>    <span class="c-val">72e0548a_ingest_output</span> \
+  <span class="c-flag">--pipeline</span> <span class="c-path">tests/fixtures/preprocess_pipeline.json</span> \
+  <span class="c-flag">--dry-run</span>
+
+<span class="c-comment"># Full run with checkpoint</span>
+<span class="c-cmd">dp</span> preprocess \
+  <span class="c-flag">--input</span>    <span class="c-val">72e0548a_ingest_output</span> \
+  <span class="c-flag">--pipeline</span> <span class="c-path">tests/fixtures/preprocess_pipeline.json</span> \
+  <span class="c-flag">--checkpoint</span></pre>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- dp export -->
+    <section class="section" id="export">
+      <h2>dp export</h2>
+      <p>Write a dataset to a local file or push it back to a database or S3.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td>--input, -i</td><td><em>required</em></td><td>Artifact ID or <code>.parquet</code> path</td></tr>
+            <tr><td>--format, -f</td><td><em>required</em></td><td><code>csv | parquet | json | jsonl | excel</code></td></tr>
+            <tr><td>--out-path</td><td>-</td><td>Destination file path (file export)</td></tr>
+            <tr><td>--connector, -c</td><td>-</td><td>Write-back connector config JSON</td></tr>
+            <tr><td>--write-mode</td><td><code>replace</code></td><td><code>replace | append | upsert</code></td></tr>
+            <tr><td>--primary-keys</td><td>-</td><td>Comma-separated keys for upsert</td></tr>
+            <tr><td>--compression</td><td>-</td><td><code>snappy | zstd | gzip</code> (parquet only)</td></tr>
+            <tr><td>--dry-run</td><td>false</td><td>Print first 10 rows, skip write</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># Dry run - preview 10 rows</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">c4ccb55d_preprocess_output</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--out-path</span> <span class="c-path">output/result.parquet</span> <span class="c-flag">--dry-run</span>
+
+<span class="c-comment"># Export to Parquet</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">c4ccb55d_preprocess_output</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--out-path</span> <span class="c-path">output/result.parquet</span>
+
+<span class="c-comment"># Export to CSV</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">c4ccb55d_preprocess_output</span> <span class="c-flag">--format</span> csv \
+  <span class="c-flag">--out-path</span> <span class="c-path">output/result.csv</span>
+
+<span class="c-comment"># Parquet with zstd compression</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">c4ccb55d_preprocess_output</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--out-path</span> <span class="c-path">output/result.zstd.parquet</span> <span class="c-flag">--compression</span> zstd
+
+<span class="c-comment"># Write back to PostgreSQL - replace</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">c4ccb55d_preprocess_output</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/pg_write_config.json</span> <span class="c-flag">--write-mode</span> replace
+
+<span class="c-comment"># Write back to PostgreSQL - upsert</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">c4ccb55d_preprocess_output</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/pg_write_config.json</span> \
+  <span class="c-flag">--write-mode</span> upsert <span class="c-flag">--primary-keys</span> id
+
+<span class="c-comment"># Write back to MySQL - replace</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">d7859e9e_ingest_output</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/mysql_write_config.json</span> <span class="c-flag">--write-mode</span> replace
+
+<span class="c-comment"># Write back to S3</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">c4ccb55d_preprocess_output</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/s3_write_config.json</span></pre>
+      </div>
+
+      <div class="callout warn">
+        <span class="callout-icon">⚠</span>
+        <span><strong>append + primary key constraint:</strong> Using <code>--write-mode append</code> on a table with a primary key will fail if duplicate IDs exist. Use <code>upsert</code> with <code>--primary-keys</code> instead, or drop the constraint before appending.</span>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- dp run -->
+    <section class="section" id="run">
+      <h2>dp run</h2>
+      <p>Execute a full ingest + profile pipeline in a single command from a JSON config file.</p>
+
+      <h3>Config file format</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json - tests/fixtures/run_config_pg.json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre>{
+  <span class="c-key">"source"</span>: <span class="c-val">"postgresql"</span>,
+  <span class="c-key">"connector"</span>: {
+    <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 5433,
+    <span class="c-key">"database"</span>: <span class="c-val">"testdb"</span>, <span class="c-key">"user"</span>: <span class="c-val">"testuser"</span>, <span class="c-key">"password"</span>: <span class="c-val">"testpass"</span>
+  },
+  <span class="c-key">"query"</span>:   { <span class="c-key">"table"</span>: <span class="c-val">"orders"</span> },
+  <span class="c-key">"ingest"</span>:  { <span class="c-key">"batch_size"</span>: 10000 },
+  <span class="c-key">"profile"</span>: {
+    <span class="c-key">"mode"</span>: <span class="c-val">"full"</span>, <span class="c-key">"sample_strategy"</span>: <span class="c-val">"random"</span>,
+    <span class="c-key">"sample_size"</span>: 10000, <span class="c-key">"correlation"</span>: <span class="c-val">"pearson"</span>
+  }
+}</pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> run <span class="c-path">tests/fixtures/run_config_pg.json</span>
+
+<span class="c-comment"># Custom artifact output directory</span>
+<span class="c-cmd">dp</span> run <span class="c-path">tests/fixtures/run_config_pg.json</span> <span class="c-flag">--out</span> <span class="c-path">/tmp/dp_artifacts</span></pre>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- WALKTHROUGHS -->
+    <section class="section" id="flow-pg">
+      <h2>Walkthrough - PostgreSQL end-to-end</h2>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># 1. Verify connection</span>
+<span class="c-cmd">dp</span> connector test   <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span>
+<span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders
+
+<span class="c-comment"># 2. Ingest</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders
+<span class="c-comment"># -> Artifact: 72e0548a_ingest_output</span>
+
+<span class="c-comment"># 3. Profile</span>
+<span class="c-cmd">dp</span> profile <span class="c-flag">--input</span> <span class="c-val">72e0548a_ingest_output</span> \
+  <span class="c-flag">--sample-strategy</span> random <span class="c-flag">--sample-size</span> 10000
+
+<span class="c-comment"># 4. Preprocess</span>
+<span class="c-cmd">dp</span> preprocess \
+  <span class="c-flag">--input</span>    <span class="c-val">72e0548a_ingest_output</span> \
+  <span class="c-flag">--pipeline</span> <span class="c-path">tests/fixtures/preprocess_pipeline.json</span> \
+  <span class="c-flag">--checkpoint</span>
+<span class="c-comment"># -> Output: c4ccb55d_preprocess_output</span>
+
+<span class="c-comment"># 5a. Export to Parquet</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">c4ccb55d_preprocess_output</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--out-path</span> <span class="c-path">output/result.parquet</span>
+
+<span class="c-comment"># 5b. Or write back to PostgreSQL</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">c4ccb55d_preprocess_output</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/pg_write_config.json</span> \
+  <span class="c-flag">--write-mode</span> upsert <span class="c-flag">--primary-keys</span> id</pre>
+      </div>
+    </section>
+
+    <section class="section" id="flow-mysql">
+      <h2>Walkthrough - MySQL end-to-end</h2>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> connector test   <span class="c-flag">--source</span> mysql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span>
+<span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> mysql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> <span class="c-flag">--table</span> products
+
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> mysql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> <span class="c-flag">--table</span> products
+<span class="c-comment"># -> Artifact: d7859e9e_ingest_output</span>
+
+<span class="c-cmd">dp</span> profile <span class="c-flag">--input</span> <span class="c-val">d7859e9e_ingest_output</span>
+
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">d7859e9e_ingest_output</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/mysql_write_config.json</span> <span class="c-flag">--write-mode</span> replace</pre>
+      </div>
+    </section>
+
+    <section class="section" id="flow-s3">
+      <h2>Walkthrough - S3 / MinIO</h2>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span>
+
+<span class="c-comment"># Upload a file</span>
+<span class="c-cmd">dp</span> connector upload <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> \
+  <span class="c-flag">--src-path</span> <span class="c-path">tests/fixtures/data.csv</span> <span class="c-flag">--dest-url</span> <span class="c-val">s3://testbucket/input/data.csv</span>
+
+<span class="c-comment"># List bucket contents</span>
+<span class="c-cmd">dp</span> connector list <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> <span class="c-flag">--prefix</span> <span class="c-val">input/</span>
+
+<span class="c-comment"># Ingest from S3</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> \
+  <span class="c-flag">--url</span> <span class="c-val">s3://testbucket/input/data.csv</span>
+
+<span class="c-comment"># Export processed data back to S3</span>
+<span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">&lt;ARTIFACT_ID&gt;</span> <span class="c-flag">--format</span> parquet \
+  <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/s3_write_config.json</span>
+
+<span class="c-comment"># Download the result</span>
+<span class="c-cmd">dp</span> connector download <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> \
+  <span class="c-flag">--url</span> <span class="c-val">s3://testbucket/output/processed.parquet</span> <span class="c-flag">--out-path</span> <span class="c-path">output/processed.parquet</span></pre>
+      </div>
+    </section>
+
+    <section class="section" id="flow-kafka">
+      <h2>Walkthrough - Kafka</h2>
+      <div class="callout info"><span class="callout-icon">ℹ</span><span><code>GroupCoordinatorNotAvailableError</code> warnings are normal in single-node KRaft mode and do not affect ingestion results.</span></div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-comment"># Create topic (use // on Git Bash)</span>
+<span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> kafka \
+  <span class="c-path">//opt/kafka/bin/kafka-topics.sh</span> \
+  <span class="c-flag">--bootstrap-server</span> localhost:9092 \
+  <span class="c-flag">--create</span> <span class="c-flag">--topic</span> test-topic <span class="c-flag">--partitions</span> 1 <span class="c-flag">--replication-factor</span> 1
+
+<span class="c-comment"># Produce messages from a file</span>
+<span class="c-cmd">dp</span> connector produce <span class="c-flag">--source</span> kafka \
+  <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/kafka_config.json</span> \
+  <span class="c-flag">--topic</span>  test-topic \
+  <span class="c-flag">--file</span>   <span class="c-path">tests/fixtures/data.csv</span>
+
+<span class="c-comment"># Consume up to 100 messages</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> kafka \
+  <span class="c-flag">--config</span>      <span class="c-path">tests/fixtures/kafka_config.json</span> \
+  <span class="c-flag">--topic</span>       test-topic \
+  <span class="c-flag">--max-records</span> 100</pre>
+      </div>
+    </section>
+
+    <section class="section" id="flow-rest">
+      <h2>Walkthrough - REST API</h2>
+      <div class="callout warn"><span class="callout-icon">⚠</span><span>On Git Bash, never use a leading <code>/</code> in <code>--endpoint</code>. Write <code>posts</code> instead of <code>/posts</code> to prevent path conversion.</span></div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash - tests/fixtures/rest_config.json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre>{
+  <span class="c-key">"base_url"</span>:        <span class="c-val">"https://jsonplaceholder.typicode.com"</span>,
+  <span class="c-key">"response_path"</span>:   <span class="c-val">""</span>,
+  <span class="c-key">"health_endpoint"</span>: <span class="c-val">"posts/1"</span>,
+  <span class="c-key">"default_endpoint"</span>:<span class="c-val">"posts"</span>
+}</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash - tests/fixtures/rest_pagination_config.json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre>{
+  <span class="c-key">"base_url"</span>:      <span class="c-val">"https://dummyjson.com"</span>,
+  <span class="c-key">"response_path"</span>: <span class="c-val">"products"</span>,
+  <span class="c-key">"health_endpoint"</span>: <span class="c-val">"products/1"</span>,
+  <span class="c-key">"pagination"</span>: {
+    <span class="c-key">"type"</span>: <span class="c-val">"offset"</span>, <span class="c-key">"limit"</span>: 10,
+    <span class="c-key">"limit_param"</span>: <span class="c-val">"limit"</span>, <span class="c-key">"offset_param"</span>: <span class="c-val">"skip"</span>
+  }
+}</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre><span class="c-cmd">dp</span> connector test   <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span>
+<span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span>
+
+<span class="c-comment"># Simple endpoint (no pagination)</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span> <span class="c-flag">--endpoint</span> posts
+
+<span class="c-comment"># Paginated endpoint - diagonal schema merge handles missing columns across pages</span>
+<span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_pagination_config.json</span> <span class="c-flag">--endpoint</span> products</pre>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- CONFIGS -->
+    <section class="section" id="configs">
+      <h2>Config File Reference</h2>
+
+      <h3>PostgreSQL - pg_config.json</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre>{ <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 5433, <span class="c-key">"database"</span>: <span class="c-val">"testdb"</span>, <span class="c-key">"user"</span>: <span class="c-val">"testuser"</span>, <span class="c-key">"password"</span>: <span class="c-val">"testpass"</span> }</pre>
+      </div>
+
+      <h3>PostgreSQL write - pg_write_config.json</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre>{ <span class="c-key">"source"</span>: <span class="c-val">"postgresql"</span>, <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 5433,
+  <span class="c-key">"database"</span>: <span class="c-val">"testdb"</span>, <span class="c-key">"user"</span>: <span class="c-val">"testuser"</span>, <span class="c-key">"password"</span>: <span class="c-val">"testpass"</span>,
+  <span class="c-key">"table"</span>: <span class="c-val">"orders_processed"</span> }</pre>
+      </div>
+
+      <h3>MySQL - mysql_config.json</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre>{ <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 3307, <span class="c-key">"database"</span>: <span class="c-val">"testdb"</span>, <span class="c-key">"user"</span>: <span class="c-val">"testuser"</span>, <span class="c-key">"password"</span>: <span class="c-val">"testpass"</span> }</pre>
+      </div>
+
+      <h3>S3 / MinIO - s3_config.json</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre>{ <span class="c-key">"endpoint_url"</span>: <span class="c-val">"http://localhost:9000"</span>, <span class="c-key">"aws_access_key_id"</span>: <span class="c-val">"minioadmin"</span>,
+  <span class="c-key">"aws_secret_access_key"</span>: <span class="c-val">"minioadmin"</span>, <span class="c-key">"region"</span>: <span class="c-val">"us-east-1"</span>, <span class="c-key">"bucket"</span>: <span class="c-val">"testbucket"</span> }</pre>
+      </div>
+
+      <h3>Kafka - kafka_config.json</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+        <pre>{ <span class="c-key">"bootstrap_servers"</span>: <span class="c-val">"localhost:9092"</span>, <span class="c-key">"value_format"</span>: <span class="c-val">"json"</span> }</pre>
+      </div>
+    </section>
+
+    <hr />
+
+    <!-- WRITE MODES -->
+    <section class="section" id="write-modes">
+      <h2>Write Modes</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Mode</th><th>Behaviour</th><th>Requires</th></tr></thead>
+          <tbody>
+            <tr><td>replace</td><td>TRUNCATE the target table, then INSERT all rows.</td><td>Table must exist.</td></tr>
+            <tr><td>append</td><td>INSERT all rows without touching existing data.</td><td>Table must exist. Fails if a unique constraint is violated.</td></tr>
+            <tr><td>upsert</td><td>INSERT … ON CONFLICT DO UPDATE for each row.</td><td>Table must have a primary key or unique constraint on <code>--primary-keys</code> columns.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout success"><span class="callout-icon">✓</span><span>When in doubt, use <strong>upsert</strong> with a primary key. It is idempotent and safe to re-run.</span></div>
+    </section>
+
+    <hr />
+
+    <!-- PIPELINE STEPS -->
+    <section class="section" id="pipeline-steps">
+      <h2>Pipeline Steps</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Step type</th><th>Description</th><th>Typical columns</th></tr></thead>
+          <tbody>
+            <tr><td>impute_mean</td><td>Fill null values with the column mean.</td><td>Numeric</td></tr>
+            <tr><td>impute_median</td><td>Fill null values with the column median.</td><td>Numeric</td></tr>
+            <tr><td>impute_mode</td><td>Fill null values with the most frequent value.</td><td>Any</td></tr>
+            <tr><td>clip_iqr</td><td>Clip outliers to [Q1 − 1.5×IQR, Q3 + 1.5×IQR].</td><td>Numeric</td></tr>
+            <tr><td>standard_scaler</td><td>Standardise to zero mean and unit variance.</td><td>Numeric</td></tr>
+            <tr><td>min_max_scaler</td><td>Scale values to the [0, 1] range.</td><td>Numeric</td></tr>
+            <tr><td>log_transform</td><td>Apply log1p transformation.</td><td>Non-negative numeric</td></tr>
+            <tr><td>drop_duplicates</td><td>Remove exact duplicate rows.</td><td>All (or subset)</td></tr>
+            <tr><td>drop_nulls</td><td>Drop rows where specified columns are null.</td><td>Any</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // ── Copy button ──────────────────────────────────────────────
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    const text = pre.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1800);
+    });
+  }
+
+  // ── Active nav highlight on scroll ──────────────────────────
+  const links = document.querySelectorAll('.nav-link');
+  const sections = Array.from(document.querySelectorAll('[id]'));
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const active = document.querySelector(`.nav-link[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -75% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
