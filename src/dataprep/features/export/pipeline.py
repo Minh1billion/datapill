@@ -1,5 +1,7 @@
+import asyncio
 import time
 import uuid
+from pathlib import Path
 from typing import AsyncGenerator, Any
 
 import polars as pl
@@ -9,6 +11,8 @@ from dataprep.core.events import EventType, ProgressEvent
 from dataprep.core.interfaces import ExecutionPlan, FeaturePipeline, ValidationResult
 from .schema import WriteConfig, ExportResult
 from .writers import write
+
+_DEFAULT_BATCH = 5_000
 
 
 class ExportPipeline(FeaturePipeline):
@@ -30,9 +34,7 @@ class ExportPipeline(FeaturePipeline):
 
     def plan(self, context: PipelineContext) -> ExecutionPlan:
         steps = (
-            ["stream_write_back"]
-            if self.config.connector_config
-            else ["write_file"]
+            ["stream_write_back"] if self.config.connector_config else ["write_file"]
         )
         destination = (
             self.config.connector_config.get("source", "")
@@ -150,10 +152,16 @@ class ExportPipeline(FeaturePipeline):
         )
 
 
+def _iter_batches(rows: list, batch_size: int):
+    for i in range(0, len(rows), batch_size):
+        yield rows[i : i + batch_size]
+
+
 async def _pg_write(df: pl.DataFrame, cfg: WriteConfig) -> None:
     import asyncpg
 
     cc = cfg.connector_config
+    batch_size: int = cfg.options.get("batch_size", _DEFAULT_BATCH)
     conn = await asyncpg.connect(
         host=cc["host"], port=cc.get("port", 5432),
         database=cc["database"], user=cc["user"], password=cc["password"],
@@ -163,46 +171,50 @@ async def _pg_write(df: pl.DataFrame, cfg: WriteConfig) -> None:
     try:
         if cfg.write_mode == "replace":
             await conn.execute(f'TRUNCATE TABLE "{table}"')
-            await _pg_insert(conn, df, table)
+            await _pg_insert(conn, df, table, batch_size)
         elif cfg.write_mode == "append":
-            await _pg_insert(conn, df, table)
+            await _pg_insert(conn, df, table, batch_size)
         elif cfg.write_mode == "upsert":
             if not cfg.primary_keys:
                 raise ValueError("primary_keys required for upsert write_mode")
-            await _pg_upsert(conn, df, table, cfg.primary_keys)
+            await _pg_upsert(conn, df, table, cfg.primary_keys, batch_size)
         else:
             raise ValueError(f"Unknown write_mode: {cfg.write_mode}")
     finally:
         await conn.close()
 
 
-async def _pg_insert(conn, df: pl.DataFrame, table: str) -> None:
+async def _pg_insert(conn, df: pl.DataFrame, table: str, batch_size: int) -> None:
     cols = df.columns
     placeholders = ", ".join(f"${i + 1}" for i in range(len(cols)))
-    col_list = ", ".join(cols)
-    sql = f"INSERT INTO {table} ({col_list}) VALUES ({placeholders})"
-    rows = [tuple(row.values()) for row in df.to_dicts()]
-    await conn.executemany(sql, rows)
+    col_list = ", ".join(f'"{c}"' for c in cols)
+    sql = f'INSERT INTO "{table}" ({col_list}) VALUES ({placeholders})'
+
+    rows = [tuple(row) for row in df.iter_rows()]
+    for batch in _iter_batches(rows, batch_size):
+        await conn.executemany(sql, batch)
 
 
-async def _pg_upsert(conn, df: pl.DataFrame, table: str, primary_keys: list[str]) -> None:
+async def _pg_upsert(conn, df: pl.DataFrame, table: str, primary_keys: list[str], batch_size: int) -> None:
     cols = df.columns
     placeholders = ", ".join(f"${i + 1}" for i in range(len(cols)))
-    col_list = ", ".join(cols)
-    conflict_cols = ", ".join(primary_keys)
-    update_set = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c not in primary_keys)
+    col_list = ", ".join(f'"{c}"' for c in cols)
+    conflict_cols = ", ".join(f'"{c}"' for c in primary_keys)
+    update_set = ", ".join(f'"{c}" = EXCLUDED."{c}"' for c in cols if c not in primary_keys)
     sql = (
-        f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) "
+        f'INSERT INTO "{table}" ({col_list}) VALUES ({placeholders}) '
         f"ON CONFLICT ({conflict_cols}) DO UPDATE SET {update_set}"
     )
-    rows = [tuple(row.values()) for row in df.to_dicts()]
-    await conn.executemany(sql, rows)
+    rows = [tuple(row) for row in df.iter_rows()]
+    for batch in _iter_batches(rows, batch_size):
+        await conn.executemany(sql, batch)
 
 
 async def _mysql_write(df: pl.DataFrame, cfg: WriteConfig) -> None:
     import asyncmy
 
     cc = cfg.connector_config
+    batch_size: int = cfg.options.get("batch_size", _DEFAULT_BATCH)
     conn = await asyncmy.connect(
         host=cc["host"], port=cc.get("port", 3306),
         db=cc["database"], user=cc["user"], password=cc["password"],
@@ -210,29 +222,32 @@ async def _mysql_write(df: pl.DataFrame, cfg: WriteConfig) -> None:
     table = cc["table"]
     cols = df.columns
     placeholders = ", ".join(["%s"] * len(cols))
-    col_list = ", ".join(cols)
-    rows = [tuple(row.values()) for row in df.to_dicts()]
+    col_list = ", ".join(f"`{c}`" for c in cols)
+    rows = [tuple(row) for row in df.iter_rows()]
 
     try:
         async with conn.cursor() as cur:
             if cfg.write_mode == "replace":
-                await cur.execute(f"TRUNCATE TABLE {table}")
-                await cur.executemany(
-                    f"INSERT INTO {table} ({col_list}) VALUES ({placeholders})", rows
-                )
+                await cur.execute(f"TRUNCATE TABLE `{table}`")
+                for batch in _iter_batches(rows, batch_size):
+                    await cur.executemany(
+                        f"INSERT INTO `{table}` ({col_list}) VALUES ({placeholders})", batch
+                    )
             elif cfg.write_mode == "append":
-                await cur.executemany(
-                    f"INSERT INTO {table} ({col_list}) VALUES ({placeholders})", rows
-                )
+                for batch in _iter_batches(rows, batch_size):
+                    await cur.executemany(
+                        f"INSERT INTO `{table}` ({col_list}) VALUES ({placeholders})", batch
+                    )
             elif cfg.write_mode == "upsert":
                 update_set = ", ".join(
-                    f"{c}=VALUES({c})" for c in cols if c not in cfg.primary_keys
+                    f"`{c}`=VALUES(`{c}`)" for c in cols if c not in cfg.primary_keys
                 )
-                await cur.executemany(
-                    f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) "
-                    f"ON DUPLICATE KEY UPDATE {update_set}",
-                    rows,
-                )
+                for batch in _iter_batches(rows, batch_size):
+                    await cur.executemany(
+                        f"INSERT INTO `{table}` ({col_list}) VALUES ({placeholders}) "
+                        f"ON DUPLICATE KEY UPDATE {update_set}",
+                        batch,
+                    )
             else:
                 raise ValueError(f"Unknown write_mode: {cfg.write_mode}")
         await conn.commit()

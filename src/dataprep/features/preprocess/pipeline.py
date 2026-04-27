@@ -62,7 +62,7 @@ class PreprocessPipeline(FeaturePipeline):
         )
 
         try:
-            report = self.run(df, dry_run=dry_run)
+            report, transformed_df = self.run(df, dry_run=dry_run)
         except Exception as exc:
             yield ProgressEvent(EventType.ERROR, str(exc))
             raise
@@ -72,7 +72,7 @@ class PreprocessPipeline(FeaturePipeline):
             await context.artifact_store.save_parquet(checkpoint_id, checkpoint_df)
 
         output_id = f"{self.run_id}_preprocess_output"
-        await context.artifact_store.save_parquet(output_id, df)
+        await context.artifact_store.save_parquet(output_id, transformed_df)
 
         config_id = f"{self.run_id}_preprocess_config"
         await context.artifact_store.save_json(config_id, self.serialize())
@@ -106,7 +106,7 @@ class PreprocessPipeline(FeaturePipeline):
             "checkpoint": self.checkpoint,
         }
 
-    def run(self, df: pl.DataFrame, dry_run: bool = False) -> RunReport:
+    def run(self, df: pl.DataFrame, dry_run: bool = False) -> tuple[RunReport, pl.DataFrame]:
         warnings = self._detect_conflicts()
         source = df.head(_DRY_RUN_ROWS) if dry_run else df
 
@@ -137,14 +137,16 @@ class PreprocessPipeline(FeaturePipeline):
                 col: str(dtype) for col, dtype in zip(current.columns, current.dtypes)
             }
 
-        return report
+        return report, current
 
-    def resume(self, df: pl.DataFrame, from_step: int) -> RunReport:
+    def resume(self, df: pl.DataFrame, from_step: int) -> tuple[RunReport, pl.DataFrame]:
+        parent_run_id = self.run_id
         partial_pipeline = PreprocessPipeline(
             steps=self.steps[from_step:],
             checkpoint=self.checkpoint,
         )
-        partial_pipeline.run_id = self.run_id
+
+        partial_pipeline.run_id = parent_run_id
         return partial_pipeline.run(df)
 
     def _detect_conflicts(self) -> list[str]:

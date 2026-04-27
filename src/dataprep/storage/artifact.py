@@ -27,8 +27,10 @@ class ArtifactStore:
             return json.loads(await f.read())
 
     async def save_parquet(self, artifact_id: str, df: pl.DataFrame) -> Path:
+        import asyncio
         path = self._path(artifact_id, "parquet")
-        df.write_parquet(path, compression="snappy")
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: df.write_parquet(path, compression="snappy"))
         return path
 
     def load_parquet(self, artifact_id: str) -> pl.DataFrame:

@@ -65,7 +65,6 @@ def _apply_security(kw: dict, config: dict) -> None:
 
 
 def _decode(raw: bytes, fmt: str) -> dict[str, Any] | None:
-    """Decode một Kafka message value → dict.  Trả về None nếu không parse được."""
     try:
         if fmt == "json":
             return json.loads(raw.decode("utf-8"))
@@ -108,29 +107,33 @@ class KafkaConnector(BaseConnector):
 
 
     async def read(
-        self, query: dict[str, Any], options: dict[str, Any] | None = None
-    ) -> pl.DataFrame:
-        opts = options or {}
-        topic: str = query["topic"]
-        max_records: int = opts.get("max_records", _DEFAULT_MAX_RECORDS)
-        timeout_ms: int = opts.get("timeout_ms", 3_000)
-
-        consumer = self._make_consumer(topic)
-        await consumer.start()
-        records: list[dict[str, Any]] = []
-        try:
-            async for msg in consumer:
-                decoded = _decode(msg.value, self._fmt)
-                if decoded is not None:
-                    records.append(decoded)
-                if len(records) >= max_records:
-                    break
-        except Exception as exc:
-            raise RuntimeError(f"Kafka read error: {exc}") from exc
-        finally:
-            await consumer.stop()
-
-        return _records_to_df(records)
+            self, query: dict[str, Any], options: dict[str, Any] | None = None
+        ) -> pl.DataFrame:
+            opts = options or {}
+            topic: str = query["topic"]
+            max_records: int = opts.get("max_records", _DEFAULT_MAX_RECORDS)
+            timeout_ms: int = opts.get("timeout_ms", 3_000)
+            idle_timeout_ms: int = opts.get("idle_timeout_ms", timeout_ms)
+    
+            consumer = self._make_consumer(topic)
+            await consumer.start()
+            records: list[dict[str, Any]] = []
+            try:
+                while len(records) < max_records:
+                    batch = await consumer.getmany(timeout_ms=idle_timeout_ms, max_records=max_records - len(records))
+                    if not batch:
+                        break
+                    for tp, msgs in batch.items():
+                        for msg in msgs:
+                            decoded = _decode(msg.value, self._fmt)
+                            if decoded is not None:
+                                records.append(decoded)
+            except Exception as exc:
+                raise RuntimeError(f"Kafka read error: {exc}") from exc
+            finally:
+                await consumer.stop()
+    
+            return _records_to_df(records)
 
 
     async def read_stream(

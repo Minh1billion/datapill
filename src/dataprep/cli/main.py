@@ -231,7 +231,7 @@ def cmd_profile(
                     console.print(f"  Profile ID: [cyan]{payload.get('profile_id')}[/cyan]")
                     console.print(f"  Detail:     [cyan]{payload.get('detail_artifact_id')}[/cyan]")
                     console.print(f"  Summary:    [cyan]{payload.get('summary_artifact_id')}[/cyan]")
-                    _print_profile_table(ctx, payload.get("summary_artifact_id"))
+                    await _print_profile_table(ctx, payload.get("summary_artifact_id"))
                 elif event.event_type == EventType.ERROR:
                     console.print(f"\n[red][ERROR] {event.message}[/red]")
                     raise typer.Exit(1)
@@ -586,7 +586,7 @@ def cmd_run(
                 if event.event_type == EventType.DONE:
                     payload = event.payload or {}
                     console.print(f"[green][OK] {event.message}[/green]")
-                    _print_profile_table(ctx, payload.get("summary_artifact_id"))
+                    await _print_profile_table(ctx, payload.get("summary_artifact_id"))
                 elif event.event_type == EventType.ERROR:
                     console.print(f"[red][ERROR] {event.message}[/red]")
                     raise typer.Exit(1)
@@ -594,11 +594,11 @@ def cmd_run(
     _run(_run_pipeline())
 
 
-def _print_profile_table(ctx: PipelineContext, summary_id: str | None) -> None:
+async def _print_profile_table(ctx: PipelineContext, summary_id: str | None) -> None:
     if not summary_id:
         return
     try:
-        summary = asyncio.run(ctx.artifact_store.load_json(summary_id))
+        summary = await ctx.artifact_store.load_json(summary_id)
         t = Table(title="Column Summary", show_lines=True)
         t.add_column("Column", style="bold")
         t.add_column("Type")
@@ -620,7 +620,6 @@ def _print_profile_table(ctx: PipelineContext, summary_id: str | None) -> None:
         console.print(t)
     except Exception:
         pass
-
 
 if __name__ == "__main__":
     app()

@@ -41,6 +41,14 @@ def _serialize_record(record: dict) -> dict:
     return out
 
 
+def _parse_link_next(link_header: str) -> str | None:
+    for part in link_header.split(","):
+        parts = [p.strip() for p in part.split(";")]
+        if len(parts) == 2 and parts[1] == 'rel="next"':
+            return parts[0].strip("<>")
+    return None
+
+
 class RESTConnector(BaseConnector):
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
@@ -69,7 +77,7 @@ class RESTConnector(BaseConnector):
             try:
                 async with session.request(method, url, **kwargs) as resp:
                     if resp.status == 429 or resp.status >= 500:
-                        retry_after = float(resp.headers.get("Retry-After", base_backoff * (2**attempt)))
+                        retry_after = float(resp.headers.get("Retry-After", base_backoff * (2 ** attempt)))
                         await asyncio.sleep(retry_after)
                         last_exc = aiohttp.ClientResponseError(
                             resp.request_info, resp.history, status=resp.status
@@ -84,7 +92,7 @@ class RESTConnector(BaseConnector):
                     return await resp.text()
             except (aiohttp.ClientConnectionError, aiohttp.ServerDisconnectedError) as exc:
                 last_exc = exc
-                await asyncio.sleep(base_backoff * (2**attempt))
+                await asyncio.sleep(base_backoff * (2 ** attempt))
 
         raise last_exc
 
@@ -99,6 +107,7 @@ class RESTConnector(BaseConnector):
             url = endpoint
         else:
             url = f"{self._base_url}/{endpoint.lstrip('/')}"
+
         pagination_type = self._pagination.get("type", "none")
         pages: list[list[dict]] = []
 
@@ -136,16 +145,48 @@ class RESTConnector(BaseConnector):
                     break
 
         elif pagination_type == "link_header":
-            current_url = url
+            current_url: str | None = url
+            is_first = True
+            max_retries = self.config.get("max_retries", 3)
+            base_backoff = 0.5
+
             while current_url:
-                async with session.get(current_url, params=params if current_url == url else {}) as resp:
-                    resp.raise_for_status()
-                    data = await resp.json()
-                    rows = _extract_by_path(data, self._response_path)
-                    if rows:
-                        pages.append(rows)
-                    link = resp.headers.get("Link", "")
-                    current_url = _parse_link_next(link)
+                request_params = params if is_first else {}
+                is_first = False
+                last_exc: Exception | None = None
+
+                for attempt in range(max_retries):
+                    try:
+                        async with session.get(current_url, params=request_params) as resp:
+                            if resp.status == 429 or resp.status >= 500:
+                                retry_after = float(
+                                    resp.headers.get("Retry-After", base_backoff * (2 ** attempt))
+                                )
+                                await asyncio.sleep(retry_after)
+                                last_exc = aiohttp.ClientResponseError(
+                                    resp.request_info, resp.history, status=resp.status
+                                )
+                                continue
+
+                            resp.raise_for_status()
+
+                            if self._rate_limit_delay:
+                                await asyncio.sleep(self._rate_limit_delay)
+
+                            data = await resp.json()
+                            rows = _extract_by_path(data, self._response_path)
+                            if rows:
+                                pages.append(rows)
+
+                            link = resp.headers.get("Link", "")
+                            current_url = _parse_link_next(link)
+                            break
+
+                    except (aiohttp.ClientConnectionError, aiohttp.ServerDisconnectedError) as exc:
+                        last_exc = exc
+                        await asyncio.sleep(base_backoff * (2 ** attempt))
+                else:
+                    raise last_exc
 
         else:
             data = await self._request_with_retry(session, "GET", url, params=params)
@@ -202,19 +243,15 @@ class RESTConnector(BaseConnector):
         t0 = time.perf_counter()
         try:
             health = self.config.get("health_endpoint", "/")
-
             health = health.strip()
             if health.startswith("http"):
                 url = health
             else:
                 url = f"{self._base_url}/{health.lstrip('/')}"
-
             async with self._session() as session:
                 async with session.get(url) as resp:
                     resp.raise_for_status()
-
             return ConnectionStatus(ok=True, latency_ms=(time.perf_counter() - t0) * 1000)
-
         except Exception as exc:
             return ConnectionStatus(ok=False, error=str(exc))
 
@@ -241,11 +278,3 @@ class RESTConnector(BaseConnector):
 
     async def close(self) -> None:
         pass
-
-
-def _parse_link_next(link_header: str) -> str | None:
-    for part in link_header.split(","):
-        parts = [p.strip() for p in part.split(";")]
-        if len(parts) == 2 and parts[1] == 'rel="next"':
-            return parts[0].strip("<>")
-    return None

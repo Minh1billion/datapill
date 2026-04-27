@@ -146,17 +146,14 @@ class ProfilePipeline(FeaturePipeline):
         )
 
     def _apply_sampling_lazy(self, lf: pl.LazyFrame) -> pl.DataFrame:
-        if self.options.sample_strategy == "none":
-            return lf.collect()
-        row_count = lf.select(pl.len()).collect().item()
-        if row_count <= self.options.sample_size:
-            return lf.collect()
-        if self.options.sample_strategy == "random":
-            fraction = self.options.sample_size / row_count
-            return lf.collect().sample(fraction=fraction, seed=42)
-        if self.options.sample_strategy == "reservoir":
-            return _reservoir_sample(lf.collect(), self.options.sample_size)
-        return lf.collect()
+            df = lf.collect()
+            if self.options.sample_strategy == "none" or len(df) <= self.options.sample_size:
+                return df
+            if self.options.sample_strategy == "random":
+                return df.sample(n=self.options.sample_size, seed=42)
+            if self.options.sample_strategy == "reservoir":
+                return _reservoir_sample(df, self.options.sample_size)
+            return df
 
     def _apply_sampling_eager(self, df: pl.DataFrame) -> pl.DataFrame:
         if self.options.sample_strategy == "none" or len(df) <= self.options.sample_size:

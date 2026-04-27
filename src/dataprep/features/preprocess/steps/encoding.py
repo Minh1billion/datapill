@@ -33,8 +33,11 @@ class OrdinalEncoder(BaseStep):
             else:
                 categories = df[col].drop_nulls().unique().sort().to_list()
                 mapping = {v: i for i, v in enumerate(categories)}
+
             df = df.with_columns(
-                pl.col(col).replace(mapping, default=None).cast(pl.Int32).alias(col)
+                pl.col(col)
+                .map_elements(lambda v: mapping.get(v), return_dtype=pl.Int32)
+                .alias(col)
             )
         return df, StepResult(
             step=self.config.step,

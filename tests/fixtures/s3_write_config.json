@@ -1,0 +1,9 @@
+{
+  "source": "s3",
+  "endpoint_url": "http://localhost:9000",
+  "aws_access_key_id": "minioadmin",
+  "aws_secret_access_key": "minioadmin",
+  "region": "us-east-1",
+  "bucket": "testbucket",
+  "key": "output/processed.parquet"
+}

@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
-
+ 
+ 
 @dataclass
 class WriteConfig:
     format: str
@@ -11,8 +11,8 @@ class WriteConfig:
     write_mode: str = "replace"
     primary_keys: list[str] = field(default_factory=list)
     connector_config: dict[str, Any] | None = None
-
-
+ 
+ 
 @dataclass
 class ExportResult:
     run_id: str

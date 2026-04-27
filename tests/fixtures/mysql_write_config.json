@@ -1,0 +1,9 @@
+{
+  "source": "mysql",
+  "host": "localhost",
+  "port": 3307,
+  "database": "testdb",
+  "user": "testuser",
+  "password": "testpass",
+  "table": "products_processed"
+}

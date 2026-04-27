@@ -134,14 +134,16 @@ class ColumnStatsComputer:
             try:
                 bin_width = (max_val - min_val) / self.histogram_bin_count
                 edges = [min_val + i * bin_width for i in range(self.histogram_bin_count + 1)]
-                bins: list[dict] = []
-                for i in range(len(edges) - 1):
-                    lo, hi = edges[i], edges[i + 1]
-                    if i < len(edges) - 2:
-                        count = ((clean >= lo) & (clean < hi)).sum()
-                    else:
-                        count = ((clean >= lo) & (clean <= hi)).sum()
-                    bins.append({"bin_start": round(lo, 6), "bin_end": round(hi, 6), "count": int(count)})
+                cut = clean.cut(edges[1:-1], labels=[str(i) for i in range(self.histogram_bin_count)])
+                counts = cut.value_counts(sort=False).sort("value")
+                bins = [
+                    {
+                        "bin_start": round(edges[i], 6),
+                        "bin_end": round(edges[i + 1], 6),
+                        "count": int(counts["count"][i]) if i < len(counts) else 0,
+                    }
+                    for i in range(self.histogram_bin_count)
+                ]
                 stats["histogram"] = bins
             except Exception:
                 stats["histogram"] = None
