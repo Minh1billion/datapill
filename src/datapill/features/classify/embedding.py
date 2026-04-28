@@ -99,7 +99,13 @@ class EmbeddingClassifier:
     def _load_model(self):
         if self._model is not None:
             return
-        from sentence_transformers import SentenceTransformer
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError:
+            raise ImportError(
+                "Embedding mode requires ML dependencies. "
+                "Install with: pip install datapill[ml]"
+            )
         self._model = SentenceTransformer(_MODEL_NAME)
 
     def _build_anchors(self):

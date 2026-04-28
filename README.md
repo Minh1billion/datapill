@@ -34,6 +34,18 @@ pip install datapill
 
 Requires Python 3.11+.
 
+This installs the core CLI (~200 MB) with rule-based classification, profiling, preprocessing, and export. No ML model is required.
+
+### With embedding support
+
+To use `--mode embedding` or `--mode hybrid` in `dp classify`, install the ML extras (~3.5 GB, includes PyTorch and sentence-transformers):
+
+```bash
+pip install "datapill[ml]"
+```
+
+> **Note:** Without `[ml]`, `hybrid` mode still works — it runs rule-based classification for all columns and skips the embedding fallback. Only columns that would otherwise be sent to the embedding model are affected.
+
 Verify the install:
 
 ```bash
@@ -128,11 +140,13 @@ dp classify --input <run_id> --overrides '{"age": "numerical_continuous", "y": "
 
 **Modes:**
 
-| Mode | How it works |
-|---|---|
-| `rule_based` | Regex patterns on column names + dtype heuristics. Fast, zero ML dependencies. |
-| `embedding` | Semantic similarity via `sentence-transformers` (`all-MiniLM-L6-v2`) against anchor texts per type. |
-| `hybrid` | Rule-based first; embedding kicks in only for ambiguous or low-confidence columns. |
+| Mode | How it works | Requires |
+|---|---|---|
+| `rule_based` | Regex patterns on column names + dtype heuristics. Fast, zero ML dependencies. | core |
+| `embedding` | Semantic similarity via `sentence-transformers` (`all-MiniLM-L6-v2`) against anchor texts per type. | `datapill[ml]` |
+| `hybrid` | Rule-based first; embedding kicks in only for ambiguous or unknown columns. | `datapill[ml]` for full accuracy |
+
+> **Without `[ml]`:** `hybrid` mode runs entirely on rule-based logic. Columns that cannot be resolved by rules are returned as `unknown` instead of being sent to the embedding model.
 
 **Semantic types detected:** `identifier` · `numerical_continuous` · `numerical_discrete` · `categorical_nominal` · `categorical_ordinal` · `text_freeform` · `text_structured` · `datetime` · `boolean` · `geospatial` · `embedding` · `target_label`
 
@@ -405,6 +419,12 @@ cd datapill
 python -m venv .venv
 source .venv/bin/activate       # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
+```
+
+For full embedding support in development:
+
+```bash
+pip install -e ".[ml,dev]"
 ```
 
 Run the tests:

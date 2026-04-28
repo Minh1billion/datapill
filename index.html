@@ -165,7 +165,7 @@
   <span class="logo">datapill</span>
   <span class="sep"></span>
   <span class="title">CLI Reference</span>
-  <span class="version">v0.1.0</span>
+  <span class="version">v0.1.2</span>
 </header>
 
 <div class="layout">
@@ -232,14 +232,21 @@
     <!-- INSTALLATION -->
     <section class="section" id="installation">
       <h2>Installation</h2>
-      <p>Install the package in editable mode from the project root. The <code>dp</code> entry point is registered automatically via <code>pyproject.toml</code>.</p>
+      <p>Install via pip. The <code>dp</code> entry point is registered automatically. The core install (~200 MB) includes rule-based classification, profiling, preprocessing, and export - no ML model required.</p>
       <div class="code-block">
         <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-comment"># Install with dev dependencies</span>
+        <pre><span class="c-comment"># Core install (~200 MB) - rule-based classify, profile, preprocess, export</span>
 <span class="c-cmd">pip</span> install <span class="c-val">datapill</span>
+
+<span class="c-comment"># With ML extras (~3.5 GB) - enables embedding and full hybrid classify</span>
+<span class="c-cmd">pip</span> install <span class="c-val">"datapill[ml]"</span>
 
 <span class="c-comment"># Verify</span>
 <span class="c-cmd">dp</span> <span class="c-flag">--help</span></pre>
+      </div>
+      <div class="callout info">
+        <span class="callout-icon">ℹ</span>
+        <span>Without <code>[ml]</code>, <code>--mode hybrid</code> runs entirely on rule-based logic - columns that cannot be resolved by rules are returned as <code>unknown</code> instead of being sent to the embedding model. Install <code>datapill[ml]</code> for full hybrid accuracy.</span>
       </div>
     </section>
 
@@ -839,10 +846,10 @@ asyncio.run(produce())
       <div class="callout warn">
         <span class="callout-icon">⚠</span>
         <span>
-          <strong>First-run model download:</strong> <code>embedding</code> and <code>hybrid</code> modes
-          download <code>all-MiniLM-L6-v2</code> (~90 MB) on first use from the Hugging Face Hub.
-          Set the <code>HF_TOKEN</code> environment variable to enable higher rate limits and avoid throttling.
-          Subsequent runs load the model from the local cache and complete significantly faster.
+          <strong>ML extras required:</strong> <code>embedding</code> and <code>hybrid</code> modes
+          <code>pip install "datapill[ml]"</code> required (~3.5 GB, includes PyTorch + sentence-transformers).
+          On first use, <code>all-MiniLM-L6-v2</code> (~90 MB) is downloaded from Hugging Face Hub.
+          Set <code>HF_TOKEN</code> to enable higher rate limits. Subsequent runs load from local cache.
         </span>
       </div>
 
