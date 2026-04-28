@@ -1130,20 +1130,141 @@ CREATE TABLE IF NOT EXISTS orders_processed (
     <!-- PIPELINE STEPS -->
     <section class="section" id="pipeline-steps">
       <h2>Pipeline Steps</h2>
-      <p>All numeric steps enforce that the target columns are numeric - a <code>TypeError</code> is raised at runtime otherwise.</p>
+      <p>Steps are defined in a JSON pipeline file. Each step has a <code>type</code>, an optional <code>scope.columns</code> list, and an optional <code>params</code> object. If <code>columns</code> is omitted or empty, the step applies to all eligible columns. Numeric steps enforce that target columns are numeric - a <code>TypeError</code> is raised at runtime otherwise.</p>
+
+      <h3>Missing Values</h3>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Step type</th><th>Description</th><th>Column types</th></tr></thead>
+          <thead><tr><th>Step type</th><th>Description</th><th>Column types</th><th>params</th></tr></thead>
           <tbody>
-            <tr><td>impute_mean</td><td>Replace nulls with the column mean.</td><td>Numeric</td></tr>
-            <tr><td>impute_median</td><td>Replace nulls with the column median.</td><td>Numeric</td></tr>
-            <tr><td>impute_mode</td><td>Replace nulls with the most frequent value.</td><td>Any</td></tr>
-            <tr><td>clip_iqr</td><td>Clip outliers to [Q1 − 1.5×IQR, Q3 + 1.5×IQR].</td><td>Numeric</td></tr>
-            <tr><td>standard_scaler</td><td>Standardise to zero mean and unit variance.</td><td>Numeric</td></tr>
-            <tr><td>min_max_scaler</td><td>Scale values to the [0, 1] range.</td><td>Numeric</td></tr>
-            <tr><td>log_transform</td><td>Apply log1p transformation.</td><td>Non-negative numeric</td></tr>
-            <tr><td>drop_duplicates</td><td>Remove exact duplicate rows.</td><td>All (or subset)</td></tr>
-            <tr><td>drop_nulls</td><td>Drop rows where specified columns are null.</td><td>Any</td></tr>
+            <tr><td>impute_mean</td><td>Replace nulls with the column mean.</td><td>Numeric</td><td>-</td></tr>
+            <tr><td>impute_median</td><td>Replace nulls with the column median.</td><td>Numeric</td><td>-</td></tr>
+            <tr><td>impute_mode</td><td>Replace nulls with the most frequent value.</td><td>Any</td><td>-</td></tr>
+            <tr><td>drop_missing</td><td>Drop rows where any of the specified columns are null.</td><td>Any</td><td>-</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Outliers</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Step type</th><th>Description</th><th>Column types</th><th>params</th></tr></thead>
+          <tbody>
+            <tr><td>clip_iqr</td><td>Clip values to [Q1 − 1.5×IQR, Q3 + 1.5×IQR].</td><td>Numeric</td><td>-</td></tr>
+            <tr><td>clip_zscore</td><td>Clip values beyond N standard deviations from the mean.</td><td>Numeric</td><td><code>threshold</code> (float, default <code>3.0</code>)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json - clip_zscore with custom threshold</span></div>
+        <pre>{ <span class="c-key">"type"</span>: <span class="c-val">"clip_zscore"</span>, <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [<span class="c-val">"price"</span>] }, <span class="c-key">"params"</span>: { <span class="c-key">"threshold"</span>: 2.5 } }</pre>
+      </div>
+
+      <h3>Scaling</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Step type</th><th>Description</th><th>Column types</th><th>params</th></tr></thead>
+          <tbody>
+            <tr><td>standard_scaler</td><td>Standardise to zero mean and unit variance. Skips columns with std = 0.</td><td>Numeric</td><td>-</td></tr>
+            <tr><td>minmax_scaler</td><td>Scale to [0, 1]. Skips columns where max = min.</td><td>Numeric</td><td>-</td></tr>
+            <tr><td>robust_scaler</td><td>Scale using median and IQR - robust to outliers. Skips columns with IQR = 0.</td><td>Numeric</td><td>-</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Encoding</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Step type</th><th>Description</th><th>Column types</th><th>params</th></tr></thead>
+          <tbody>
+            <tr><td>onehot</td><td>One-hot encode each category as a new <code>Int8</code> column named <code>col__value</code>. Drops the original column.</td><td>String / Categorical</td><td>-</td></tr>
+            <tr><td>ordinal</td><td>Map categories to integers. Auto-sorts alphabetically if no order is given.</td><td>String / Categorical</td><td><code>order</code> (dict: column -> ordered list of values)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json - ordinal with explicit order</span></div>
+        <pre>{
+  <span class="c-key">"type"</span>: <span class="c-val">"ordinal"</span>,
+  <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [<span class="c-val">"priority"</span>, <span class="c-val">"size"</span>] },
+  <span class="c-key">"params"</span>: {
+    <span class="c-key">"order"</span>: {
+      <span class="c-key">"priority"</span>: [<span class="c-val">"low"</span>, <span class="c-val">"medium"</span>, <span class="c-val">"high"</span>],
+      <span class="c-key">"size"</span>:     [<span class="c-val">"S"</span>, <span class="c-val">"M"</span>, <span class="c-val">"L"</span>, <span class="c-val">"XL"</span>]
+    }
+  }
+}</pre>
+      </div>
+
+      <h3>Structure</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Step type</th><th>Description</th><th>params</th></tr></thead>
+          <tbody>
+            <tr><td>select_columns</td><td>Keep only the specified columns, drop all others.</td><td>-  (uses <code>scope.columns</code>)</td></tr>
+            <tr><td>drop_columns</td><td>Drop the specified columns.</td><td>- (uses <code>scope.columns</code>)</td></tr>
+            <tr><td>rename_columns</td><td>Rename columns using a mapping.</td><td><code>mapping</code> (dict: old_name -> new_name)</td></tr>
+            <tr><td>cast_dtype</td><td>Cast columns to target dtypes.</td><td><code>casts</code> (dict: column -> dtype string)</td></tr>
+            <tr><td>deduplicate</td><td>Remove exact duplicate rows. If <code>columns</code> is set, deduplicates on that subset only.</td><td>- (uses <code>scope.columns</code> as subset)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json - rename_columns</span></div>
+        <pre>{ <span class="c-key">"type"</span>: <span class="c-val">"rename_columns"</span>, <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [] }, <span class="c-key">"params"</span>: { <span class="c-key">"mapping"</span>: { <span class="c-key">"old_name"</span>: <span class="c-val">"new_name"</span>, <span class="c-key">"qty"</span>: <span class="c-val">"quantity"</span> } } }</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json - cast_dtype</span></div>
+        <pre>{
+  <span class="c-key">"type"</span>: <span class="c-val">"cast_dtype"</span>,
+  <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [] },
+  <span class="c-key">"params"</span>: {
+    <span class="c-key">"casts"</span>: {
+      <span class="c-key">"price"</span>:      <span class="c-val">"float64"</span>,
+      <span class="c-key">"quantity"</span>:   <span class="c-val">"int32"</span>,
+      <span class="c-key">"is_active"</span>:  <span class="c-val">"bool"</span>,
+      <span class="c-key">"created_at"</span>: <span class="c-val">"datetime"</span>
+    }
+  }
+}</pre>
+      </div>
+      <p>Supported dtype strings: <code>int8</code> · <code>int16</code> · <code>int32</code> · <code>int64</code> · <code>float32</code> · <code>float64</code> · <code>str</code> · <code>bool</code> · <code>date</code> · <code>datetime</code></p>
+
+      <h3>Custom Python</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Step type</th><th>Description</th><th>params</th></tr></thead>
+          <tbody>
+            <tr><td>custom_python</td><td>Run a sandboxed Python function (via RestrictedPython). The function receives a <code>pl.DataFrame</code> and must return a <code>pl.DataFrame</code>.</td><td><code>code</code> (string, Python source) · <code>func</code> (string, function name, default <code>transform</code>)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-label">json - custom_python</span></div>
+        <pre>{
+  <span class="c-key">"type"</span>: <span class="c-val">"custom_python"</span>,
+  <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [] },
+  <span class="c-key">"params"</span>: {
+    <span class="c-key">"func"</span>: <span class="c-val">"transform"</span>,
+    <span class="c-key">"code"</span>: <span class="c-val">"def transform(df):
+    return df.with_columns((pl.col('revenue') / pl.col('units')).alias('avg_price'))"</span>
+  }
+}</pre>
+      </div>
+      <div class="callout warn">
+        <span class="callout-icon">⚠</span>
+        <span>Custom code is validated by an AST analyzer before execution. Banned: arbitrary imports, dunder access, dangerous builtins. <code>pl</code> (Polars) is injected automatically. For untrusted code, use the Docker sandbox backend instead.</span>
+      </div>
+
+      <h3>Step conflict warnings</h3>
+      <p>The pipeline automatically detects and warns about common mistakes before execution:</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Pattern</th><th>Warning</th></tr></thead>
+          <tbody>
+            <tr><td><code>impute_*</code> followed by <code>drop_missing</code> on the same column</td><td>drop_missing is redundant - column was already imputed</td></tr>
+            <tr><td><code>clip_iqr</code> followed by <code>clip_zscore</code> on the same column</td><td>overlapping outlier clipping steps detected</td></tr>
+            <tr><td><code>standard_scaler</code> / <code>minmax_scaler</code> / <code>robust_scaler</code> without a prior impute on the same column</td><td>scaler may produce NaN - add impute before scaling</td></tr>
           </tbody>
         </table>
       </div>
@@ -1163,7 +1284,7 @@ CREATE TABLE IF NOT EXISTS orders_processed (
             <tr><td>numerical_continuous</td><td>Real-valued measurement or financial amount</td><td><code>price</code>, <code>weight</code>, <code>temperature</code></td></tr>
             <tr><td>numerical_discrete</td><td>Whole-number count or frequency</td><td><code>quantity</code>, <code>num_orders</code>, <code>visits</code></td></tr>
             <tr><td>categorical_nominal</td><td>Unordered categories with no numeric meaning</td><td><code>category</code>, <code>status</code>, <code>country</code></td></tr>
-            <tr><td>categorical_ordinal</td><td>Ordered categories (low → medium → high)</td><td><code>priority</code>, <code>severity</code>, <code>grade</code></td></tr>
+            <tr><td>categorical_ordinal</td><td>Ordered categories (low -> medium -> high)</td><td><code>priority</code>, <code>severity</code>, <code>grade</code></td></tr>
             <tr><td>text_freeform</td><td>Unstructured natural language text</td><td><code>description</code>, <code>comment</code>, <code>review</code></td></tr>
             <tr><td>text_structured</td><td>Formatted string following a known pattern</td><td><code>email</code>, <code>phone</code>, <code>url</code>, <code>zip</code></td></tr>
             <tr><td>datetime</td><td>Date, time, or timestamp</td><td><code>created_at</code>, <code>born</code>, <code>expires_at</code></td></tr>
