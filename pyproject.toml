@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "datapill"
-version = "0.1.3"
+version = "0.1.4"
 description = "A modular data preparation CLI for ingestion, profiling, classification, preprocessing, and export pipelines"
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
