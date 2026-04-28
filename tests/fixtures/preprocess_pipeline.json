@@ -1,7 +1,7 @@
 {
   "steps": [
-    {"type": "impute_mean", "scope": {"columns": ["price"]}},
+    {"type": "impute_mean", "scope": {"columns": ["price", "quantity"]}},
     {"type": "clip_iqr",    "scope": {"columns": ["price"]}},
-    {"type": "standard_scaler", "scope": {"columns": ["price"]}}
+    {"type": "standard_scaler", "scope": {"columns": ["price", "quantity"]}}
   ]
 }
