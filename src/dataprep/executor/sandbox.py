@@ -309,7 +309,7 @@ def apply(
     except Exception as exc:  # noqa: BLE001
         tb = traceback.format_exc()
         raise RuntimeError(
-            f"Full execution failed — rolling back to original DataFrame.\n"
+            f"Full execution failed - rolling back to original DataFrame.\n"
             f"Cause: {exc}\n\n{tb}"
         ) from exc
 

@@ -306,7 +306,7 @@ def cmd_preprocess(
                     payload = event.payload or {}
                     console.print(f"\n[green][OK] {event.message}[/green]")
                     if dry_run:
-                        console.print("  [yellow]Dry run — no artifact saved[/yellow]")
+                        console.print("  [yellow]Dry run - no artifact saved[/yellow]")
                     else:
                         console.print(f"  Output:  [cyan]{payload.get('output_artifact_id')}[/cyan]")
                         console.print(f"  Config:  [cyan]{payload.get('config_artifact_id')}[/cyan]")
@@ -321,6 +321,112 @@ def cmd_preprocess(
                 console.print(f"[yellow]Warning: {w}[/yellow]")
 
     _run(_run_preprocess())
+
+
+@app.command("classify")
+def cmd_classify(
+    input: str = typer.Option(..., "--input", "-i", help="run_id or full artifact ID"),
+    mode: str = typer.Option("hybrid", "--mode", "-m", help="rule_based | embedding | hybrid"),
+    threshold: float = typer.Option(0.0, "--threshold", "-t", help="Minimum confidence to keep classification (0.0–1.0)"),
+    overrides: Optional[str] = typer.Option(None, "--overrides", help='JSON string: {"col_name": "semantic_type"}'),
+    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact store directory"),
+):
+    """Classify columns in a dataset by semantic type.
+ 
+    Modes:
+      rule_based  - fast, regex + dtype heuristics only
+      embedding   - semantic similarity via sentence-transformers
+      hybrid      - rule_based first, embedding for ambiguous columns (default)
+ 
+    Examples:
+ 
+      dp classify -i <run_id> --mode hybrid
+ 
+      dp classify -i <run_id> --mode rule_based --threshold 0.65
+ 
+      dp classify -i <run_id> --overrides '{"age": "numerical_continuous", "y": "target_label"}'
+    """
+    from dataprep.features.classify.pipeline import ClassifyPipeline
+    from dataprep.features.classify.schema import ClassifyConfig
+ 
+    async def _run_classify():
+        override_dict: dict = {}
+        if overrides:
+            try:
+                override_dict = json.loads(overrides)
+            except json.JSONDecodeError:
+                console.print("[red]--overrides must be valid JSON, e.g. '{\"col\": \"boolean\"}'[/red]")
+                raise typer.Exit(1)
+ 
+        config = ClassifyConfig(
+            mode=mode,
+            confidence_threshold=threshold,
+            overrides=override_dict,
+        )
+ 
+        pipeline = ClassifyPipeline(config)
+        ctx = _make_context(out)
+ 
+        result = pipeline.validate(ctx)
+        if not result.ok:
+            for err in result.errors:
+                console.print(f"[red]Validation error: {err}[/red]")
+            raise typer.Exit(1)
+ 
+        plan = pipeline.plan(ctx)
+        plan.metadata["input_artifact_id"] = _resolve_input(ctx, input, feature_hint="classify")
+ 
+        with Progress(
+            SpinnerColumn(), BarColumn(),
+            TextColumn("{task.description}"),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Classifying...", total=100)
+            async for event in pipeline.execute(plan, ctx):
+                pct = int((event.progress_pct or 0) * 100)
+                progress.update(task, completed=pct, description=event.message)
+                if event.event_type == EventType.ERROR:
+                    console.print(f"\n[red][ERROR] {event.message}[/red]")
+                    raise typer.Exit(1)
+                if event.event_type == EventType.DONE:
+                    payload = event.payload or {}
+                    console.print(f"\n[green][OK] {event.message}[/green]")
+                    console.print(f"  Artifact: [cyan]{payload.get('output_artifact_id')}[/cyan]")
+                    console.print(f"  Columns:  [cyan]{payload.get('column_count')}[/cyan]")
+                    await _print_classify_table(ctx, payload.get("output_artifact_id"))
+ 
+    _run(_run_classify())
+ 
+ 
+async def _print_classify_table(ctx: PipelineContext, artifact_id: str | None) -> None:
+    if not artifact_id:
+        return
+    try:
+        data = await ctx.artifact_store.load_json(artifact_id)
+        t = Table(title="Column Classifications", show_lines=True)
+        t.add_column("Column", style="bold")
+        t.add_column("Semantic Type", style="cyan")
+        t.add_column("Confidence", justify="right")
+        t.add_column("Source")
+        t.add_column("Overridden")
+        t.add_column("Reasoning", style="dim")
+        for col in data.get("columns", []):
+            conf = col["confidence"]
+            conf_str = f"{conf:.2f}"
+            conf_color = "green" if conf >= 0.70 else "yellow" if conf >= 0.55 else "red"
+            t.add_row(
+                col["name"],
+                col["semantic_type"],
+                f"[{conf_color}]{conf_str}[/{conf_color}]",
+                col["source"],
+                "[yellow]yes[/yellow]" if col["overridden"] else "no",
+                col["reasoning"],
+            )
+        console.print(t)
+    except Exception:
+        pass
 
 
 @app.command("export")
@@ -393,7 +499,7 @@ def cmd_export(
                     payload = event.payload or {}
                     console.print(f"\n[green][OK] {event.message}[/green]")
                     if dry_run:
-                        console.print("  [yellow]Dry run — no data written[/yellow]")
+                        console.print("  [yellow]Dry run - no data written[/yellow]")
                     else:
                         console.print(f"  Destination: [cyan]{payload.get('destination')}[/cyan]")
                         console.print(f"  Rows:        [cyan]{payload.get('rows_written', 0):,}[/cyan]")

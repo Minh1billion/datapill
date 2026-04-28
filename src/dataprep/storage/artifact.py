@@ -14,8 +14,8 @@ _FEATURE_PRIORITY = {
     "profile":    ["ingest_output", "preprocess_output"],
     "preprocess": ["ingest_output", "preprocess_output"],
     "export":     ["preprocess_output", "ingest_output"],
+    "classify":   ["ingest_output", "preprocess_output"],
 }
-
 
 class ArtifactStore:
     def __init__(self, base_path: str = "/src/dataprep/artifacts") -> None:

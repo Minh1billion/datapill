@@ -135,7 +135,7 @@ class ProfilePipeline(FeaturePipeline):
         duration = time.perf_counter() - t0
         yield ProgressEvent(
             EventType.DONE,
-            f"Profile complete in {duration:.1f}s — {total_cols} columns, {len(df):,} rows",
+            f"Profile complete in {duration:.1f}s - {total_cols} columns, {len(df):,} rows",
             progress_pct=1.0,
             payload={
                 "profile_id": profile_id,

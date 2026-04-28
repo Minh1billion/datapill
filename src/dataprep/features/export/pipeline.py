@@ -82,7 +82,7 @@ class ExportPipeline(FeaturePipeline):
         duration = time.perf_counter() - t0
         yield ProgressEvent(
             EventType.DONE,
-            f"Export complete in {duration:.1f}s — {result.rows_written:,} rows → {result.destination}",
+            f"Export complete in {duration:.1f}s - {result.rows_written:,} rows → {result.destination}",
             progress_pct=1.0,
             payload={
                 "run_id": result.run_id,

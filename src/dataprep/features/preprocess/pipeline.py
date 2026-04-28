@@ -80,7 +80,7 @@ class PreprocessPipeline(FeaturePipeline):
         duration = time.perf_counter() - t0
         yield ProgressEvent(
             EventType.DONE,
-            f"Preprocess complete in {duration:.1f}s — {len(self.steps)} steps",
+            f"Preprocess complete in {duration:.1f}s - {len(self.steps)} steps",
             progress_pct=1.0,
             payload={
                 "run_id": report.run_id,

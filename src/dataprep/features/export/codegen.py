@@ -45,7 +45,7 @@ Source : {ingest_src}
 Steps  : {len(cfg.preprocess)}
 Output : {out_path} ({fmt})
 
-Do not edit the constants section — regenerate via dp pipeline export instead.
+Do not edit the constants section - regenerate via dp pipeline export instead.
 \"\"\"
 
 {imports}
@@ -361,7 +361,7 @@ def _render_step_calls(steps: list[dict]) -> str:
         lines.append(f"""\
     try:
         df = {func}(df)
-        log.info(f"Step {i} '{step_type}' done — {{len(df)}} rows")
+        log.info(f"Step {i} '{step_type}' done - {{len(df)}} rows")
     except Exception as exc:
         log.error(f"Step {i} '{step_type}' failed: {{exc}}")
         raise

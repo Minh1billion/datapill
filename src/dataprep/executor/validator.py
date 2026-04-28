@@ -185,6 +185,6 @@ def validate_schema(
                 )
 
     if len(input_df) > 0 and len(output_df) == 0:
-        result.add(None, "Output DataFrame is empty but input was not — possible logic error")
+        result.add(None, "Output DataFrame is empty but input was not - possible logic error")
 
     return result

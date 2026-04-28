@@ -283,7 +283,7 @@ def apply(
         output_df, _ = _run_in_docker(code, df, cfg)
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(
-            f"Docker full execution failed — rolling back to original DataFrame.\n"
+            f"Docker full execution failed - rolling back to original DataFrame.\n"
             f"Cause: {exc}"
         ) from exc
 
