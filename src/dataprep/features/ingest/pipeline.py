@@ -42,9 +42,10 @@ class IngestPipeline(FeaturePipeline):
         rows_read = 0
         schema_snapshot: list[dict] | None = None
         col_count = 0
-        chunks: list[pl.DataFrame] = []
+        reference_chunk: pl.DataFrame | None = None
 
         tmp_path = Path(tempfile.mktemp(suffix=".parquet"))
+        writer: pq.ParquetWriter | None = None
 
         yield ProgressEvent(EventType.STARTED, "Ingest started", progress_pct=0.0)
 
@@ -58,9 +59,15 @@ class IngestPipeline(FeaturePipeline):
                 if schema_snapshot is None:
                     schema_snapshot = _extract_schema(chunk)
                     col_count = len(chunk.columns)
+                    reference_chunk = chunk
 
+                if writer is None:
+                    writer = pq.ParquetWriter(
+                        str(tmp_path), chunk.to_arrow().schema, compression="snappy"
+                    )
+
+                writer.write_table(_coerce_to_schema(chunk, reference_chunk).to_arrow())
                 rows_read += len(chunk)
-                chunks.append(chunk)
 
                 yield ProgressEvent(
                     EventType.PROGRESS,
@@ -68,17 +75,14 @@ class IngestPipeline(FeaturePipeline):
                     payload={"rows_read": rows_read},
                 )
 
-            if chunks:
-                df_all = pl.concat(chunks, how="diagonal")
-                arrow_table = df_all.to_arrow()
-                writer = pq.ParquetWriter(str(tmp_path), arrow_table.schema, compression="snappy")
-                writer.write_table(arrow_table)
+            if writer is not None:
                 writer.close()
 
-            df = pl.read_parquet(tmp_path) if tmp_path.exists() else pl.DataFrame()
-
             output_id = f"{run_id}_ingest_output"
-            await context.artifact_store.save_parquet(output_id, df)
+            if tmp_path.exists():
+                await context.artifact_store.save_parquet_from_path(output_id, tmp_path, feature="ingest")
+            else:
+                await context.artifact_store.save_parquet(output_id, pl.DataFrame(), feature="ingest")
 
             schema_id = f"{run_id}_ingest_schema"
             duration = time.perf_counter() - t0
@@ -88,7 +92,7 @@ class IngestPipeline(FeaturePipeline):
                 "column_count": col_count,
                 "ingest_duration_s": round(duration, 3),
                 "query": self.config.query,
-            })
+            }, feature="ingest")
 
             yield ProgressEvent(
                 EventType.DONE,
@@ -105,6 +109,8 @@ class IngestPipeline(FeaturePipeline):
             yield ProgressEvent(EventType.ERROR, str(exc), payload={"rows_read": rows_read})
             raise
         finally:
+            if writer is not None:
+                writer.close()
             tmp_path.unlink(missing_ok=True)
 
     def serialize(self) -> dict[str, Any]:
@@ -114,6 +120,14 @@ class IngestPipeline(FeaturePipeline):
             "query": self.config.query,
             "options": self.config.options,
         }
+
+
+def _coerce_to_schema(chunk: pl.DataFrame, reference: pl.DataFrame) -> pl.DataFrame:
+    return chunk.select([
+        pl.col(c).cast(reference[c].dtype) if c in chunk.columns
+        else pl.lit(None).cast(reference[c].dtype).alias(c)
+        for c in reference.columns
+    ])
 
 
 def _extract_schema(df: pl.DataFrame) -> list[dict[str, Any]]:

@@ -69,13 +69,13 @@ class PreprocessPipeline(FeaturePipeline):
 
         for step_index, checkpoint_df in enumerate(report.checkpoints):
             checkpoint_id = f"{self.run_id}_checkpoint_step_{step_index}"
-            await context.artifact_store.save_parquet(checkpoint_id, checkpoint_df)
+            await context.artifact_store.save_parquet(checkpoint_id, checkpoint_df, feature="preprocess")
 
         output_id = f"{self.run_id}_preprocess_output"
-        await context.artifact_store.save_parquet(output_id, transformed_df)
+        await context.artifact_store.save_parquet(output_id, transformed_df, feature="preprocess")
 
         config_id = f"{self.run_id}_preprocess_config"
-        await context.artifact_store.save_json(config_id, self.serialize())
+        await context.artifact_store.save_json(config_id, self.serialize(), feature="preprocess")
 
         duration = time.perf_counter() - t0
         yield ProgressEvent(
@@ -145,7 +145,6 @@ class PreprocessPipeline(FeaturePipeline):
             steps=self.steps[from_step:],
             checkpoint=self.checkpoint,
         )
-
         partial_pipeline.run_id = parent_run_id
         return partial_pipeline.run(df)
 

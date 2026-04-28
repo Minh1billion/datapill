@@ -154,7 +154,7 @@ class ExportPipeline(FeaturePipeline):
 
 def _iter_batches(rows: list, batch_size: int):
     for i in range(0, len(rows), batch_size):
-        yield rows[i : i + batch_size]
+        yield rows[i: i + batch_size]
 
 
 async def _pg_write(df: pl.DataFrame, cfg: WriteConfig) -> None:

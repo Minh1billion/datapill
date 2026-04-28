@@ -128,6 +128,14 @@ def _require_db_config(config: dict, source: str) -> None:
         raise typer.Exit(1)
 
 
+def _resolve_input(ctx: PipelineContext, input_str: str, feature_hint: str) -> str:
+    try:
+        return ctx.artifact_store.resolve(input_str, feature_hint=feature_hint)
+    except FileNotFoundError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1)
+
+
 @app.command("ingest")
 def cmd_ingest(
     source: str = typer.Option(..., "--source", "-s", help=f"Connector type: {_SOURCES}"),
@@ -185,7 +193,7 @@ def cmd_ingest(
 
 @app.command("profile")
 def cmd_profile(
-    input: str = typer.Option(..., "--input", "-i", help="Artifact ID or .parquet file path"),
+    input: str = typer.Option(..., "--input", "-i", help="run_id or full artifact ID"),
     mode: str = typer.Option("full", "--mode", "-m", help="full | summary"),
     sample_strategy: str = typer.Option("none", "--sample-strategy", help="none | random | reservoir"),
     sample_size: int = typer.Option(100_000, "--sample-size"),
@@ -209,10 +217,7 @@ def cmd_profile(
             raise typer.Exit(1)
 
         plan = pipeline.plan(ctx)
-        if Path(input).exists() and Path(input).suffix == ".parquet":
-            plan.metadata["dataframe"] = pl.read_parquet(input)
-        else:
-            plan.metadata["input_artifact_id"] = input
+        plan.metadata["input_artifact_id"] = _resolve_input(ctx, input, feature_hint="profile")
 
         with Progress(
             SpinnerColumn(), BarColumn(),
@@ -241,7 +246,7 @@ def cmd_profile(
 
 @app.command("preprocess")
 def cmd_preprocess(
-    input: str = typer.Option(..., "--input", "-i", help="Artifact ID or .parquet file path"),
+    input: str = typer.Option(..., "--input", "-i", help="run_id or full artifact ID"),
     pipeline_file: str = typer.Option(..., "--pipeline", "-p", help="Path to pipeline JSON config file"),
     out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact output directory"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Run on first 1000 rows, no artifact saved"),
@@ -284,11 +289,7 @@ def cmd_preprocess(
 
         plan = pipeline.plan(ctx)
         plan.metadata["dry_run"] = dry_run
-
-        if Path(input).exists() and Path(input).suffix == ".parquet":
-            plan.metadata["dataframe"] = pl.read_parquet(input)
-        else:
-            plan.metadata["input_artifact_id"] = input
+        plan.metadata["input_artifact_id"] = _resolve_input(ctx, input, feature_hint="preprocess")
 
         with Progress(
             SpinnerColumn(), BarColumn(),
@@ -324,7 +325,7 @@ def cmd_preprocess(
 
 @app.command("export")
 def cmd_export(
-    input: str = typer.Option(..., "--input", "-i", help="Artifact ID or .parquet file path"),
+    input: str = typer.Option(..., "--input", "-i", help="run_id or full artifact ID"),
     format: str = typer.Option(..., "--format", "-f", help=f"Output format: {_FORMATS}"),
     out_path: Optional[str] = typer.Option(None, "--out-path", help="Output file path"),
     write_mode: str = typer.Option("replace", "--write-mode", help="replace | append | upsert"),
@@ -337,10 +338,10 @@ def cmd_export(
     """Export a dataset to file or write back to a connector.
 
     Export to file:
-        dp export -i <artifact_id> -f parquet --out-path output/result.parquet
+        dp export -i <run_id> -f parquet --out-path output/result.parquet
 
     Write back to PostgreSQL:
-        dp export -i <artifact_id> -f parquet --connector pg.json --write-mode upsert --primary-keys id
+        dp export -i <run_id> -f parquet --connector pg.json --write-mode upsert --primary-keys id
     """
     async def _run_export():
         connector_config: dict | None = None
@@ -380,11 +381,7 @@ def cmd_export(
 
         plan = pipeline.plan(ctx)
         plan.metadata["dry_run"] = dry_run
-
-        if Path(input).exists() and Path(input).suffix == ".parquet":
-            plan.metadata["dataframe"] = pl.read_parquet(input)
-        else:
-            plan.metadata["input_artifact_id"] = input
+        plan.metadata["input_artifact_id"] = _resolve_input(ctx, input, feature_hint="export")
 
         with Progress(
             SpinnerColumn(), TextColumn("{task.description}"), TimeElapsedColumn(), console=console
@@ -407,26 +404,59 @@ def cmd_export(
     _run(_run_export())
 
 
+@app.command("list")
+def cmd_list(
+    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact store directory"),
+    feature: str = typer.Option("", "--feature", "-f", help="Filter by feature: ingest | profile | preprocess"),
+    limit: int = typer.Option(20, "--limit", "-n", help="Max number of artifacts to show"),
+):
+    """List artifacts in the artifact store."""
+    ctx = _make_context(out)
+    artifacts = ctx.artifact_store.list_artifacts()
+
+    if feature:
+        artifacts = [a for a in artifacts if a["feature"] == feature]
+
+    artifacts = artifacts[:limit]
+
+    if not artifacts:
+        console.print("[yellow]No artifacts found[/yellow]")
+        return
+
+    t = Table(title="Artifacts", show_lines=True)
+    t.add_column("Artifact ID", style="bold cyan")
+    t.add_column("Run ID")
+    t.add_column("Feature")
+    t.add_column("Ext")
+    t.add_column("Created At")
+
+    for a in artifacts:
+        t.add_row(
+            a["artifact_id"],
+            a["run_id"],
+            a["feature"],
+            a["ext"],
+            a["created_at"][:19],
+        )
+
+    console.print(t)
+
+
 @app.command("connector")
 def cmd_connector(
     action: str = typer.Argument(..., help="test | schema | upload | download | list | exec | truncate | produce"),
     source: str = typer.Option(..., "--source", "-s", help=f"Connector type: {_SOURCES}"),
     config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to JSON config file"),
-    # shared
     path: Optional[str] = typer.Option(None, "--path", help="Local file path"),
     table: Optional[str] = typer.Option(None, "--table", help="Table name (postgresql | mysql)"),
     url: Optional[str] = typer.Option(None, "--url", help="S3 URL (s3://bucket/key)"),
     topic: Optional[str] = typer.Option(None, "--topic", help="Kafka topic name"),
     endpoint: Optional[str] = typer.Option(None, "--endpoint", help="REST endpoint"),
-    # upload / download
     src_path: Optional[str] = typer.Option(None, "--src-path", help="Source local file path (upload)"),
     dest_url: Optional[str] = typer.Option(None, "--dest-url", help="Destination S3 URL (upload)"),
     out_path: Optional[str] = typer.Option(None, "--out-path", help="Local output path (download)"),
-    # list
     prefix: Optional[str] = typer.Option(None, "--prefix", help="S3 key prefix filter (list)"),
-    # exec
     sql: Optional[str] = typer.Option(None, "--sql", help="Raw SQL to execute (exec)"),
-    # produce
     file: Optional[str] = typer.Option(None, "--file", help="JSON/CSV file to produce to Kafka"),
     key_column: Optional[str] = typer.Option(None, "--key-column", help="Column to use as Kafka message key"),
 ):
@@ -476,7 +506,7 @@ def cmd_connector(
         else:
             console.print(f"[red]Unknown source: {source}. Available: {_SOURCES}[/red]")
             raise typer.Exit(1)
-        
+
         if action == "test":
             status = await connector.test_connection()
             if status.ok:
@@ -565,7 +595,6 @@ def cmd_connector(
                 raise typer.Exit(1)
 
             import aioboto3
-            from urllib.parse import urlparse
 
             session = aioboto3.Session(
                 aws_access_key_id=config.get("aws_access_key_id"),
@@ -654,67 +683,6 @@ def cmd_connector(
         await connector.close()
 
     _run(_run_connector())
-
-
-def _read_local(path: Path, fmt: str) -> pl.DataFrame:
-    fmt = fmt.lower()
-    if fmt == "csv":
-        return pl.read_csv(path)
-    if fmt == "parquet":
-        return pl.read_parquet(path)
-    if fmt in ("json",):
-        return pl.read_json(path)
-    if fmt in ("jsonl", "ndjson"):
-        return pl.read_ndjson(path)
-    if fmt in ("xlsx", "excel"):
-        return pl.read_excel(path)
-    raise ValueError(f"Unsupported format for read: '{fmt}'")
-
-
-def _write_local(df: pl.DataFrame, path: Path, fmt: str) -> None:
-    fmt = fmt.lower()
-    if fmt == "csv":
-        df.write_csv(path)
-    elif fmt == "parquet":
-        df.write_parquet(path)
-    elif fmt in ("json",):
-        df.write_json(path)
-    elif fmt in ("jsonl", "ndjson"):
-        df.write_ndjson(path)
-    elif fmt in ("xlsx", "excel"):
-        df.write_excel(path)
-    else:
-        raise ValueError(f"Unsupported format for write: '{fmt}'")
-
-
-async def _db_exec(source: str, config: dict, sql: str) -> None:
-    if source == "postgresql":
-        import asyncpg
-        conn = await asyncpg.connect(
-            host=config["host"], port=config.get("port", 5432),
-            database=config["database"], user=config["user"], password=config["password"],
-        )
-        try:
-            result = await conn.execute(sql)
-            console.print(f"[green][OK] {result}[/green]")
-        finally:
-            await conn.close()
-
-    elif source == "mysql":
-        import asyncmy
-        import asyncmy.cursors
-        conn = await asyncmy.connect(
-            host=config["host"], port=config.get("port", 3306),
-            db=config["database"], user=config["user"], password=config["password"],
-        )
-        try:
-            async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
-                await cur.execute(sql)
-                affected = cur.rowcount
-            await conn.commit()
-            console.print(f"[green][OK] {affected} row(s) affected[/green]")
-        finally:
-            conn.close()
 
 
 @app.command("run")
@@ -854,6 +822,67 @@ async def _print_profile_table(ctx: PipelineContext, summary_id: str | None) -> 
         console.print(t)
     except Exception:
         pass
+
+
+def _read_local(path: Path, fmt: str) -> pl.DataFrame:
+    fmt = fmt.lower()
+    if fmt == "csv":
+        return pl.read_csv(path)
+    if fmt == "parquet":
+        return pl.read_parquet(path)
+    if fmt == "json":
+        return pl.read_json(path)
+    if fmt in ("jsonl", "ndjson"):
+        return pl.read_ndjson(path)
+    if fmt in ("xlsx", "excel"):
+        return pl.read_excel(path)
+    raise ValueError(f"Unsupported format for read: '{fmt}'")
+
+
+def _write_local(df: pl.DataFrame, path: Path, fmt: str) -> None:
+    fmt = fmt.lower()
+    if fmt == "csv":
+        df.write_csv(path)
+    elif fmt == "parquet":
+        df.write_parquet(path)
+    elif fmt == "json":
+        df.write_json(path)
+    elif fmt in ("jsonl", "ndjson"):
+        df.write_ndjson(path)
+    elif fmt in ("xlsx", "excel"):
+        df.write_excel(path)
+    else:
+        raise ValueError(f"Unsupported format for write: '{fmt}'")
+
+
+async def _db_exec(source: str, config: dict, sql: str) -> None:
+    if source == "postgresql":
+        import asyncpg
+        conn = await asyncpg.connect(
+            host=config["host"], port=config.get("port", 5432),
+            database=config["database"], user=config["user"], password=config["password"],
+        )
+        try:
+            result = await conn.execute(sql)
+            console.print(f"[green][OK] {result}[/green]")
+        finally:
+            await conn.close()
+
+    elif source == "mysql":
+        import asyncmy
+        import asyncmy.cursors
+        conn = await asyncmy.connect(
+            host=config["host"], port=config.get("port", 3306),
+            db=config["database"], user=config["user"], password=config["password"],
+        )
+        try:
+            async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
+                await cur.execute(sql)
+                affected = cur.rowcount
+            await conn.commit()
+            console.print(f"[green][OK] {affected} row(s) affected[/green]")
+        finally:
+            conn.close()
 
 
 if __name__ == "__main__":

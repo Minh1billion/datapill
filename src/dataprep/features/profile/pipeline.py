@@ -129,8 +129,8 @@ class ProfilePipeline(FeaturePipeline):
 
         detail_id = f"{profile_id}_detail"
         summary_id = f"{profile_id}_summary"
-        await context.artifact_store.save_json(detail_id, detail.model_dump())
-        await context.artifact_store.save_json(summary_id, summary.model_dump())
+        await context.artifact_store.save_json(detail_id, detail.model_dump(), feature="profile")
+        await context.artifact_store.save_json(summary_id, summary.model_dump(), feature="profile")
 
         duration = time.perf_counter() - t0
         yield ProgressEvent(
@@ -146,14 +146,14 @@ class ProfilePipeline(FeaturePipeline):
         )
 
     def _apply_sampling_lazy(self, lf: pl.LazyFrame) -> pl.DataFrame:
-            df = lf.collect()
-            if self.options.sample_strategy == "none" or len(df) <= self.options.sample_size:
-                return df
-            if self.options.sample_strategy == "random":
-                return df.sample(n=self.options.sample_size, seed=42)
-            if self.options.sample_strategy == "reservoir":
-                return _reservoir_sample(df, self.options.sample_size)
+        df = lf.collect()
+        if self.options.sample_strategy == "none" or len(df) <= self.options.sample_size:
             return df
+        if self.options.sample_strategy == "random":
+            return df.sample(n=self.options.sample_size, seed=42)
+        if self.options.sample_strategy == "reservoir":
+            return _reservoir_sample(df, self.options.sample_size)
+        return df
 
     def _apply_sampling_eager(self, df: pl.DataFrame) -> pl.DataFrame:
         if self.options.sample_strategy == "none" or len(df) <= self.options.sample_size:
