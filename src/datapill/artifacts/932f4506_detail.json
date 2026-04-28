@@ -1,0 +1,1135 @@
+{
+  "profile_id": "932f4506",
+  "dataset": {
+    "row_count": 25,
+    "column_count": 8,
+    "memory_mb": 0.001,
+    "sampled": false,
+    "sample_strategy": "none",
+    "sample_size": null,
+    "schema_hash": "5efab2f8607e",
+    "created_at": "2026-04-28T09:46:45.064285+00:00"
+  },
+  "columns": [
+    {
+      "name": "id",
+      "dtype_physical": "Int64",
+      "dtype_inferred": "integer",
+      "null_count": 0,
+      "null_pct": 0.0,
+      "distinct_count": 25,
+      "distinct_pct": 1.0,
+      "is_unique": true,
+      "min": 1,
+      "max": 25,
+      "mean": 13.0,
+      "median": 13.0,
+      "std": 7.359800721939872,
+      "variance": 54.166666666666664,
+      "skewness": 0.0,
+      "kurtosis": -1.2038461538461538,
+      "percentiles": {
+        "0.01": 1.24,
+        "0.05": 2.2,
+        "0.25": 7.0,
+        "0.5": 13.0,
+        "0.75": 19.0,
+        "0.95": 23.8,
+        "0.99": 24.76
+      },
+      "histogram": null,
+      "top_values": [
+        {
+          "value": 1,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 2,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 3,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 4,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 5,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 6,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 7,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 8,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 9,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 10,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 11,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 12,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 13,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 14,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 15,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 16,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 17,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 18,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 19,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 20,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 21,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 22,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 23,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 24,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 25,
+          "count": 1,
+          "pct": 0.04
+        }
+      ],
+      "pattern_matches": null,
+      "sample_values": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "warnings": []
+    },
+    {
+      "name": "customer_id",
+      "dtype_physical": "Int64",
+      "dtype_inferred": "integer",
+      "null_count": 0,
+      "null_pct": 0.0,
+      "distinct_count": 25,
+      "distinct_pct": 1.0,
+      "is_unique": true,
+      "min": 101,
+      "max": 125,
+      "mean": 113.0,
+      "median": 113.0,
+      "std": 7.359800721939872,
+      "variance": 54.166666666666664,
+      "skewness": 0.0,
+      "kurtosis": -1.2038461538461538,
+      "percentiles": {
+        "0.01": 101.24,
+        "0.05": 102.2,
+        "0.25": 107.0,
+        "0.5": 113.0,
+        "0.75": 119.0,
+        "0.95": 123.8,
+        "0.99": 124.76
+      },
+      "histogram": null,
+      "top_values": [
+        {
+          "value": 101,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 102,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 103,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 104,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 105,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 106,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 107,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 108,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 109,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 110,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 111,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 112,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 113,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 114,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 115,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 116,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 117,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 118,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 119,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 120,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 121,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 122,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 123,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 124,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 125,
+          "count": 1,
+          "pct": 0.04
+        }
+      ],
+      "pattern_matches": null,
+      "sample_values": [
+        101,
+        102,
+        103,
+        104,
+        105,
+        106,
+        107,
+        108,
+        109,
+        110
+      ],
+      "warnings": []
+    },
+    {
+      "name": "amount",
+      "dtype_physical": "Float64",
+      "dtype_inferred": "float",
+      "null_count": 3,
+      "null_pct": 0.12,
+      "distinct_count": 23,
+      "distinct_pct": 0.92,
+      "is_unique": false,
+      "min": 33.0,
+      "max": 580.0,
+      "mean": 169.272273,
+      "median": 107.75,
+      "std": 147.20413412711122,
+      "variance": 21669.05710411255,
+      "skewness": 1.4303951177422325,
+      "kurtosis": 1.1954867019586386,
+      "percentiles": {
+        "0.01": 34.995,
+        "0.05": 42.8125,
+        "0.25": 70.75,
+        "0.5": 107.75,
+        "0.75": 215.1875,
+        "0.95": 451.75,
+        "0.99": 553.75
+      },
+      "histogram": null,
+      "top_values": [
+        {
+          "value": null,
+          "count": 3,
+          "pct": 0.12
+        },
+        {
+          "value": 120.5,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 85.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 200.75,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 50.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 310.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 42.5,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 175.25,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 95.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 220.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 68.5,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 455.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 33.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 89.99,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 145.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 260.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 77.5,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 390.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 55.25,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 130.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 48.75,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 580.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 92.0,
+          "count": 1,
+          "pct": 0.04
+        }
+      ],
+      "pattern_matches": null,
+      "sample_values": [
+        120.5,
+        85.0,
+        200.75,
+        50.0,
+        310.0,
+        42.5,
+        175.25,
+        95.0,
+        220.0,
+        68.5
+      ],
+      "warnings": []
+    },
+    {
+      "name": "status",
+      "dtype_physical": "String",
+      "dtype_inferred": "string",
+      "null_count": 0,
+      "null_pct": 0.0,
+      "distinct_count": 3,
+      "distinct_pct": 0.12,
+      "is_unique": false,
+      "min": null,
+      "max": null,
+      "mean": null,
+      "median": null,
+      "std": null,
+      "variance": null,
+      "skewness": null,
+      "kurtosis": null,
+      "percentiles": null,
+      "histogram": null,
+      "top_values": [
+        {
+          "value": "paid",
+          "count": 15,
+          "pct": 0.6
+        },
+        {
+          "value": "pending",
+          "count": 8,
+          "pct": 0.32
+        },
+        {
+          "value": "refunded",
+          "count": 2,
+          "pct": 0.08
+        }
+      ],
+      "pattern_matches": [],
+      "sample_values": [
+        "paid",
+        "pending",
+        "paid",
+        "paid",
+        "pending",
+        "paid",
+        "pending",
+        "refunded",
+        "paid",
+        "paid"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "category",
+      "dtype_physical": "String",
+      "dtype_inferred": "string",
+      "null_count": 0,
+      "null_pct": 0.0,
+      "distinct_count": 4,
+      "distinct_pct": 0.16,
+      "is_unique": false,
+      "min": null,
+      "max": null,
+      "mean": null,
+      "median": null,
+      "std": null,
+      "variance": null,
+      "skewness": null,
+      "kurtosis": null,
+      "percentiles": null,
+      "histogram": null,
+      "top_values": [
+        {
+          "value": "A",
+          "count": 7,
+          "pct": 0.28
+        },
+        {
+          "value": "B",
+          "count": 6,
+          "pct": 0.24
+        },
+        {
+          "value": "C",
+          "count": 6,
+          "pct": 0.24
+        },
+        {
+          "value": "D",
+          "count": 6,
+          "pct": 0.24
+        }
+      ],
+      "pattern_matches": [],
+      "sample_values": [
+        "A",
+        "B",
+        "A",
+        "C",
+        "D",
+        "B",
+        "A",
+        "C",
+        "D",
+        "A"
+      ],
+      "warnings": []
+    },
+    {
+      "name": "price",
+      "dtype_physical": "Float64",
+      "dtype_inferred": "float",
+      "null_count": 2,
+      "null_pct": 0.08,
+      "distinct_count": 24,
+      "distinct_pct": 0.96,
+      "is_unique": false,
+      "min": 10.0,
+      "max": 250.0,
+      "mean": 71.586087,
+      "median": 50.0,
+      "std": 64.32667683141975,
+      "variance": 4137.921352173914,
+      "skewness": 1.4175298883052094,
+      "kurtosis": 1.1692927461023803,
+      "percentiles": {
+        "0.01": 10.55,
+        "0.05": 12.75,
+        "0.25": 26.5,
+        "0.5": 50.0,
+        "0.75": 93.995,
+        "0.95": 198.0,
+        "0.99": 239.0
+      },
+      "histogram": null,
+      "top_values": [
+        {
+          "value": null,
+          "count": 2,
+          "pct": 0.08
+        },
+        {
+          "value": 45.99,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 12.5,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 99.99,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 25.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 88.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 15.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 60.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 110.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 35.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 70.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 200.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 10.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 40.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 55.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 130.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 28.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 65.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 180.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 22.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 50.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 18.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 250.0,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 37.0,
+          "count": 1,
+          "pct": 0.04
+        }
+      ],
+      "pattern_matches": null,
+      "sample_values": [
+        45.99,
+        12.5,
+        99.99,
+        25.0,
+        88.0,
+        15.0,
+        60.0,
+        110.0,
+        35.0,
+        70.0
+      ],
+      "warnings": []
+    },
+    {
+      "name": "stock",
+      "dtype_physical": "Int64",
+      "dtype_inferred": "integer",
+      "null_count": 2,
+      "null_pct": 0.08,
+      "distinct_count": 24,
+      "distinct_pct": 0.96,
+      "is_unique": false,
+      "min": 3,
+      "max": 500,
+      "mean": 158.304348,
+      "median": 120.0,
+      "std": 148.25298855874976,
+      "variance": 21978.94861660079,
+      "skewness": 0.8761598987561958,
+      "kurtosis": -0.29836952472434275,
+      "percentiles": {
+        "0.01": 3.44,
+        "0.05": 5.3,
+        "0.25": 37.5,
+        "0.5": 120.0,
+        "0.75": 210.0,
+        "0.95": 427.0,
+        "0.99": 484.6
+      },
+      "histogram": null,
+      "top_values": [
+        {
+          "value": null,
+          "count": 2,
+          "pct": 0.08
+        },
+        {
+          "value": 200,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 50,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 10,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 300,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 75,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 400,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 25,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 5,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 180,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 90,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 120,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 8,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 500,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 150,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 60,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 15,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 220,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 85,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 3,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 350,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 175,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 430,
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": 190,
+          "count": 1,
+          "pct": 0.04
+        }
+      ],
+      "pattern_matches": null,
+      "sample_values": [
+        200,
+        50,
+        10,
+        300,
+        75,
+        400,
+        25,
+        5,
+        180,
+        90
+      ],
+      "warnings": []
+    },
+    {
+      "name": "created_at",
+      "dtype_physical": "Date",
+      "dtype_inferred": "datetime",
+      "null_count": 0,
+      "null_pct": 0.0,
+      "distinct_count": 25,
+      "distinct_pct": 1.0,
+      "is_unique": true,
+      "min": "2024-01-01",
+      "max": "2024-01-25",
+      "mean": null,
+      "median": null,
+      "std": null,
+      "variance": null,
+      "skewness": null,
+      "kurtosis": null,
+      "percentiles": null,
+      "histogram": null,
+      "top_values": [
+        {
+          "value": "2024-01-01",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-02",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-03",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-04",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-05",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-06",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-07",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-08",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-09",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-10",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-11",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-12",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-13",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-14",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-15",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-16",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-17",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-18",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-19",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-20",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-21",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-22",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-23",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-24",
+          "count": 1,
+          "pct": 0.04
+        },
+        {
+          "value": "2024-01-25",
+          "count": 1,
+          "pct": 0.04
+        }
+      ],
+      "pattern_matches": null,
+      "sample_values": [
+        "2024-01-01",
+        "2024-01-02",
+        "2024-01-03",
+        "2024-01-04",
+        "2024-01-05",
+        "2024-01-06",
+        "2024-01-07",
+        "2024-01-08",
+        "2024-01-09",
+        "2024-01-10"
+      ],
+      "warnings": []
+    }
+  ],
+  "correlations": [
+    {
+      "col_a": "id",
+      "col_b": "customer_id",
+      "method": "pearson",
+      "value": 1.0
+    },
+    {
+      "col_a": "amount",
+      "col_b": "price",
+      "method": "pearson",
+      "value": 0.9721
+    },
+    {
+      "col_a": "amount",
+      "col_b": "stock",
+      "method": "pearson",
+      "value": -0.7058
+    },
+    {
+      "col_a": "price",
+      "col_b": "stock",
+      "method": "pearson",
+      "value": -0.699
+    }
+  ],
+  "warnings": []
+}

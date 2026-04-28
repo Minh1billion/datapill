@@ -1,0 +1,34 @@
+{
+  "version": "1.0",
+  "feature": "preprocess",
+  "steps": [
+    {
+      "id": "step_000",
+      "type": "impute_mean",
+      "scope": {
+        "columns": [
+          "price"
+        ]
+      }
+    },
+    {
+      "id": "step_001",
+      "type": "clip_iqr",
+      "scope": {
+        "columns": [
+          "price"
+        ]
+      }
+    },
+    {
+      "id": "step_002",
+      "type": "standard_scaler",
+      "scope": {
+        "columns": [
+          "price"
+        ]
+      }
+    }
+  ],
+  "checkpoint": false
+}

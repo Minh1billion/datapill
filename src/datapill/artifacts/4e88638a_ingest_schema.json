@@ -1,0 +1,50 @@
+{
+  "schema": [
+    {
+      "name": "id",
+      "dtype": "Int64",
+      "nullable": false
+    },
+    {
+      "name": "customer_id",
+      "dtype": "Int64",
+      "nullable": false
+    },
+    {
+      "name": "amount",
+      "dtype": "Float64",
+      "nullable": true
+    },
+    {
+      "name": "status",
+      "dtype": "String",
+      "nullable": false
+    },
+    {
+      "name": "category",
+      "dtype": "String",
+      "nullable": false
+    },
+    {
+      "name": "price",
+      "dtype": "Float64",
+      "nullable": true
+    },
+    {
+      "name": "stock",
+      "dtype": "Int64",
+      "nullable": true
+    },
+    {
+      "name": "created_at",
+      "dtype": "Date",
+      "nullable": false
+    }
+  ],
+  "row_count": 25,
+  "column_count": 8,
+  "ingest_duration_s": 0.088,
+  "query": {
+    "path": "tests/fixtures/data.csv"
+  }
+}

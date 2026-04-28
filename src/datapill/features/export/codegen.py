@@ -13,46 +13,40 @@ class CodegenConfig:
     with_tests: bool = False
 
 
-def generate(cfg: CodegenConfig, out_dir: Path) -> list[Path]:
+def generate(cfg: CodegenConfig, out_dir: Path, name: str | None = None) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
-    pipeline_file = out_dir / "run_pipeline.py"
+    stem = f"_{name}" if name else ""
+    pipeline_file = out_dir / f"run{stem}.py"
     pipeline_file.write_text(_render_pipeline(cfg), encoding="utf-8")
     files = [pipeline_file]
 
     if cfg.with_tests:
-        test_file = out_dir / "test_pipeline.py"
-        test_file.write_text(_render_tests(cfg), encoding="utf-8")
+        test_file = out_dir / f"test{stem}.py"
+        test_file.write_text(_render_tests(cfg, stem), encoding="utf-8")
         files.append(test_file)
 
     return files
 
 
 def _render_pipeline(cfg: CodegenConfig) -> str:
-    ingest_src = cfg.ingest.get("source", "local_file")
-    ingest_opts = json.dumps(cfg.ingest, indent=4)
-    steps_repr = json.dumps(cfg.preprocess, indent=4)
-    output_opts = json.dumps(cfg.output, indent=4)
+    src = cfg.ingest.get("source", "local_file")
     fmt = cfg.output.get("format", "parquet")
     out_path = cfg.output.get("path", "output." + fmt)
-
-    step_blocks = "\n".join(_render_step_block(i, s) for i, s in enumerate(cfg.preprocess))
-    imports = _collect_imports(cfg)
 
     return f"""\
 \"\"\"
 Auto-generated pipeline.
-Source : {ingest_src}
+Source : {src}
 Steps  : {len(cfg.preprocess)}
 Output : {out_path} ({fmt})
 
 Do not edit the constants section - regenerate via dp pipeline export instead.
 \"\"\"
 
-{imports}
+{_collect_imports(cfg)}
 
-INGEST_CONFIG: dict = {ingest_opts}
-PREPROCESS_STEPS: list = {steps_repr}
-OUTPUT_CONFIG: dict = {output_opts}
+INGEST_CONFIG: dict = {json.dumps(cfg.ingest, indent=4)}
+OUTPUT_CONFIG: dict = {json.dumps(cfg.output, indent=4)}
 
 DRY_RUN_ROWS = 1000
 
@@ -60,114 +54,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 
-def _load_data(dry_run: bool) -> pl.DataFrame:
-    \"\"\"Load source data according to INGEST_CONFIG.\"\"\"
-    source = INGEST_CONFIG.get("source", "local_file")
-    if source == "local_file":
-        path = INGEST_CONFIG["path"]
-        ext = Path(path).suffix.lower()
-        if ext == ".csv":
-            df = pl.read_csv(path)
-        elif ext == ".parquet":
-            df = pl.read_parquet(path)
-        elif ext == ".json":
-            df = pl.read_json(path)
-        elif ext in (".jsonl", ".ndjson"):
-            df = pl.read_ndjson(path)
-        else:
-            raise ValueError(f"Unsupported file extension: {{ext}}")
-    elif source == "postgresql":
-        import asyncpg
-        df = asyncio.run(_read_postgres(INGEST_CONFIG))
-    elif source == "mysql":
-        import asyncmy
-        df = asyncio.run(_read_mysql(INGEST_CONFIG))
-    elif source == "s3":
-        import boto3, io
-        df = _read_s3(INGEST_CONFIG)
-    else:
-        raise ValueError(f"Unsupported source: {{source}}")
+{_render_load_data(src)}
 
-    if dry_run:
-        df = df.head(DRY_RUN_ROWS)
-    return df
-
-
-async def _read_postgres(cfg: dict) -> pl.DataFrame:
-    conn = await asyncpg.connect(
-        host=cfg["host"], port=cfg.get("port", 5432),
-        database=cfg["database"], user=cfg["user"], password=cfg["password"],
-    )
-    try:
-        sql = cfg.get("sql") or f"SELECT * FROM {{cfg['table']}}"
-        rows = await conn.fetch(sql)
-        return pl.DataFrame([dict(r) for r in rows])
-    finally:
-        await conn.close()
-
-
-async def _read_mysql(cfg: dict) -> pl.DataFrame:
-    conn = await asyncmy.connect(
-        host=cfg["host"], port=cfg.get("port", 3306),
-        db=cfg["database"], user=cfg["user"], password=cfg["password"],
-    )
-    try:
-        async with conn.cursor() as cur:
-            sql = cfg.get("sql") or f"SELECT * FROM {{cfg['table']}}"
-            await cur.execute(sql)
-            rows = await cur.fetchall()
-            cols = [d[0] for d in cur.description]
-            return pl.DataFrame([dict(zip(cols, r)) for r in rows])
-    finally:
-        conn.close()
-
-
-def _read_s3(cfg: dict) -> pl.DataFrame:
-    import boto3, io
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=cfg.get("aws_access_key_id"),
-        aws_secret_access_key=cfg.get("aws_secret_access_key"),
-        region_name=cfg.get("region", "us-east-1"),
-        endpoint_url=cfg.get("endpoint_url"),
-    )
-    buf = io.BytesIO()
-    s3.download_fileobj(cfg["bucket"], cfg["key"], buf)
-    buf.seek(0)
-    ext = Path(cfg["key"]).suffix.lower()
-    if ext == ".parquet":
-        return pl.read_parquet(buf)
-    return pl.read_csv(buf)
-
-
-{step_blocks}
-
-def _write_output(df: pl.DataFrame, dry_run: bool) -> None:
-    \"\"\"Write output according to OUTPUT_CONFIG. Skipped in dry-run mode.\"\"\"
-    if dry_run:
-        log.info("[dry-run] output skipped. Preview (10 rows):")
-        print(df.head(10))
-        return
-    fmt = OUTPUT_CONFIG.get("format", "parquet")
-    path = Path(OUTPUT_CONFIG.get("path", f"output.{{fmt}}"))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if fmt == "csv":
-        df.write_csv(path, separator=OUTPUT_CONFIG.get("delimiter", ","))
-    elif fmt == "parquet":
-        df.write_parquet(path, compression=OUTPUT_CONFIG.get("compression", "snappy"))
-    elif fmt in ("excel", "xlsx"):
-        df.write_excel(path, worksheet=OUTPUT_CONFIG.get("sheet_name", "Sheet1"))
-    elif fmt == "json":
-        df.write_json(path)
-    elif fmt == "jsonl":
-        df.write_ndjson(path)
-    elif fmt in ("arrow", "feather"):
-        import pyarrow.feather as feather
-        feather.write_feather(df.to_arrow(), str(path))
-    else:
-        raise ValueError(f"Unsupported output format: {{fmt}}")
-    log.info(f"Wrote {{len(df)}} rows to {{path}}")
-
+{"".join(_render_step_block(i, s) for i, s in enumerate(cfg.preprocess))}
+{_render_write_output(fmt)}
 
 def run_pipeline(dry_run: bool = False) -> pl.DataFrame:
     \"\"\"Entry point. Set dry_run=True to preview without writing output.\"\"\"
@@ -181,7 +71,6 @@ def run_pipeline(dry_run: bool = False) -> pl.DataFrame:
         raise
 
 {_render_step_calls(cfg.preprocess)}
-
     try:
         _write_output(df, dry_run)
     except Exception as exc:
@@ -202,42 +91,158 @@ if __name__ == "__main__":
 
 
 def _collect_imports(cfg: CodegenConfig) -> str:
-    base = [
-        "import asyncio",
+    src = cfg.ingest.get("source", "local_file")
+    lines = [
         "import logging",
         "from pathlib import Path",
         "",
         "import polars as pl",
     ]
-    src = cfg.ingest.get("source", "")
     if src == "postgresql":
-        base.append("import asyncpg")
+        lines = ["import asyncio"] + lines + ["import asyncpg"]
+    elif src == "mysql":
+        lines = ["import asyncio"] + lines + ["import asyncmy"]
+    elif src == "s3":
+        lines += ["import boto3", "import io"]
+    return "\n".join(lines)
+
+
+def _render_load_data(src: str) -> str:
+    if src == "local_file":
+        return """\
+def _load_data(dry_run: bool) -> pl.DataFrame:
+    path = INGEST_CONFIG["path"]
+    ext = Path(path).suffix.lower()
+    if ext == ".csv":
+        df = pl.read_csv(path)
+    elif ext == ".parquet":
+        df = pl.read_parquet(path)
+    elif ext == ".json":
+        df = pl.read_json(path)
+    elif ext in (".jsonl", ".ndjson"):
+        df = pl.read_ndjson(path)
+    else:
+        raise ValueError(f"Unsupported file extension: {ext}")
+    return df.head(DRY_RUN_ROWS) if dry_run else df
+"""
+
+    if src == "postgresql":
+        return """\
+async def _load_data_async() -> pl.DataFrame:
+    conn = await asyncpg.connect(
+        host=INGEST_CONFIG["host"], port=INGEST_CONFIG.get("port", 5432),
+        database=INGEST_CONFIG["database"], user=INGEST_CONFIG["user"],
+        password=INGEST_CONFIG["password"],
+    )
+    try:
+        sql = INGEST_CONFIG.get("sql") or f"SELECT * FROM {INGEST_CONFIG['table']}"
+        rows = await conn.fetch(sql)
+        return pl.DataFrame([dict(r) for r in rows])
+    finally:
+        await conn.close()
+
+
+def _load_data(dry_run: bool) -> pl.DataFrame:
+    df = asyncio.run(_load_data_async())
+    return df.head(DRY_RUN_ROWS) if dry_run else df
+"""
+
     if src == "mysql":
-        base.append("import asyncmy")
+        return """\
+async def _load_data_async() -> pl.DataFrame:
+    conn = await asyncmy.connect(
+        host=INGEST_CONFIG["host"], port=INGEST_CONFIG.get("port", 3306),
+        db=INGEST_CONFIG["database"], user=INGEST_CONFIG["user"],
+        password=INGEST_CONFIG["password"],
+    )
+    try:
+        async with conn.cursor() as cur:
+            sql = INGEST_CONFIG.get("sql") or f"SELECT * FROM {INGEST_CONFIG['table']}"
+            await cur.execute(sql)
+            rows = await cur.fetchall()
+            cols = [d[0] for d in cur.description]
+            return pl.DataFrame([dict(zip(cols, r)) for r in rows])
+    finally:
+        conn.close()
+
+
+def _load_data(dry_run: bool) -> pl.DataFrame:
+    df = asyncio.run(_load_data_async())
+    return df.head(DRY_RUN_ROWS) if dry_run else df
+"""
+
     if src == "s3":
-        base.extend(["import boto3", "import io"])
-    return "\n".join(base)
+        return """\
+def _load_data(dry_run: bool) -> pl.DataFrame:
+    s3 = boto3.client(
+        "s3",
+        aws_access_key_id=INGEST_CONFIG.get("aws_access_key_id"),
+        aws_secret_access_key=INGEST_CONFIG.get("aws_secret_access_key"),
+        region_name=INGEST_CONFIG.get("region", "us-east-1"),
+        endpoint_url=INGEST_CONFIG.get("endpoint_url"),
+    )
+    buf = io.BytesIO()
+    s3.download_fileobj(INGEST_CONFIG["bucket"], INGEST_CONFIG["key"], buf)
+    buf.seek(0)
+    ext = Path(INGEST_CONFIG["key"]).suffix.lower()
+    df = pl.read_parquet(buf) if ext == ".parquet" else pl.read_csv(buf)
+    return df.head(DRY_RUN_ROWS) if dry_run else df
+"""
+
+    return """\
+def _load_data(dry_run: bool) -> pl.DataFrame:
+    raise NotImplementedError(f"Source '{INGEST_CONFIG.get('source')}' not supported in generated code")
+"""
+
+
+def _render_write_output(fmt: str) -> str:
+    writers = {
+        "csv": 'df.write_csv(path, separator=OUTPUT_CONFIG.get("delimiter", ","))',
+        "parquet": 'df.write_parquet(path, compression=OUTPUT_CONFIG.get("compression", "snappy"))',
+        "excel": 'df.write_excel(path, worksheet=OUTPUT_CONFIG.get("sheet_name", "Sheet1"))',
+        "xlsx": 'df.write_excel(path, worksheet=OUTPUT_CONFIG.get("sheet_name", "Sheet1"))',
+        "json": "df.write_json(path)",
+        "jsonl": "df.write_ndjson(path)",
+        "arrow": "import pyarrow.feather as feather; feather.write_feather(df.to_arrow(), str(path))",
+        "feather": "import pyarrow.feather as feather; feather.write_feather(df.to_arrow(), str(path))",
+    }
+    write_stmt = writers.get(fmt, f'raise ValueError("Unsupported output format: {fmt}")')
+
+    return f"""\
+def _write_output(df: pl.DataFrame, dry_run: bool) -> None:
+    if dry_run:
+        log.info("[dry-run] output skipped. Preview (10 rows):")
+        print(df.head(10))
+        return
+    path = Path(OUTPUT_CONFIG.get("path", "output.{fmt}"))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    {write_stmt}
+    log.info(f"Wrote {{len(df)}} rows to {{path}}")
+"""
 
 
 def _render_step_block(idx: int, step: dict[str, Any]) -> str:
     step_type = step.get("step", step.get("type", "unknown"))
     columns = step.get("columns", [])
     params = {k: v for k, v in step.get("params", {}).items()}
-    func_name = f"_step_{idx:03d}_{step_type}"
+    is_numeric = _is_numeric_step(step_type)
 
-    col_repr = repr(columns)
-    params_repr = repr(params)
+    if columns:
+        active_cols_line = f"active_cols = {repr(columns)}"
+    elif is_numeric:
+        active_cols_line = "active_cols = [c for c in df.columns if df[c].dtype.is_numeric()]"
+    else:
+        active_cols_line = "active_cols = df.columns"
 
     body = _build_step_body(step_type, columns, params)
+    params_line = f"    params: dict = {repr(params)}\n" if params else ""
 
     return f'''\
-def {func_name}(df: pl.DataFrame) -> pl.DataFrame:
-    """Step {idx}: {step_type} on columns {columns or "all"}."""
-    cols: list = {col_repr}
-    params: dict = {params_repr}
-    active_cols = cols or [c for c in df.columns if df[c].dtype.is_numeric()] if {_is_numeric_step(step_type)} else cols or df.columns
-{textwrap.indent(body, "    ")}
+def _step_{idx:03d}_{step_type}(df: pl.DataFrame) -> pl.DataFrame:
+    {active_cols_line}
+{params_line}{textwrap.indent(body, "    ")}
     return df
+
 
 '''
 
@@ -266,18 +271,17 @@ for col in active_cols:
     if step_type == "clip_iqr":
         return """\
 for col in active_cols:
-    q1 = df[col].quantile(0.25)
-    q3 = df[col].quantile(0.75)
+    q1, q3 = df[col].quantile(0.25), df[col].quantile(0.75)
     iqr = q3 - q1
     df = df.with_columns(pl.col(col).clip(q1 - 1.5 * iqr, q3 + 1.5 * iqr))"""
 
     if step_type == "clip_zscore":
-        return """\
-threshold = params.get("threshold", 3.0)
+        threshold = params.get("threshold", 3.0)
+        return f"""\
 for col in active_cols:
     mean, std = df[col].mean(), df[col].std()
     if std:
-        df = df.with_columns(pl.col(col).clip(mean - threshold * std, mean + threshold * std))"""
+        df = df.with_columns(pl.col(col).clip(mean - {threshold} * std, mean + {threshold} * std))"""
 
     if step_type == "standard_scaler":
         return """\
@@ -310,11 +314,12 @@ for col in active_cols:
     df = df.drop(col)"""
 
     if step_type == "ordinal":
-        return """\
-order_map = params.get("order", {})
+        order_map = params.get("order", {})
+        return f"""\
+order_map = {repr(order_map)}
 for col in active_cols:
     order = order_map.get(col) or df[col].drop_nulls().unique().sort().to_list()
-    mapping = {v: i for i, v in enumerate(order)}
+    mapping = {{v: i for i, v in enumerate(order)}}
     df = df.with_columns(pl.col(col).replace(mapping, default=None).cast(pl.Int32))"""
 
     if step_type == "select_columns":
@@ -324,19 +329,20 @@ for col in active_cols:
         return "df = df.drop(active_cols)"
 
     if step_type == "rename_columns":
-        return "df = df.rename(params.get('mapping', {}))"
+        mapping = params.get("mapping", {})
+        return f"df = df.rename({repr(mapping)})"
 
     if step_type == "cast_dtype":
-        return """\
-dtype_map = {
+        casts = params.get("casts", {})
+        return f"""\
+dtype_map = {{
     "int8": pl.Int8, "int16": pl.Int16, "int32": pl.Int32, "int64": pl.Int64,
     "float32": pl.Float32, "float64": pl.Float64,
     "str": pl.String, "string": pl.String, "bool": pl.Boolean,
     "date": pl.Date, "datetime": pl.Datetime,
-}
-for col, dtype_str in params.get("casts", {}).items():
-    target = dtype_map[dtype_str.lower()]
-    df = df.with_columns(pl.col(col).cast(target))"""
+}}
+for col, dtype_str in {repr(casts)}.items():
+    df = df.with_columns(pl.col(col).cast(dtype_map[dtype_str.lower()]))"""
 
     if step_type == "deduplicate":
         return "df = df.unique(subset=active_cols or None, keep='first')"
@@ -369,23 +375,23 @@ def _render_step_calls(steps: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _render_tests(cfg: CodegenConfig) -> str:
+def _render_tests(cfg: CodegenConfig, stem: str = "") -> str:
     fmt = cfg.output.get("format", "parquet")
     out_path = cfg.output.get("path", "output." + fmt)
+    module = f"run{stem}"
 
     return f"""\
 \"\"\"
-Auto-generated test scaffold for run_pipeline.
-Run with: python -m pytest test_pipeline.py -v
+Auto-generated test scaffold for {module}.
+Run with: python -m pytest {module.replace('run', 'test')}.py -v
 \"\"\"
 
-import importlib
 import unittest
 from pathlib import Path
 
 import polars as pl
 
-import run_pipeline as _mod
+import {module} as _mod
 
 
 class TestPipelineSmoke(unittest.TestCase):
