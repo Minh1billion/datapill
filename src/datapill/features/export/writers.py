@@ -32,10 +32,11 @@ def write_parquet(df: pl.DataFrame, path: Path, **opts: Any) -> None:
 
 def write_excel(df: pl.DataFrame, path: Path, **opts: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    freeze = (1, 0) if opts.get("freeze_header", True) else None
     df.write_excel(
         path,
         worksheet=opts.get("sheet_name", "Sheet1"),
-        freeze_panes=(1, 0) if opts.get("freeze_header", True) else None,
+        freeze_panes=freeze,
     )
 
 
@@ -80,7 +81,9 @@ _FORMAT_WRITERS = {
 def write(df: pl.DataFrame, path: Path, fmt: str, **opts: Any) -> None:
     writer = _FORMAT_WRITERS.get(fmt.lower())
     if writer is None:
-        raise ValueError(f"Unsupported format: '{fmt}'. Supported: {sorted(_FORMAT_WRITERS)}")
+        raise ValueError(
+            f"Unsupported format: '{fmt}'. Supported: {sorted(_FORMAT_WRITERS)}"
+        )
     writer(df, path, **opts)
 
 

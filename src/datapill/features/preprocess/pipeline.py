@@ -67,6 +67,22 @@ class PreprocessPipeline(FeaturePipeline):
             yield ProgressEvent(EventType.ERROR, str(exc))
             raise
 
+        if dry_run:
+            duration = time.perf_counter() - t0
+            yield ProgressEvent(
+                EventType.DONE,
+                f"Preprocess complete in {duration:.1f}s - {len(self.steps)} steps",
+                progress_pct=1.0,
+                payload={
+                    "run_id": self.run_id,
+                    "dry_run": True,
+                    "output_artifact_id": None,
+                    "config_artifact_id": None,
+                    "duration_s": round(duration, 3),
+                },
+            )
+            return
+
         for step_index, checkpoint_df in enumerate(report.checkpoints):
             checkpoint_id = f"{self.run_id}_checkpoint_step_{step_index}"
             await context.artifact_store.save_parquet(checkpoint_id, checkpoint_df, feature="preprocess")
@@ -84,7 +100,7 @@ class PreprocessPipeline(FeaturePipeline):
             progress_pct=1.0,
             payload={
                 "run_id": report.run_id,
-                "dry_run": report.dry_run,
+                "dry_run": False,
                 "output_artifact_id": output_id,
                 "config_artifact_id": config_id,
                 "duration_s": round(duration, 3),
@@ -151,6 +167,7 @@ class PreprocessPipeline(FeaturePipeline):
     def _detect_conflicts(self) -> list[str]:
         warnings: list[str] = []
         imputed: dict[str, int] = {}
+        scaled: dict[str, int] = {}
         iqr_cols: dict[str, int] = {}
 
         for i, cfg in enumerate(self.steps):
@@ -179,6 +196,16 @@ class PreprocessPipeline(FeaturePipeline):
                             f"Step {i} 'clip_zscore' on column '{col}' overlaps with "
                             f"'clip_iqr' at step {iqr_cols[col]}."
                         )
+
+            if cfg.step in ("standard_scaler", "minmax_scaler", "robust_scaler"):
+                for col in scope:
+                    if col not in imputed:
+                        warnings.append(
+                            f"Step {i} '{cfg.step}' on column '{col}' may produce NaN: "
+                            f"column has not been imputed before scaling. "
+                            f"Add an 'impute_mean' or 'impute_median' step before this."
+                        )
+                    scaled[col] = i
 
         return warnings
 

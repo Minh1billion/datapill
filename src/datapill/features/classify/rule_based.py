@@ -19,6 +19,7 @@ _NAME_PATTERNS: list[tuple[re.Pattern, SemanticType, float, str]] = [
     (re.compile(r"\b(price|cost|amount|revenue|salary|wage|fee|rate|budget|spend|expenditure)\b", re.I), SemanticType.NUMERICAL_CONTINUOUS, 0.68, "column name matches financial numeric pattern"),
     (re.compile(r"\b(age|score|grade|rating|rank|weight|height|temp|temperature|distance|duration)\b", re.I), SemanticType.NUMERICAL_CONTINUOUS, 0.65, "column name matches continuous numeric pattern"),
     (re.compile(r"\b(count|total|quantity|qty|num|number|n_|_n$)\b", re.I), SemanticType.NUMERICAL_DISCRETE, 0.65, "column name matches discrete count pattern"),
+    (re.compile(r"\b(stock|inventory|units|items|pieces|pcs|in_stock|stock_qty)\b", re.I), SemanticType.NUMERICAL_DISCRETE, 0.65, "column name matches inventory/stock count pattern"),
     (re.compile(r"\b(name|first_name|last_name|full_name|username|nickname|firstname|lastname)\b", re.I), SemanticType.TEXT_FREEFORM, 0.65, "column name matches name pattern"),
     (re.compile(r"\b(description|desc|comment|note|notes|text|content|message|body|summary|remark)\b", re.I), SemanticType.TEXT_FREEFORM, 0.68, "column name matches free text pattern"),
     (re.compile(r"\b(category|cat|type|kind|class|group|segment|tier|level|status|state|tag)\b", re.I), SemanticType.CATEGORICAL_NOMINAL, 0.63, "column name matches category pattern"),

@@ -1,6 +1,7 @@
 import json
 import hashlib
 import asyncio
+import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,9 +18,21 @@ _FEATURE_PRIORITY = {
     "classify":   ["ingest_output", "preprocess_output"],
 }
 
+_DEFAULT_ARTIFACT_DIR = Path(__file__).parent.parent / "artifacts"
+
+
+def _resolve_base(base_path: str | Path | None) -> Path:
+    if base_path is not None:
+        return Path(base_path)
+    env = os.environ.get("DATAPILL_ARTIFACT_DIR")
+    if env:
+        return Path(env)
+    return _DEFAULT_ARTIFACT_DIR
+
+
 class ArtifactStore:
-    def __init__(self, base_path: str = "/src/datapill/artifacts") -> None:
-        self.base = Path(base_path)
+    def __init__(self, base_path: str | Path | None = None) -> None:
+        self.base = _resolve_base(base_path)
         self.base.mkdir(parents=True, exist_ok=True)
         self._registry: dict[str, dict[str, Any]] = self._load_registry()
 

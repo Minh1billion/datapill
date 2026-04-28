@@ -60,7 +60,7 @@ def _hybrid_classify(df: pl.DataFrame) -> list[ColumnClassification]:
 
     ambiguous_cols = [
         col for col, r in rule_results.items()
-        if r.semantic_type == SemanticType.UNKNOWN or r.confidence < 0.65
+        if r.semantic_type == SemanticType.UNKNOWN
     ]
 
     embedding_results: dict[str, ColumnClassification] = {}
@@ -75,9 +75,7 @@ def _hybrid_classify(df: pl.DataFrame) -> list[ColumnClassification]:
         rule_r = rule_results[col]
         if col in embedding_results:
             emb_r = embedding_results[col]
-            if rule_r.semantic_type == SemanticType.UNKNOWN:
-                final.append(emb_r)
-            elif emb_r.confidence > rule_r.confidence:
+            if emb_r.semantic_type != SemanticType.UNKNOWN:
                 final.append(emb_r)
             else:
                 final.append(rule_r)
