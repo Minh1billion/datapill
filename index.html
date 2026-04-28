@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Data Pilot CLI - Documentation</title>
+  <title>Data Pill CLI - Documentation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -162,7 +162,7 @@
 <body>
 
 <header class="top-header">
-  <span class="logo">datapilll</span>
+  <span class="logo">datapill</span>
   <span class="sep"></span>
   <span class="title">CLI Reference</span>
   <span class="version">v0.1.0</span>
@@ -219,7 +219,7 @@
 
     <!-- HERO -->
     <div class="hero" id="overview">
-      <h1><span class="accent">datapilll CLI</span> - dp</h1>
+      <h1><span class="accent">datapill CLI</span> - dp</h1>
       <p class="subtitle">A command-line tool for ingesting, profiling, preprocessing, and exporting data across PostgreSQL, MySQL, S3, Kafka, REST APIs, and local files.</p>
       <div class="hero-meta">
         <span class="hero-badge">Python ≥ 3.11</span>
@@ -275,7 +275,7 @@
     <!-- ARTIFACT SYSTEM -->
     <section class="section" id="artifact-system">
       <h2>Artifact System</h2>
-      <p>Every pipeline command saves its outputs as <strong>artifacts</strong> - files stored in the artifact store directory (default: <code>src/datapilll/artifacts</code>). Understanding artifacts is essential for chaining commands together.</p>
+      <p>Every pipeline command saves its outputs as <strong>artifacts</strong> - files stored in the artifact store directory (default: <code>src/datapill/artifacts</code>). Understanding artifacts is essential for chaining commands together.</p>
 
       <h3>Run ID vs Artifact ID</h3>
       <p>Each pipeline run generates a short <strong>run ID</strong> (e.g. <code>f1662de6</code>). The run produces one or more artifacts, each named <code>&lt;run_id&gt;_&lt;suffix&gt;</code>.</p>
@@ -587,7 +587,7 @@ asyncio.run(produce())
             <tr><td>--url</td><td>-</td><td>S3 URL, e.g. <code>s3://bucket/key.parquet</code></td></tr>
             <tr><td>--topic</td><td>-</td><td>Kafka topic name</td></tr>
             <tr><td>--endpoint</td><td>-</td><td>REST endpoint path</td></tr>
-            <tr><td>--out, -o</td><td><code>src/datapilll/artifacts</code></td><td>Artifact store directory</td></tr>
+            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
             <tr><td>--limit, -n</td><td>-</td><td>Max rows to read</td></tr>
             <tr><td>--batch-size</td><td>50 000</td><td>Rows per streaming batch</td></tr>
             <tr><td>--max-records</td><td>-</td><td>Max messages consumed <code>(kafka)</code></td></tr>
@@ -622,7 +622,7 @@ asyncio.run(produce())
             <tr><td>--sample-strategy</td><td><code>none</code></td><td><code>none</code> | <code>random</code> | <code>reservoir</code></td></tr>
             <tr><td>--sample-size</td><td>100 000</td><td>Rows to sample when strategy ≠ none</td></tr>
             <tr><td>--correlation</td><td><code>pearson</code></td><td><code>pearson</code> | <code>spearman</code> | <code>none</code></td></tr>
-            <tr><td>--out, -o</td><td><code>src/datapilll/artifacts</code></td><td>Artifact store directory</td></tr>
+            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
           </tbody>
         </table>
       </div>
@@ -650,7 +650,7 @@ asyncio.run(produce())
             <tr><td>--pipeline, -p</td><td><em>required</em></td><td>Path to pipeline JSON config file</td></tr>
             <tr><td>--dry-run</td><td>false</td><td>Run on first 1 000 rows only - no artifact saved</td></tr>
             <tr><td>--checkpoint</td><td>false</td><td>Save a Parquet file after each step</td></tr>
-            <tr><td>--out, -o</td><td><code>src/datapilll/artifacts</code></td><td>Artifact store directory</td></tr>
+            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
           </tbody>
         </table>
       </div>
@@ -693,7 +693,7 @@ asyncio.run(produce())
             <tr><td>--primary-keys</td><td>-</td><td>Comma-separated key columns for upsert</td></tr>
             <tr><td>--compression</td><td>-</td><td><code>snappy | zstd | gzip</code> (parquet only)</td></tr>
             <tr><td>--dry-run</td><td>false</td><td>Print first 10 rows, skip write</td></tr>
-            <tr><td>--out, -o</td><td><code>src/datapilll/artifacts</code></td><td>Artifact store directory</td></tr>
+            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
           </tbody>
         </table>
       </div>
@@ -723,7 +723,7 @@ asyncio.run(produce())
         <table>
           <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td>--out, -o</td><td><code>src/datapilll/artifacts</code></td><td>Artifact store directory</td></tr>
+            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
             <tr><td>--feature, -f</td><td>-</td><td>Filter: <code>ingest | profile | preprocess | classify</code></td></tr>
             <tr><td>--limit, -n</td><td>20</td><td>Max number of artifacts to display</td></tr>
           </tbody>
@@ -782,7 +782,7 @@ asyncio.run(produce())
             </tr>
             <tr><td>--threshold, -t</td><td><code>0.0</code></td><td>Minimum confidence to keep a classification. Columns below the threshold are recorded as <code>unknown</code>. Range: 0.0 – 1.0</td></tr>
             <tr><td>--overrides</td><td>-</td><td>JSON string to manually pin columns to a semantic type, bypassing classification entirely. e.g. <code>'{"y": "target_label"}'</code></td></tr>
-            <tr><td>--out, -o</td><td><code>src/datapilll/artifacts</code></td><td>Artifact store directory</td></tr>
+            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
           </tbody>
         </table>
       </div>
