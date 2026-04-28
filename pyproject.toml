@@ -3,9 +3,26 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "datapill" 
-version = "0.1.1"
+name = "datapill"
+version = "0.1.2"
+description = "A modular data preparation CLI for ingestion, profiling, classification, preprocessing, and export pipelines"
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11"
+
+authors = [
+    { name = "Tran Quang Minh" }
+]
+
+keywords = ["data", "etl", "pipeline", "cli", "data-engineering"]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries",
+]
 
 dependencies = [
     "polars>=1.0.0",
