@@ -1,0 +1,44 @@
+name: Publish to PyPI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Bump patch version
+        run: |
+          OLD=$(grep '^version' pyproject.toml | head -1 | grep -oP '[\d]+\.[\d]+\.[\d]+')
+          MAJOR=$(echo $OLD | cut -d. -f1)
+          MINOR=$(echo $OLD | cut -d. -f2)
+          PATCH=$(echo $OLD | cut -d. -f3)
+          NEW="$MAJOR.$MINOR.$((PATCH + 1))"
+          sed -i "s/^version = \"$OLD\"/version = \"$NEW\"/" pyproject.toml
+          echo "Bumped $OLD -> $NEW"
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git commit -m "chore: bump version [skip ci]"
+          git push
+
+      - name: Build
+        run: uv build
+
+      - name: Publish to PyPI
+        run: uv publish --token ${{ secrets.PUBLISH_KEY }}
