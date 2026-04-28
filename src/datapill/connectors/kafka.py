@@ -15,7 +15,7 @@ from aiokafka.errors import (
 
 from .base import BaseConnector, ColumnMeta, ConnectionStatus, SchemaInfo, WriteResult
 
-_DEFAULT_GROUP = "dataprep"
+_DEFAULT_GROUP = "datapill"
 _DEFAULT_OFFSET = "earliest"
 _CONNECT_TIMEOUT = 10.0
 _DEFAULT_MAX_RECORDS = 1_000

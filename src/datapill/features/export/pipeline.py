@@ -6,9 +6,9 @@ from typing import AsyncGenerator, Any
 
 import polars as pl
 
-from dataprep.core.context import PipelineContext
-from dataprep.core.events import EventType, ProgressEvent
-from dataprep.core.interfaces import ExecutionPlan, FeaturePipeline, ValidationResult
+from datapill.core.context import PipelineContext
+from datapill.core.events import EventType, ProgressEvent
+from datapill.core.interfaces import ExecutionPlan, FeaturePipeline, ValidationResult
 from .schema import WriteConfig, ExportResult
 from .writers import write
 

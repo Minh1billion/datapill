@@ -18,7 +18,7 @@ _FEATURE_PRIORITY = {
 }
 
 class ArtifactStore:
-    def __init__(self, base_path: str = "/src/dataprep/artifacts") -> None:
+    def __init__(self, base_path: str = "/src/datapill/artifacts") -> None:
         self.base = Path(base_path)
         self.base.mkdir(parents=True, exist_ok=True)
         self._registry: dict[str, dict[str, Any]] = self._load_registry()

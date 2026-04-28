@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any
 import uuid
 
 if TYPE_CHECKING:
-    from dataprep.storage.artifact import ArtifactStore
+    from datapill.storage.artifact import ArtifactStore
 
 
 @dataclass

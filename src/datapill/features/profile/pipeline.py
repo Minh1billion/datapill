@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 from typing import AsyncGenerator, Any
 import polars as pl
 
-from dataprep.core.interfaces import FeaturePipeline, ValidationResult, ExecutionPlan
-from dataprep.core.context import PipelineContext
-from dataprep.core.events import ProgressEvent, EventType
+from datapill.core.interfaces import FeaturePipeline, ValidationResult, ExecutionPlan
+from datapill.core.context import PipelineContext
+from datapill.core.events import ProgressEvent, EventType
 from .stats import ColumnStatsComputer, compute_correlation_matrix
 from .schema import (
     ProfileDetail, ProfileSummary, DatasetMeta,

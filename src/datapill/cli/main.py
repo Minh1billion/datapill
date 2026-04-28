@@ -9,23 +9,23 @@ from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
-from dataprep.connectors.base import BaseConnector
-from dataprep.connectors.kafka import KafkaConnector
-from dataprep.connectors.local_file import LocalFileConnector
-from dataprep.connectors.mysql import MySQLConnector
-from dataprep.connectors.postgresql import PostgreSQLConnector
-from dataprep.connectors.rest import RESTConnector
-from dataprep.connectors.s3 import S3Connector
-from dataprep.core.context import PipelineContext
-from dataprep.core.events import EventType
-from dataprep.features.export.pipeline import ExportPipeline, WriteConfig
-from dataprep.features.ingest.pipeline import IngestConfig, IngestPipeline
-from dataprep.features.preprocess.pipeline import PreprocessPipeline
-from dataprep.features.preprocess.schema import StepConfig
-from dataprep.features.profile.pipeline import ProfileOptions, ProfilePipeline
-from dataprep.storage.artifact import ArtifactStore
+from datapill.connectors.base import BaseConnector
+from datapill.connectors.kafka import KafkaConnector
+from datapill.connectors.local_file import LocalFileConnector
+from datapill.connectors.mysql import MySQLConnector
+from datapill.connectors.postgresql import PostgreSQLConnector
+from datapill.connectors.rest import RESTConnector
+from datapill.connectors.s3 import S3Connector
+from datapill.core.context import PipelineContext
+from datapill.core.events import EventType
+from datapill.features.export.pipeline import ExportPipeline, WriteConfig
+from datapill.features.ingest.pipeline import IngestConfig, IngestPipeline
+from datapill.features.preprocess.pipeline import PreprocessPipeline
+from datapill.features.preprocess.schema import StepConfig
+from datapill.features.profile.pipeline import ProfileOptions, ProfilePipeline
+from datapill.storage.artifact import ArtifactStore
 
-app = typer.Typer(name="dp", help="DataPrep CLI", no_args_is_help=True)
+app = typer.Typer(name="dp", help="datapill CLI", no_args_is_help=True)
 console = Console()
 
 _SOURCES = "local_file | postgresql | mysql | s3 | rest | kafka"
@@ -145,7 +145,7 @@ def cmd_ingest(
     url: Optional[str] = typer.Option(None, "--url", help="S3 URL, e.g. s3://bucket/key.parquet"),
     topic: Optional[str] = typer.Option(None, "--topic", help="Kafka topic name"),
     endpoint: Optional[str] = typer.Option(None, "--endpoint", help="REST endpoint, e.g. /users"),
-    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact output directory"),
+    out: str = typer.Option("src/datapill/artifacts", "--out", "-o", help="Artifact output directory"),
     limit: Optional[int] = typer.Option(None, "--limit", "-n", help="Max rows to read"),
     batch_size: int = typer.Option(50_000, "--batch-size", help="Rows per batch"),
     max_records: Optional[int] = typer.Option(None, "--max-records", help="Max records (kafka)"),
@@ -198,7 +198,7 @@ def cmd_profile(
     sample_strategy: str = typer.Option("none", "--sample-strategy", help="none | random | reservoir"),
     sample_size: int = typer.Option(100_000, "--sample-size"),
     correlation: str = typer.Option("pearson", "--correlation", help="pearson | spearman | none"),
-    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o"),
+    out: str = typer.Option("src/datapill/artifacts", "--out", "-o"),
 ):
     """Run profile pipeline on an ingested dataset."""
     async def _run_profile():
@@ -248,7 +248,7 @@ def cmd_profile(
 def cmd_preprocess(
     input: str = typer.Option(..., "--input", "-i", help="run_id or full artifact ID"),
     pipeline_file: str = typer.Option(..., "--pipeline", "-p", help="Path to pipeline JSON config file"),
-    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact output directory"),
+    out: str = typer.Option("src/datapill/artifacts", "--out", "-o", help="Artifact output directory"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Run on first 1000 rows, no artifact saved"),
     checkpoint: bool = typer.Option(False, "--checkpoint", help="Save checkpoint parquet after each step"),
 ):
@@ -329,7 +329,7 @@ def cmd_classify(
     mode: str = typer.Option("hybrid", "--mode", "-m", help="rule_based | embedding | hybrid"),
     threshold: float = typer.Option(0.0, "--threshold", "-t", help="Minimum confidence to keep classification (0.0–1.0)"),
     overrides: Optional[str] = typer.Option(None, "--overrides", help='JSON string: {"col_name": "semantic_type"}'),
-    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact store directory"),
+    out: str = typer.Option("src/datapill/artifacts", "--out", "-o", help="Artifact store directory"),
 ):
     """Classify columns in a dataset by semantic type.
  
@@ -346,8 +346,8 @@ def cmd_classify(
  
       dp classify -i <run_id> --overrides '{"age": "numerical_continuous", "y": "target_label"}'
     """
-    from dataprep.features.classify.pipeline import ClassifyPipeline
-    from dataprep.features.classify.schema import ClassifyConfig
+    from datapill.features.classify.pipeline import ClassifyPipeline
+    from datapill.features.classify.schema import ClassifyConfig
  
     async def _run_classify():
         override_dict: dict = {}
@@ -439,7 +439,7 @@ def cmd_export(
     connector_file: Optional[str] = typer.Option(None, "--connector", "-c", help="Connector config JSON for write-back"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print first 10 rows, skip write"),
     compression: Optional[str] = typer.Option(None, "--compression", help="Compression (parquet: snappy|zstd|gzip)"),
-    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact store directory"),
+    out: str = typer.Option("src/datapill/artifacts", "--out", "-o", help="Artifact store directory"),
 ):
     """Export a dataset to file or write back to a connector.
 
@@ -512,7 +512,7 @@ def cmd_export(
 
 @app.command("list")
 def cmd_list(
-    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o", help="Artifact store directory"),
+    out: str = typer.Option("src/datapill/artifacts", "--out", "-o", help="Artifact store directory"),
     feature: str = typer.Option("", "--feature", "-f", help="Filter by feature: ingest | profile | preprocess"),
     limit: int = typer.Option(20, "--limit", "-n", help="Max number of artifacts to show"),
 ):
@@ -794,7 +794,7 @@ def cmd_connector(
 @app.command("run")
 def cmd_run(
     config_file: str = typer.Argument(..., help="Path to pipeline JSON config file"),
-    out: str = typer.Option("src/dataprep/artifacts", "--out", "-o"),
+    out: str = typer.Option("src/datapill/artifacts", "--out", "-o"),
 ):
     """Run a full ingest + profile pipeline from a JSON config file.
 

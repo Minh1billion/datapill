@@ -14,7 +14,7 @@ from .validator import analyze_ast, validate_schema, ASTAnalysisResult, SchemaVa
 
 
 DEFAULT_IMAGE: str = os.getenv(
-    "DATAPREP_SANDBOX_IMAGE", "python:3.12-slim"
+    "datapill_SANDBOX_IMAGE", "python:3.12-slim"
 )
 DEFAULT_TIMEOUT_S: float = 60.0
 DEFAULT_MEMORY_LIMIT: str = "512m"
@@ -104,7 +104,7 @@ def _run_in_docker(
     df: pl.DataFrame,
     cfg: DockerRunnerConfig,
 ) -> tuple[pl.DataFrame, DockerResourceStats]:
-    with tempfile.TemporaryDirectory(prefix="dataprep_sandbox_") as tmpdir:
+    with tempfile.TemporaryDirectory(prefix="datapill_sandbox_") as tmpdir:
         tmp = Path(tmpdir)
 
         df.write_parquet(tmp / "input.parquet")

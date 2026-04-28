@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import AsyncGenerator, Any
 
-from dataprep.connectors.base import BaseConnector
+from datapill.connectors.base import BaseConnector
 
 
 @dataclass
