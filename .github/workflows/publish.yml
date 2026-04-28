@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - pyproject.toml
 
 jobs:
   publish:
@@ -25,9 +23,9 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
 
-      - name: Bump version
+      - name: Bump version and tag
         run: |
-          OLD=$(grep '^version' pyproject.toml | head -1 | grep -oP '[\d]+\.[\d]+\.[\d]+')
+          OLD=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
           MAJOR=$(echo $OLD | cut -d. -f1)
           MINOR=$(echo $OLD | cut -d. -f2)
           PATCH=$(echo $OLD | cut -d. -f3)
@@ -42,15 +40,11 @@ jobs:
           fi
 
           sed -i "s/^version = \"$OLD\"/version = \"$NEW\"/" pyproject.toml
-          echo "NEW_VERSION=$NEW" >> $GITHUB_ENV
 
-      - name: Commit and push version bump
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml
-          git commit -m "chore: bump version to $NEW_VERSION" || exit 0
-          git push origin HEAD:main --force-with-lease
+          git tag "$NEW"
+          git push origin "$NEW"
 
       - name: Build package
         run: uv build

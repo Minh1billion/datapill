@@ -4,7 +4,7 @@ __pycache__
 .pytest_cache
 .benchmarks
 tmp_script.py
-src/dataprep/artifacts/
+src/datapill/artifacts/
 tests/fixtures/**_1M.**
 .coverage
 htmlcov/
