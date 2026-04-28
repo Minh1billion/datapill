@@ -1,42 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Data Pill CLI - Documentation</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap"
+    rel="stylesheet" />
   <style>
     :root {
-      --aws-squid:    #232f3e;
-      --aws-navy:     #1b2a3b;
-      --aws-orange:   #ff9900;
+      --aws-squid: #232f3e;
+      --aws-navy: #1b2a3b;
+      --aws-orange: #ff9900;
       --aws-orange-d: #e88a00;
-      --aws-blue:     #0073bb;
-      --aws-blue-l:   #1a9ad7;
-      --aws-green:    #1d8348;
-      --aws-red:      #c0392b;
-      --surface:      #ffffff;
-      --surface-2:    #f8f9fa;
-      --surface-3:    #f1f3f4;
-      --border:       #d5d8dc;
+      --aws-blue: #0073bb;
+      --aws-blue-l: #1a9ad7;
+      --aws-green: #1d8348;
+      --aws-red: #c0392b;
+      --surface: #ffffff;
+      --surface-2: #f8f9fa;
+      --surface-3: #f1f3f4;
+      --border: #d5d8dc;
       --border-light: #eaecee;
       --text-primary: #16202c;
-      --text-secondary:#4a5568;
-      --text-muted:   #8896a5;
-      --code-bg:      #1e2a38;
-      --code-text:    #cdd9e5;
+      --text-secondary: #4a5568;
+      --text-muted: #8896a5;
+      --code-bg: #1e2a38;
+      --code-text: #cdd9e5;
       --code-comment: #6b7f8c;
-      --code-key:     #79c0ff;
-      --code-str:     #a5d6a7;
-      --code-flag:    #ff9900;
-      --sidebar-w:    260px;
-      --header-h:     56px;
+      --code-key: #79c0ff;
+      --code-str: #a5d6a7;
+      --code-flag: #ff9900;
+      --sidebar-w: 260px;
+      --header-h: 56px;
     }
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; font-size: 15px; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      font-size: 15px;
+    }
+
     body {
       font-family: 'IBM Plex Sans', sans-serif;
       color: var(--text-primary);
@@ -45,197 +59,654 @@
     }
 
     .top-header {
-      position: fixed; top: 0; left: 0; right: 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
       height: var(--header-h);
       background: var(--aws-squid);
-      display: flex; align-items: center; gap: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
       padding: 0 1.5rem;
       z-index: 100;
       border-bottom: 2px solid var(--aws-orange);
     }
-    .top-header .logo { font-size: .75rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--aws-orange); white-space: nowrap; }
-    .top-header .sep { width: 1px; height: 20px; background: #3d4f62; }
-    .top-header .title { font-size: .85rem; color: #c8d4de; font-weight: 400; }
-    .top-header .version { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: .72rem; color: var(--text-muted); background: #1b2a3b; padding: .2rem .6rem; border-radius: 3px; }
 
-    .layout { display: flex; padding-top: var(--header-h); min-height: 100vh; }
+    .top-header .logo {
+      font-size: .75rem;
+      font-weight: 600;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--aws-orange);
+      white-space: nowrap;
+    }
+
+    .top-header .sep {
+      width: 1px;
+      height: 20px;
+      background: #3d4f62;
+    }
+
+    .top-header .title {
+      font-size: .85rem;
+      color: #c8d4de;
+      font-weight: 400;
+    }
+
+    .top-header .version {
+      margin-left: auto;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .72rem;
+      color: var(--text-muted);
+      background: #1b2a3b;
+      padding: .2rem .6rem;
+      border-radius: 3px;
+    }
+
+    .layout {
+      display: flex;
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
 
     .sidebar {
-      position: fixed; top: var(--header-h); left: 0;
-      width: var(--sidebar-w); height: calc(100vh - var(--header-h));
-      overflow-y: auto; background: var(--surface-2);
-      border-right: 1px solid var(--border); padding: 1.5rem 0 3rem;
+      position: fixed;
+      top: var(--header-h);
+      left: 0;
+      width: var(--sidebar-w);
+      height: calc(100vh - var(--header-h));
+      overflow-y: auto;
+      background: var(--surface-2);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 0 3rem;
     }
-    .sidebar::-webkit-scrollbar { width: 4px; }
-    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-    .nav-section { padding: .5rem 1.25rem .25rem; font-size: .67rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-top: 1rem; }
-    .nav-section:first-child { margin-top: 0; }
-    .nav-link { display: block; padding: .4rem 1.25rem .4rem 1.5rem; font-size: .83rem; color: var(--text-secondary); text-decoration: none; border-left: 2px solid transparent; transition: all .15s; }
-    .nav-link:hover { color: var(--aws-blue); background: var(--surface-3); }
-    .nav-link.active { color: var(--aws-orange); border-left-color: var(--aws-orange); background: #fff8ee; font-weight: 500; }
-    .nav-sub { padding-left: 2.25rem; font-size: .8rem; color: var(--text-muted); }
-    .nav-sub:hover { color: var(--aws-blue-l); }
 
-    .main { margin-left: var(--sidebar-w); flex: 1; padding: 2.5rem 3rem 5rem; max-width: 900px; }
+    .sidebar::-webkit-scrollbar {
+      width: 4px;
+    }
 
-    .section { margin-bottom: 3.5rem; }
-    h1 { font-size: 1.9rem; font-weight: 600; color: var(--text-primary); line-height: 1.2; margin-bottom: .5rem; }
-    h1 .accent { color: var(--aws-orange); }
-    .subtitle { font-size: 1rem; color: var(--text-secondary); margin-bottom: 2rem; font-weight: 300; }
-    h2 { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); margin: 2rem 0 .75rem; padding-bottom: .4rem; border-bottom: 1px solid var(--border-light); }
-    h3 { font-size: 1rem; font-weight: 600; color: var(--aws-squid); margin: 1.5rem 0 .5rem; }
-    p { margin-bottom: .85rem; color: var(--text-secondary); font-size: .92rem; }
-    p:last-child { margin-bottom: 0; }
-    a { color: var(--aws-blue); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    strong { color: var(--text-primary); font-weight: 600; }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
 
-    .hero { background: var(--aws-squid); border-radius: 6px; padding: 2rem 2.5rem; margin-bottom: 2.5rem; border-left: 4px solid var(--aws-orange); }
-    .hero h1 { color: #fff; margin-bottom: .4rem; }
-    .hero .subtitle { color: #8fa3b4; margin-bottom: 1.25rem; }
-    .hero-meta { display: flex; gap: 1.5rem; flex-wrap: wrap; }
-    .hero-badge { font-family: 'IBM Plex Mono', monospace; font-size: .75rem; background: #1b2a3b; color: var(--aws-orange); padding: .25rem .7rem; border-radius: 3px; border: 1px solid #2d4255; }
+    .nav-section {
+      padding: .5rem 1.25rem .25rem;
+      font-size: .67rem;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-top: 1rem;
+    }
 
-    .code-block { background: var(--code-bg); border-radius: 5px; overflow: hidden; margin: .75rem 0 1.25rem; border: 1px solid #2d3f52; }
-    .code-header { display: flex; align-items: center; justify-content: space-between; padding: .45rem 1rem; background: #16202c; border-bottom: 1px solid #2d3f52; }
-    .code-label { font-family: 'IBM Plex Mono', monospace; font-size: .7rem; color: var(--text-muted); letter-spacing: .05em; text-transform: uppercase; }
-    .copy-btn { font-family: 'IBM Plex Mono', monospace; font-size: .68rem; color: var(--text-muted); background: none; border: 1px solid #2d3f52; padding: .15rem .5rem; border-radius: 3px; cursor: pointer; transition: all .15s; }
-    .copy-btn:hover { color: var(--aws-orange); border-color: var(--aws-orange); }
-    .copy-btn.copied { color: var(--aws-green); border-color: var(--aws-green); }
-    pre { padding: 1rem 1.25rem; overflow-x: auto; font-family: 'IBM Plex Mono', monospace; font-size: .82rem; line-height: 1.75; color: var(--code-text); }
-    pre::-webkit-scrollbar { height: 5px; }
-    pre::-webkit-scrollbar-thumb { background: #2d3f52; border-radius: 2px; }
-    .c-comment { color: var(--code-comment); font-style: italic; }
-    .c-cmd     { color: var(--aws-orange); font-weight: 500; }
-    .c-flag    { color: #79c0ff; }
-    .c-val     { color: var(--code-str); }
-    .c-path    { color: #d2a8ff; }
-    code { font-family: 'IBM Plex Mono', monospace; font-size: .82em; background: var(--surface-3); color: var(--aws-squid); padding: .1em .35em; border-radius: 3px; border: 1px solid var(--border-light); }
+    .nav-section:first-child {
+      margin-top: 0;
+    }
 
-    .table-wrap { overflow-x: auto; margin: .75rem 0 1.25rem; }
-    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
-    thead tr { background: var(--aws-squid); color: #fff; }
-    thead th { padding: .6rem 1rem; text-align: left; font-weight: 500; font-size: .78rem; letter-spacing: .04em; white-space: nowrap; }
-    tbody tr { border-bottom: 1px solid var(--border-light); }
-    tbody tr:hover { background: var(--surface-2); }
-    tbody td { padding: .55rem 1rem; vertical-align: top; }
-    tbody td:first-child { font-family: 'IBM Plex Mono', monospace; font-size: .8rem; color: var(--aws-blue); white-space: nowrap; }
-    tbody td code { background: none; border: none; padding: 0; font-size: .85em; color: var(--text-secondary); }
+    .nav-link {
+      display: block;
+      padding: .4rem 1.25rem .4rem 1.5rem;
+      font-size: .83rem;
+      color: var(--text-secondary);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: all .15s;
+    }
 
-    .callout { display: flex; gap: .75rem; padding: .9rem 1.1rem; border-radius: 5px; margin: 1rem 0; font-size: .88rem; }
-    .callout-icon { font-size: 1rem; flex-shrink: 0; margin-top: .05rem; }
-    .callout.info    { background: #e8f4fd; border-left: 3px solid var(--aws-blue); color: #1a4971; }
-    .callout.warn    { background: #fff8e6; border-left: 3px solid var(--aws-orange); color: #6b4c00; }
-    .callout.success { background: #eaf7ee; border-left: 3px solid var(--aws-green); color: #1a4d30; }
-    .callout.danger  { background: #fdecea; border-left: 3px solid var(--aws-red); color: #6b1a18; }
+    .nav-link:hover {
+      color: var(--aws-blue);
+      background: var(--surface-3);
+    }
 
-    .steps { list-style: none; counter-reset: step; }
-    .steps li { counter-increment: step; position: relative; padding: .6rem 0 .6rem 2.75rem; font-size: .9rem; color: var(--text-secondary); border-left: 1px dashed var(--border); margin-left: 1rem; }
-    .steps li::before { content: counter(step); position: absolute; left: -1rem; width: 2rem; height: 2rem; background: var(--aws-squid); color: var(--aws-orange); font-family: 'IBM Plex Mono', monospace; font-size: .75rem; font-weight: 600; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-    .steps li:last-child { border-left-color: transparent; }
+    .nav-link.active {
+      color: var(--aws-orange);
+      border-left-color: var(--aws-orange);
+      background: #fff8ee;
+      font-weight: 500;
+    }
 
-    .badge { display: inline-block; font-size: .68rem; font-weight: 600; padding: .15rem .5rem; border-radius: 3px; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; margin-left: .3rem; }
-    .badge-new { background: var(--aws-orange); color: #fff; }
+    .nav-sub {
+      padding-left: 2.25rem;
+      font-size: .8rem;
+      color: var(--text-muted);
+    }
 
-    .artifact-flow { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1.25rem 1.5rem; margin: .75rem 0 1.25rem; font-size: .85rem; }
-    .artifact-flow .flow-title { font-size: .7rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .75rem; }
-    .flow-row { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; flex-wrap: wrap; }
-    .flow-row:last-child { margin-bottom: 0; }
-    .flow-label { font-family: 'IBM Plex Mono', monospace; font-size: .78rem; color: var(--text-muted); min-width: 80px; }
-    .flow-artifact { font-family: 'IBM Plex Mono', monospace; font-size: .78rem; background: var(--code-bg); color: var(--aws-orange); padding: .2rem .6rem; border-radius: 3px; border: 1px solid #2d3f52; }
-    .flow-arrow { color: var(--text-muted); font-size: .85rem; }
+    .nav-sub:hover {
+      color: var(--aws-blue-l);
+    }
 
-    .cmd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .6rem; margin: .75rem 0 1.25rem; }
-    .cmd-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 5px; padding: .8rem 1rem; font-size: .83rem; }
-    .cmd-card .cmd-name { font-family: 'IBM Plex Mono', monospace; font-weight: 500; color: var(--aws-orange); margin-bottom: .25rem; font-size: .85rem; }
-    .cmd-card .cmd-desc { color: var(--text-muted); font-size: .78rem; }
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      padding: 2.5rem 3rem 5rem;
+      max-width: 900px;
+    }
 
-    hr { border: none; border-top: 1px solid var(--border-light); margin: 2.5rem 0; }
-    [id] { scroll-margin-top: calc(var(--header-h) + 1rem); }
+    .section {
+      margin-bottom: 3.5rem;
+    }
+
+    h1 {
+      font-size: 1.9rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      line-height: 1.2;
+      margin-bottom: .5rem;
+    }
+
+    h1 .accent {
+      color: var(--aws-orange);
+    }
+
+    .subtitle {
+      font-size: 1rem;
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+      font-weight: 300;
+    }
+
+    h2 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 2rem 0 .75rem;
+      padding-bottom: .4rem;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--aws-squid);
+      margin: 1.5rem 0 .5rem;
+    }
+
+    p {
+      margin-bottom: .85rem;
+      color: var(--text-secondary);
+      font-size: .92rem;
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    a {
+      color: var(--aws-blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .hero {
+      background: var(--aws-squid);
+      border-radius: 6px;
+      padding: 2rem 2.5rem;
+      margin-bottom: 2.5rem;
+      border-left: 4px solid var(--aws-orange);
+    }
+
+    .hero h1 {
+      color: #fff;
+      margin-bottom: .4rem;
+    }
+
+    .hero .subtitle {
+      color: #8fa3b4;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-meta {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .hero-badge {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .75rem;
+      background: #1b2a3b;
+      color: var(--aws-orange);
+      padding: .25rem .7rem;
+      border-radius: 3px;
+      border: 1px solid #2d4255;
+    }
+
+    .code-block {
+      background: var(--code-bg);
+      border-radius: 5px;
+      overflow: hidden;
+      margin: .75rem 0 1.25rem;
+      border: 1px solid #2d3f52;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .45rem 1rem;
+      background: #16202c;
+      border-bottom: 1px solid #2d3f52;
+    }
+
+    .code-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .7rem;
+      color: var(--text-muted);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .copy-btn {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .68rem;
+      color: var(--text-muted);
+      background: none;
+      border: 1px solid #2d3f52;
+      padding: .15rem .5rem;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .copy-btn:hover {
+      color: var(--aws-orange);
+      border-color: var(--aws-orange);
+    }
+
+    .copy-btn.copied {
+      color: var(--aws-green);
+      border-color: var(--aws-green);
+    }
+
+    pre {
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .82rem;
+      line-height: 1.75;
+      color: var(--code-text);
+    }
+
+    pre::-webkit-scrollbar {
+      height: 5px;
+    }
+
+    pre::-webkit-scrollbar-thumb {
+      background: #2d3f52;
+      border-radius: 2px;
+    }
+
+    .c-comment {
+      color: var(--code-comment);
+      font-style: italic;
+    }
+
+    .c-cmd {
+      color: var(--aws-orange);
+      font-weight: 500;
+    }
+
+    .c-flag {
+      color: #79c0ff;
+    }
+
+    .c-val {
+      color: var(--code-str);
+    }
+
+    .c-path {
+      color: #d2a8ff;
+    }
+
+    code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .82em;
+      background: var(--surface-3);
+      color: var(--aws-squid);
+      padding: .1em .35em;
+      border-radius: 3px;
+      border: 1px solid var(--border-light);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      margin: .75rem 0 1.25rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+    }
+
+    thead tr {
+      background: var(--aws-squid);
+      color: #fff;
+    }
+
+    thead th {
+      padding: .6rem 1rem;
+      text-align: left;
+      font-weight: 500;
+      font-size: .78rem;
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    tbody tr:hover {
+      background: var(--surface-2);
+    }
+
+    tbody td {
+      padding: .55rem 1rem;
+      vertical-align: top;
+    }
+
+    tbody td:first-child {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .8rem;
+      color: var(--aws-blue);
+      white-space: nowrap;
+    }
+
+    tbody td code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: .85em;
+      color: var(--text-secondary);
+    }
+
+    .callout {
+      display: flex;
+      gap: .75rem;
+      padding: .9rem 1.1rem;
+      border-radius: 5px;
+      margin: 1rem 0;
+      font-size: .88rem;
+    }
+
+    .callout-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+      margin-top: .05rem;
+    }
+
+    .callout.info {
+      background: #e8f4fd;
+      border-left: 3px solid var(--aws-blue);
+      color: #1a4971;
+    }
+
+    .callout.warn {
+      background: #fff8e6;
+      border-left: 3px solid var(--aws-orange);
+      color: #6b4c00;
+    }
+
+    .callout.success {
+      background: #eaf7ee;
+      border-left: 3px solid var(--aws-green);
+      color: #1a4d30;
+    }
+
+    .callout.danger {
+      background: #fdecea;
+      border-left: 3px solid var(--aws-red);
+      color: #6b1a18;
+    }
+
+    .steps {
+      list-style: none;
+      counter-reset: step;
+    }
+
+    .steps li {
+      counter-increment: step;
+      position: relative;
+      padding: .6rem 0 .6rem 2.75rem;
+      font-size: .9rem;
+      color: var(--text-secondary);
+      border-left: 1px dashed var(--border);
+      margin-left: 1rem;
+    }
+
+    .steps li::before {
+      content: counter(step);
+      position: absolute;
+      left: -1rem;
+      width: 2rem;
+      height: 2rem;
+      background: var(--aws-squid);
+      color: var(--aws-orange);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .75rem;
+      font-weight: 600;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .steps li:last-child {
+      border-left-color: transparent;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: .68rem;
+      font-weight: 600;
+      padding: .15rem .5rem;
+      border-radius: 3px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      vertical-align: middle;
+      margin-left: .3rem;
+    }
+
+    .badge-new {
+      background: var(--aws-orange);
+      color: #fff;
+    }
+
+    .artifact-flow {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1.25rem 1.5rem;
+      margin: .75rem 0 1.25rem;
+      font-size: .85rem;
+    }
+
+    .artifact-flow .flow-title {
+      font-size: .7rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: .75rem;
+    }
+
+    .flow-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      margin-bottom: .4rem;
+      flex-wrap: wrap;
+    }
+
+    .flow-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .flow-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .78rem;
+      color: var(--text-muted);
+      min-width: 80px;
+    }
+
+    .flow-artifact {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: .78rem;
+      background: var(--code-bg);
+      color: var(--aws-orange);
+      padding: .2rem .6rem;
+      border-radius: 3px;
+      border: 1px solid #2d3f52;
+    }
+
+    .flow-arrow {
+      color: var(--text-muted);
+      font-size: .85rem;
+    }
+
+    .cmd-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: .6rem;
+      margin: .75rem 0 1.25rem;
+    }
+
+    .cmd-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: .8rem 1rem;
+      font-size: .83rem;
+    }
+
+    .cmd-card .cmd-name {
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 500;
+      color: var(--aws-orange);
+      margin-bottom: .25rem;
+      font-size: .85rem;
+    }
+
+    .cmd-card .cmd-desc {
+      color: var(--text-muted);
+      font-size: .78rem;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border-light);
+      margin: 2.5rem 0;
+    }
+
+    [id] {
+      scroll-margin-top: calc(var(--header-h) + 1rem);
+    }
 
     @media (max-width: 768px) {
-      .sidebar { display: none; }
-      .main { margin-left: 0; padding: 1.5rem 1.25rem 4rem; }
+      .sidebar {
+        display: none;
+      }
+
+      .main {
+        margin-left: 0;
+        padding: 1.5rem 1.25rem 4rem;
+      }
     }
   </style>
 </head>
+
 <body>
 
-<header class="top-header">
-  <span class="logo">datapill</span>
-  <span class="sep"></span>
-  <span class="title">CLI Reference</span>
-  <span class="version">v0.1.2</span>
-</header>
+  <header class="top-header">
+    <span class="logo">datapill</span>
+    <span class="sep"></span>
+    <span class="title">CLI Reference</span>
+    <span class="version">v0.1.2</span>
+  </header>
 
-<div class="layout">
+  <div class="layout">
 
-  <nav class="sidebar">
-    <span class="nav-section">Getting Started</span>
-    <a class="nav-link active" href="#overview">Overview</a>
-    <a class="nav-link" href="#installation">Installation</a>
-    <a class="nav-link" href="#quickstart">Quick Start</a>
-    <a class="nav-link" href="#artifact-system">Artifact System</a>
+    <nav class="sidebar">
+      <span class="nav-section">Getting Started</span>
+      <a class="nav-link active" href="#overview">Overview</a>
+      <a class="nav-link" href="#installation">Installation</a>
+      <a class="nav-link" href="#quickstart">Quick Start</a>
+      <a class="nav-link" href="#artifact-system">Artifact System</a>
 
-    <span class="nav-section">Environment Setup</span>
-    <a class="nav-link" href="#docker">Docker Services</a>
-    <a class="nav-link" href="#seed">Seeding Test Data</a>
+      <span class="nav-section">Environment Setup</span>
+      <a class="nav-link" href="#docker">Docker Services</a>
+      <a class="nav-link" href="#seed">Seeding Test Data</a>
 
-    <span class="nav-section">Commands</span>
-    <a class="nav-link" href="#connector">dp connector</a>
-    <a class="nav-link nav-sub" href="#connector-test">test</a>
-    <a class="nav-link nav-sub" href="#connector-schema">schema</a>
-    <a class="nav-link nav-sub" href="#connector-upload">upload</a>
-    <a class="nav-link nav-sub" href="#connector-download">download</a>
-    <a class="nav-link nav-sub" href="#connector-list">list</a>
-    <a class="nav-link nav-sub" href="#connector-exec">exec</a>
-    <a class="nav-link nav-sub" href="#connector-truncate">truncate</a>
-    <a class="nav-link nav-sub" href="#connector-produce">produce</a>
-    <a class="nav-link" href="#ingest">dp ingest</a>
-    <a class="nav-link" href="#profile">dp profile</a>
-    <a class="nav-link" href="#preprocess">dp preprocess</a>
-    <a class="nav-link" href="#export">dp export</a>
-    <a class="nav-link" href="#list">dp list</a>
-    <a class="nav-link" href="#classify">dp classify <span class="badge badge-new">new</span></a>
-    <a class="nav-link" href="#run">dp run</a>
+      <span class="nav-section">Commands</span>
+      <a class="nav-link" href="#connector">dp connector</a>
+      <a class="nav-link nav-sub" href="#connector-test">test</a>
+      <a class="nav-link nav-sub" href="#connector-schema">schema</a>
+      <a class="nav-link nav-sub" href="#connector-upload">upload</a>
+      <a class="nav-link nav-sub" href="#connector-download">download</a>
+      <a class="nav-link nav-sub" href="#connector-list">list</a>
+      <a class="nav-link nav-sub" href="#connector-exec">exec</a>
+      <a class="nav-link nav-sub" href="#connector-truncate">truncate</a>
+      <a class="nav-link nav-sub" href="#connector-produce">produce</a>
+      <a class="nav-link" href="#ingest">dp ingest</a>
+      <a class="nav-link" href="#profile">dp profile</a>
+      <a class="nav-link" href="#preprocess">dp preprocess</a>
+      <a class="nav-link" href="#export">dp export</a>
+      <a class="nav-link" href="#list">dp list</a>
+      <a class="nav-link" href="#classify">dp classify</a>
+      <a class="nav-link" href="#run">dp run</a>
+      <a class="nav-link" href="#pipeline-export">dp pipeline export<span class="badge badge-new">new</span></a> 
 
-    <span class="nav-section">Walkthroughs</span>
-    <a class="nav-link" href="#flow-pg">PostgreSQL end-to-end</a>
-    <a class="nav-link" href="#flow-mysql">MySQL end-to-end</a>
-    <a class="nav-link" href="#flow-s3">S3 / MinIO</a>
-    <a class="nav-link" href="#flow-kafka">Kafka</a>
-    <a class="nav-link" href="#flow-rest">REST API</a>
-    <a class="nav-link" href="#flow-classify">Classify after ingest</a>
+      <span class="nav-section">Walkthroughs</span>
+      <a class="nav-link" href="#flow-pg">PostgreSQL end-to-end</a>
+      <a class="nav-link" href="#flow-mysql">MySQL end-to-end</a>
+      <a class="nav-link" href="#flow-s3">S3 / MinIO</a>
+      <a class="nav-link" href="#flow-kafka">Kafka</a>
+      <a class="nav-link" href="#flow-rest">REST API</a>
+      <a class="nav-link" href="#flow-classify">Classify after ingest</a>
 
-    <span class="nav-section">Reference</span>
-    <a class="nav-link" href="#configs">Config Files</a>
-    <a class="nav-link" href="#write-modes">Write Modes</a>
-    <a class="nav-link nav-sub" href="#write-modes">Setup target table</a>
-    <a class="nav-link" href="#pipeline-steps">Pipeline Steps</a>
-    <a class="nav-link" href="#semantic-types">Semantic Types</a>
-  </nav>
+      <span class="nav-section">Reference</span>
+      <a class="nav-link" href="#configs">Config Files</a>
+      <a class="nav-link" href="#write-modes">Write Modes</a>
+      <a class="nav-link nav-sub" href="#write-modes">Setup target table</a>
+      <a class="nav-link" href="#pipeline-steps">Pipeline Steps</a>
+      <a class="nav-link" href="#semantic-types">Semantic Types</a>
+    </nav>
 
-  <main class="main">
+    <main class="main">
 
-    <!-- HERO -->
-    <div class="hero" id="overview">
-      <h1><span class="accent">datapill CLI</span> - dp</h1>
-      <p class="subtitle">A command-line tool for ingesting, profiling, preprocessing, and exporting data across PostgreSQL, MySQL, S3, Kafka, REST APIs, and local files.</p>
-      <div class="hero-meta">
-        <span class="hero-badge">Python ≥ 3.11</span>
-        <span class="hero-badge">Polars · PyArrow</span>
-        <span class="hero-badge">asyncio-native</span>
-        <span class="hero-badge">entry: dp</span>
+      <!-- HERO -->
+      <div class="hero" id="overview">
+        <h1><span class="accent">datapill CLI</span> - dp</h1>
+        <p class="subtitle">A command-line tool for ingesting, profiling, preprocessing, and exporting data across
+          PostgreSQL, MySQL, S3, Kafka, REST APIs, and local files.</p>
+        <div class="hero-meta">
+          <span class="hero-badge">Python ≥ 3.11</span>
+          <span class="hero-badge">Polars · PyArrow</span>
+          <span class="hero-badge">asyncio-native</span>
+          <span class="hero-badge">entry: dp</span>
+        </div>
       </div>
-    </div>
 
-    <!-- INSTALLATION -->
-    <section class="section" id="installation">
-      <h2>Installation</h2>
-      <p>Install via pip. The <code>dp</code> entry point is registered automatically. The core install (~200 MB) includes rule-based classification, profiling, preprocessing, and export - no ML model required.</p>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-comment"># Core install (~200 MB) - rule-based classify, profile, preprocess, export</span>
+      <!-- INSTALLATION -->
+      <section class="section" id="installation">
+        <h2>Installation</h2>
+        <p>Install via pip. The <code>dp</code> entry point is registered automatically. The core install (~200 MB)
+          includes rule-based classification, profiling, preprocessing, and export - no ML model required.</p>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-comment"># Core install (~200 MB) - rule-based classify, profile, preprocess, export</span>
 <span class="c-cmd">pip</span> install <span class="c-val">datapill</span>
 
 <span class="c-comment"># With ML extras (~3.5 GB) - enables embedding and full hybrid classify</span>
@@ -243,27 +714,30 @@
 
 <span class="c-comment"># Verify</span>
 <span class="c-cmd">dp</span> <span class="c-flag">--help</span></pre>
-      </div>
-      <div class="callout info">
-        <span class="callout-icon">ℹ</span>
-        <span>Without <code>[ml]</code>, <code>--mode hybrid</code> runs entirely on rule-based logic - columns that cannot be resolved by rules are returned as <code>unknown</code> instead of being sent to the embedding model. Install <code>datapill[ml]</code> for full hybrid accuracy.</span>
-      </div>
-    </section>
+        </div>
+        <div class="callout info">
+          <span class="callout-icon">ℹ</span>
+          <span>Without <code>[ml]</code>, <code>--mode hybrid</code> runs entirely on rule-based logic - columns that
+            cannot be resolved by rules are returned as <code>unknown</code> instead of being sent to the embedding
+            model. Install <code>datapill[ml]</code> for full hybrid accuracy.</span>
+        </div>
+      </section>
 
-    <!-- QUICKSTART -->
-    <section class="section" id="quickstart">
-      <h2>Quick Start</h2>
-      <p>The minimal path from a CSV file to a profiled, preprocessed, exported dataset.</p>
-      <ol class="steps">
-        <li>Ingest a local CSV file into the artifact store.</li>
-        <li>Classify columns to understand the semantic shape of the dataset.</li>
-        <li>Profile the ingested dataset to understand its structure.</li>
-        <li>Apply preprocessing transformations.</li>
-        <li>Export the result to Parquet or write back to a database.</li>
-      </ol>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> local_file <span class="c-flag">--path</span> <span class="c-path">data.csv</span>
+      <!-- QUICKSTART -->
+      <section class="section" id="quickstart">
+        <h2>Quick Start</h2>
+        <p>The minimal path from a CSV file to a profiled, preprocessed, exported dataset.</p>
+        <ol class="steps">
+          <li>Ingest a local CSV file into the artifact store.</li>
+          <li>Classify columns to understand the semantic shape of the dataset.</li>
+          <li>Profile the ingested dataset to understand its structure.</li>
+          <li>Apply preprocessing transformations.</li>
+          <li>Export the result to Parquet or write back to a database.</li>
+        </ol>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> local_file <span class="c-flag">--path</span> <span class="c-path">data.csv</span>
 <span class="c-comment"># -> Run ID:  abc123</span>
 <span class="c-comment"># -> Artifact: abc123_ingest_output</span>
 
@@ -276,103 +750,175 @@
 <span class="c-comment"># -> Output:  def456_preprocess_output</span>
 
 <span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">def456</span> <span class="c-flag">--format</span> parquet <span class="c-flag">--out-path</span> <span class="c-path">output/result.parquet</span></pre>
-      </div>
-    </section>
-
-    <!-- ARTIFACT SYSTEM -->
-    <section class="section" id="artifact-system">
-      <h2>Artifact System</h2>
-      <p>Every pipeline command saves its outputs as <strong>artifacts</strong> - files stored in the artifact store directory (default: <code>src/datapill/artifacts</code>). Understanding artifacts is essential for chaining commands together.</p>
-
-      <h3>Run ID vs Artifact ID</h3>
-      <p>Each pipeline run generates a short <strong>run ID</strong> (e.g. <code>f1662de6</code>). The run produces one or more artifacts, each named <code>&lt;run_id&gt;_&lt;suffix&gt;</code>.</p>
-
-      <div class="artifact-flow">
-        <div class="flow-title">Example - preprocess run</div>
-        <div class="flow-row">
-          <span class="flow-label">Run ID</span>
-          <span class="flow-artifact">f1662de6</span>
         </div>
-        <div class="flow-row">
-          <span class="flow-label">Output</span>
-          <span class="flow-artifact">f1662de6_preprocess_output</span>
-          <span class="flow-arrow">&larr; data</span>
+      </section>
+
+      <!-- ARTIFACT SYSTEM -->
+      <section class="section" id="artifact-system">
+        <h2>Artifact System</h2>
+        <p>Every pipeline command saves its outputs as <strong>artifacts</strong> - files stored in the artifact store
+          directory (default: <code>src/datapill/artifacts</code>). Understanding artifacts is essential for chaining
+          commands together.</p>
+
+        <h3>Run ID vs Artifact ID</h3>
+        <p>Each pipeline run generates a short <strong>run ID</strong> (e.g. <code>f1662de6</code>). The run produces
+          one or more artifacts, each named <code>&lt;run_id&gt;_&lt;suffix&gt;</code>.</p>
+
+        <div class="artifact-flow">
+          <div class="flow-title">Example - preprocess run</div>
+          <div class="flow-row">
+            <span class="flow-label">Run ID</span>
+            <span class="flow-artifact">f1662de6</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-label">Output</span>
+            <span class="flow-artifact">f1662de6_preprocess_output</span>
+            <span class="flow-arrow">&larr; data</span>
+          </div>
+          <div class="flow-row">
+            <span class="flow-label">Config</span>
+            <span class="flow-artifact">f1662de6_preprocess_config</span>
+            <span class="flow-arrow">&larr; step config snapshot</span>
+          </div>
         </div>
-        <div class="flow-row">
-          <span class="flow-label">Config</span>
-          <span class="flow-artifact">f1662de6_preprocess_config</span>
-          <span class="flow-arrow">&larr; step config snapshot</span>
+
+        <h3>Passing input to commands</h3>
+        <p>Any command that takes <code>--input</code> accepts either the <strong>run ID</strong> or a <strong>full
+            artifact ID</strong>. When you pass a run ID, the system picks the most relevant artifact automatically
+          based on the target command.</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>What you pass</th>
+                <th>How it resolves</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>run_id only <code>f1662de6</code></td>
+                <td>Selects the best artifact for the next command - e.g. <code>profile</code> and <code>classify</code>
+                  prefer <code>ingest_output</code>, <code>export</code> prefers <code>preprocess_output</code></td>
+              </tr>
+              <tr>
+                <td>full artifact ID <code>f1662de6_ingest_output</code></td>
+                <td>Uses that exact artifact, no resolution needed</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </div>
 
-      <h3>Passing input to commands</h3>
-      <p>Any command that takes <code>--input</code> accepts either the <strong>run ID</strong> or a <strong>full artifact ID</strong>. When you pass a run ID, the system picks the most relevant artifact automatically based on the target command.</p>
+        <div class="callout info">
+          <span class="callout-icon">ℹ</span>
+          <span>Use <code>dp list</code> to see all artifacts in the store along with their run IDs, features, and
+            creation timestamps.</span>
+        </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>What you pass</th><th>How it resolves</th></tr></thead>
-          <tbody>
-            <tr><td>run_id only <code>f1662de6</code></td><td>Selects the best artifact for the next command - e.g. <code>profile</code> and <code>classify</code> prefer <code>ingest_output</code>, <code>export</code> prefers <code>preprocess_output</code></td></tr>
-            <tr><td>full artifact ID <code>f1662de6_ingest_output</code></td><td>Uses that exact artifact, no resolution needed</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <h3>Artifact types by feature</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Artifacts produced</th>
+                <th>Format</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ingest</td>
+                <td><code>&lt;run_id&gt;_ingest_output</code>, <code>&lt;run_id&gt;_ingest_schema</code></td>
+                <td>Parquet, JSON</td>
+              </tr>
+              <tr>
+                <td>profile</td>
+                <td><code>&lt;profile_id&gt;_detail</code>, <code>&lt;profile_id&gt;_summary</code></td>
+                <td>JSON</td>
+              </tr>
+              <tr>
+                <td>preprocess</td>
+                <td><code>&lt;run_id&gt;_preprocess_output</code>, <code>&lt;run_id&gt;_preprocess_config</code></td>
+                <td>Parquet, JSON</td>
+              </tr>
+              <tr>
+                <td>classify</td>
+                <td><code>&lt;run_id&gt;_classify_output</code></td>
+                <td>JSON</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-      <div class="callout info">
-        <span class="callout-icon">ℹ</span>
-        <span>Use <code>dp list</code> to see all artifacts in the store along with their run IDs, features, and creation timestamps.</span>
-      </div>
+      <hr />
 
-      <h3>Artifact types by feature</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Feature</th><th>Artifacts produced</th><th>Format</th></tr></thead>
-          <tbody>
-            <tr><td>ingest</td><td><code>&lt;run_id&gt;_ingest_output</code>, <code>&lt;run_id&gt;_ingest_schema</code></td><td>Parquet, JSON</td></tr>
-            <tr><td>profile</td><td><code>&lt;profile_id&gt;_detail</code>, <code>&lt;profile_id&gt;_summary</code></td><td>JSON</td></tr>
-            <tr><td>preprocess</td><td><code>&lt;run_id&gt;_preprocess_output</code>, <code>&lt;run_id&gt;_preprocess_config</code></td><td>Parquet, JSON</td></tr>
-            <tr><td>classify</td><td><code>&lt;run_id&gt;_classify_output</code></td><td>JSON</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <hr />
-
-    <!-- DOCKER -->
-    <section class="section" id="docker">
-      <h2>Docker Services</h2>
-      <p>All external services (PostgreSQL, MySQL, MinIO, Kafka) are defined in <code>docker-compose.test.yml</code>.</p>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-comment"># Start all services</span>
+      <!-- DOCKER -->
+      <section class="section" id="docker">
+        <h2>Docker Services</h2>
+        <p>All external services (PostgreSQL, MySQL, MinIO, Kafka) are defined in <code>docker-compose.test.yml</code>.
+        </p>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-comment"># Start all services</span>
 <span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml up <span class="c-flag">-d</span>
 
 <span class="c-comment"># Check health status</span>
 <span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml ps</pre>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Service</th><th>Image</th><th>Port</th><th>Credentials</th></tr></thead>
-          <tbody>
-            <tr><td>postgres</td><td><code>postgres:16-alpine</code></td><td>5433</td><td>testuser / testpass / testdb</td></tr>
-            <tr><td>mysql</td><td><code>mysql:8-debian</code></td><td>3307</td><td>testuser / testpass / testdb</td></tr>
-            <tr><td>minio</td><td><code>minio/minio:latest</code></td><td>9000 / 9001</td><td>minioadmin / minioadmin</td></tr>
-            <tr><td>kafka</td><td><code>apache/kafka:3.7.0</code></td><td>9092</td><td>-</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Image</th>
+                <th>Port</th>
+                <th>Credentials</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>postgres</td>
+                <td><code>postgres:16-alpine</code></td>
+                <td>5433</td>
+                <td>testuser / testpass / testdb</td>
+              </tr>
+              <tr>
+                <td>mysql</td>
+                <td><code>mysql:8-debian</code></td>
+                <td>3307</td>
+                <td>testuser / testpass / testdb</td>
+              </tr>
+              <tr>
+                <td>minio</td>
+                <td><code>minio/minio:latest</code></td>
+                <td>9000 / 9001</td>
+                <td>minioadmin / minioadmin</td>
+              </tr>
+              <tr>
+                <td>kafka</td>
+                <td><code>apache/kafka:3.7.0</code></td>
+                <td>9092</td>
+                <td>-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    <!-- SEED -->
-    <section class="section" id="seed">
-      <h2>Seeding Test Data</h2>
-      <div class="callout info"><span class="callout-icon">ℹ</span><span>On Windows with Git Bash, use <code>docker compose exec -T</code> with <code>-c</code> or <code>-e</code> flags instead of heredoc. Avoid <code>/tmp</code> paths as Git Bash maps them to Windows temp directories.</span></div>
+      <!-- SEED -->
+      <section class="section" id="seed">
+        <h2>Seeding Test Data</h2>
+        <div class="callout info"><span class="callout-icon">ℹ</span><span>On Windows with Git Bash, use
+            <code>docker compose exec -T</code> with <code>-c</code> or <code>-e</code> flags instead of heredoc. Avoid
+            <code>/tmp</code> paths as Git Bash maps them to Windows temp directories.</span></div>
 
-      <h3>PostgreSQL</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> postgres \
+        <h3>PostgreSQL</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> postgres \
   psql <span class="c-flag">-U</span> testuser <span class="c-flag">-d</span> testdb \
   <span class="c-flag">-c</span> <span class="c-val">"
 CREATE TABLE IF NOT EXISTS orders (
@@ -393,12 +939,13 @@ SELECT
     (ARRAY['pending','shipped','delivered','cancelled'])[1 + (i % 4)]
 FROM generate_series(1, 50000) i;
 "</span></pre>
-      </div>
+        </div>
 
-      <h3>MySQL</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> mysql \
+        <h3>MySQL</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> mysql \
   mysql <span class="c-flag">-u</span> testuser <span class="c-flag">-ptestpass</span> testdb \
   <span class="c-flag">-e</span> <span class="c-val">"
 CREATE TABLE IF NOT EXISTS products (
@@ -421,12 +968,13 @@ FROM ( SELECT a.N+b.N*10+c.N*100+d.N*1000+1 AS seq
         UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9) d
   LIMIT 10000) t;
 "</span></pre>
-      </div>
+        </div>
 
-      <h3>MinIO - Upload a file</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-comment"># Uses Python (boto3) to avoid Windows path issues with mc CLI</span>
+        <h3>MinIO - Upload a file</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-comment"># Uses Python (boto3) to avoid Windows path issues with mc CLI</span>
 <span class="c-cmd">python</span> <span class="c-flag">-</span> &lt;&lt; <span class="c-val">'EOF'</span>
 import boto3
 s3 = boto3.client(<span class="c-val">"s3"</span>, aws_access_key_id=<span class="c-val">"minioadmin"</span>,
@@ -435,12 +983,13 @@ s3 = boto3.client(<span class="c-val">"s3"</span>, aws_access_key_id=<span class
 s3.upload_file(<span class="c-val">"tests/fixtures/data.csv"</span>, <span class="c-val">"testbucket"</span>, <span class="c-val">"input/data.csv"</span>)
 print(<span class="c-val">"Upload OK"</span>)
 <span class="c-val">EOF</span></pre>
-      </div>
+        </div>
 
-      <h3>Kafka - Produce test messages</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-comment"># Create topic first (use // prefix on Git Bash to prevent path conversion)</span>
+        <h3>Kafka - Produce test messages</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-comment"># Create topic first (use // prefix on Git Bash to prevent path conversion)</span>
 <span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> kafka \
   <span class="c-path">//opt/kafka/bin/kafka-topics.sh</span> \
   <span class="c-flag">--bootstrap-server</span> localhost:9092 \
@@ -465,82 +1014,128 @@ async def produce():
 
 asyncio.run(produce())
 <span class="c-val">EOF</span></pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- dp connector -->
-    <section class="section" id="connector">
-      <h2>dp connector</h2>
-      <p>Interact directly with a data source without going through a full pipeline. Useful for verifying connectivity, inspecting schema, and performing one-off operations like uploads, truncates, or Kafka message production before committing to a full ingest run.</p>
+      <!-- dp connector -->
+      <section class="section" id="connector">
+        <h2>dp connector</h2>
+        <p>Interact directly with a data source without going through a full pipeline. Useful for verifying
+          connectivity, inspecting schema, and performing one-off operations like uploads, truncates, or Kafka message
+          production before committing to a full ingest run.</p>
 
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Action</th><th>Supported Sources</th><th>Description</th></tr></thead>
-          <tbody>
-            <tr><td>test</td><td>all</td><td>Verify connectivity and measure latency</td></tr>
-            <tr><td>schema</td><td>all</td><td>Inspect column names, types, and row estimate</td></tr>
-            <tr><td>upload</td><td>s3, local_file</td><td>Upload a local file to S3 or copy to a local destination</td></tr>
-            <tr><td>download</td><td>s3</td><td>Download an S3 object to a local path</td></tr>
-            <tr><td>list</td><td>s3</td><td>List objects in a bucket with optional prefix filter</td></tr>
-            <tr><td>exec</td><td>postgresql, mysql</td><td>Execute a raw SQL statement (DELETE, UPDATE, etc.)</td></tr>
-            <tr><td>truncate</td><td>postgresql, mysql</td><td>Truncate a table</td></tr>
-            <tr><td>produce</td><td>kafka</td><td>Send rows from a JSON/CSV file to a Kafka topic</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Supported Sources</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>test</td>
+                <td>all</td>
+                <td>Verify connectivity and measure latency</td>
+              </tr>
+              <tr>
+                <td>schema</td>
+                <td>all</td>
+                <td>Inspect column names, types, and row estimate</td>
+              </tr>
+              <tr>
+                <td>upload</td>
+                <td>s3, local_file</td>
+                <td>Upload a local file to S3 or copy to a local destination</td>
+              </tr>
+              <tr>
+                <td>download</td>
+                <td>s3</td>
+                <td>Download an S3 object to a local path</td>
+              </tr>
+              <tr>
+                <td>list</td>
+                <td>s3</td>
+                <td>List objects in a bucket with optional prefix filter</td>
+              </tr>
+              <tr>
+                <td>exec</td>
+                <td>postgresql, mysql</td>
+                <td>Execute a raw SQL statement (DELETE, UPDATE, etc.)</td>
+              </tr>
+              <tr>
+                <td>truncate</td>
+                <td>postgresql, mysql</td>
+                <td>Truncate a table</td>
+              </tr>
+              <tr>
+                <td>produce</td>
+                <td>kafka</td>
+                <td>Send rows from a JSON/CSV file to a Kafka topic</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <h3 id="connector-test">test</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span>
+        <h3 id="connector-test">test</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span>
 <span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> mysql       <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span>
 <span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> s3          <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span>
 <span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> kafka       <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/kafka_config.json</span>
 <span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> rest        <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span></pre>
-      </div>
+        </div>
 
-      <h3 id="connector-schema">schema</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders
+        <h3 id="connector-schema">schema</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders
 <span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> mysql       <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> <span class="c-flag">--table</span> products
 <span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> s3          <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> <span class="c-flag">--url</span> <span class="c-val">s3://testbucket/input/data.csv</span>
 <span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> local_file  <span class="c-flag">--path</span> <span class="c-path">tests/fixtures/data.csv</span></pre>
-      </div>
+        </div>
 
-      <h3 id="connector-upload">upload</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector upload \
+        <h3 id="connector-upload">upload</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector upload \
   <span class="c-flag">--source</span>   s3 \
   <span class="c-flag">--config</span>   <span class="c-path">tests/fixtures/s3_config.json</span> \
   <span class="c-flag">--src-path</span> <span class="c-path">tests/fixtures/data.csv</span> \
   <span class="c-flag">--dest-url</span> <span class="c-val">s3://testbucket/upload/data.csv</span></pre>
-      </div>
+        </div>
 
-      <h3 id="connector-download">download</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector download \
+        <h3 id="connector-download">download</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector download \
   <span class="c-flag">--source</span>   s3 \
   <span class="c-flag">--config</span>   <span class="c-path">tests/fixtures/s3_config.json</span> \
   <span class="c-flag">--url</span>      <span class="c-val">s3://testbucket/input/data.csv</span> \
   <span class="c-flag">--out-path</span> <span class="c-path">output/downloaded.csv</span></pre>
-      </div>
+        </div>
 
-      <h3 id="connector-list">list</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector list <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span>
+        <h3 id="connector-list">list</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector list <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span>
 <span class="c-cmd">dp</span> connector list <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> <span class="c-flag">--prefix</span> <span class="c-val">input/</span></pre>
-      </div>
+        </div>
 
-      <h3 id="connector-exec">exec</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector exec \
+        <h3 id="connector-exec">exec</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector exec \
   <span class="c-flag">--source</span> postgresql \
   <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> \
   <span class="c-flag">--sql</span> <span class="c-val">"DELETE FROM orders WHERE status='cancelled'"</span>
@@ -549,19 +1144,21 @@ asyncio.run(produce())
   <span class="c-flag">--source</span> mysql \
   <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> \
   <span class="c-flag">--sql</span> <span class="c-val">"UPDATE products SET stock=0 WHERE price &gt; 900"</span></pre>
-      </div>
+        </div>
 
-      <h3 id="connector-truncate">truncate</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector truncate <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders_processed
+        <h3 id="connector-truncate">truncate</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector truncate <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders_processed
 <span class="c-cmd">dp</span> connector truncate <span class="c-flag">--source</span> mysql       <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> <span class="c-flag">--table</span> products_processed</pre>
-      </div>
+        </div>
 
-      <h3 id="connector-produce">produce</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector produce \
+        <h3 id="connector-produce">produce</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector produce \
   <span class="c-flag">--source</span>     kafka \
   <span class="c-flag">--config</span>     <span class="c-path">tests/fixtures/kafka_config.json</span> \
   <span class="c-flag">--topic</span>      test-topic \
@@ -573,231 +1170,438 @@ asyncio.run(produce())
   <span class="c-flag">--topic</span>      test-topic \
   <span class="c-flag">--file</span>       <span class="c-path">tests/fixtures/data.csv</span> \
   <span class="c-flag">--key-column</span> id</pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- dp ingest -->
-    <section class="section" id="ingest">
-      <h2>dp ingest</h2>
-      <p>Reads data from a connector in streaming batches and persists it as a Parquet artifact in the artifact store. Also saves a schema snapshot (column names, types, row count) as a companion JSON artifact. The resulting artifact ID is what you pass to <code>classify</code>, <code>profile</code>, <code>preprocess</code>, or <code>export</code>.</p>
+      <!-- dp ingest -->
+      <section class="section" id="ingest">
+        <h2>dp ingest</h2>
+        <p>Reads data from a connector in streaming batches and persists it as a Parquet artifact in the artifact store.
+          Also saves a schema snapshot (column names, types, row count) as a companion JSON artifact. The resulting
+          artifact ID is what you pass to <code>classify</code>, <code>profile</code>, <code>preprocess</code>, or
+          <code>export</code>.</p>
 
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
-          <tbody>
-            <tr><td>--source, -s</td><td><em>required</em></td><td>Connector type: <code>local_file | postgresql | mysql | s3 | rest | kafka</code></td></tr>
-            <tr><td>--config, -c</td><td>-</td><td>Path to connector JSON config file</td></tr>
-            <tr><td>--path</td><td>-</td><td>Local file path <code>(local_file)</code></td></tr>
-            <tr><td>--table</td><td>-</td><td>Table name <code>(postgresql | mysql)</code></td></tr>
-            <tr><td>--url</td><td>-</td><td>S3 URL, e.g. <code>s3://bucket/key.parquet</code></td></tr>
-            <tr><td>--topic</td><td>-</td><td>Kafka topic name</td></tr>
-            <tr><td>--endpoint</td><td>-</td><td>REST endpoint path</td></tr>
-            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
-            <tr><td>--limit, -n</td><td>-</td><td>Max rows to read</td></tr>
-            <tr><td>--batch-size</td><td>50 000</td><td>Rows per streaming batch</td></tr>
-            <tr><td>--max-records</td><td>-</td><td>Max messages consumed <code>(kafka)</code></td></tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>--source, -s</td>
+                <td><em>required</em></td>
+                <td>Connector type: <code>local_file | postgresql | mysql | s3 | rest | kafka</code></td>
+              </tr>
+              <tr>
+                <td>--config, -c</td>
+                <td>-</td>
+                <td>Path to connector JSON config file</td>
+              </tr>
+              <tr>
+                <td>--path</td>
+                <td>-</td>
+                <td>Local file path <code>(local_file)</code></td>
+              </tr>
+              <tr>
+                <td>--table</td>
+                <td>-</td>
+                <td>Table name <code>(postgresql | mysql)</code></td>
+              </tr>
+              <tr>
+                <td>--url</td>
+                <td>-</td>
+                <td>S3 URL, e.g. <code>s3://bucket/key.parquet</code></td>
+              </tr>
+              <tr>
+                <td>--topic</td>
+                <td>-</td>
+                <td>Kafka topic name</td>
+              </tr>
+              <tr>
+                <td>--endpoint</td>
+                <td>-</td>
+                <td>REST endpoint path</td>
+              </tr>
+              <tr>
+                <td>--out, -o</td>
+                <td><code>src/datapill/artifacts</code></td>
+                <td>Artifact store directory</td>
+              </tr>
+              <tr>
+                <td>--limit, -n</td>
+                <td>-</td>
+                <td>Max rows to read</td>
+              </tr>
+              <tr>
+                <td>--batch-size</td>
+                <td>50 000</td>
+                <td>Rows per streaming batch</td>
+              </tr>
+              <tr>
+                <td>--max-records</td>
+                <td>-</td>
+                <td>Max messages consumed <code>(kafka)</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> local_file <span class="c-flag">--path</span> <span class="c-path">tests/fixtures/data.csv</span>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> local_file <span class="c-flag">--path</span> <span class="c-path">tests/fixtures/data.csv</span>
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> mysql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> <span class="c-flag">--table</span> products
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> <span class="c-flag">--url</span> <span class="c-val">s3://testbucket/input/data.csv</span>
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span> <span class="c-flag">--endpoint</span> posts
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> kafka <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/kafka_config.json</span> <span class="c-flag">--topic</span> test-topic <span class="c-flag">--max-records</span> 100</pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- dp profile -->
-    <section class="section" id="profile">
-      <h2>dp profile</h2>
-      <p>Computes descriptive statistics for every column and saves two artifacts: a detailed JSON (histograms, percentiles, top values) and a lighter summary JSON (null rates, distinct counts, warnings). A column-summary table is printed to the terminal at the end of the run.</p>
+      <!-- dp profile -->
+      <section class="section" id="profile">
+        <h2>dp profile</h2>
+        <p>Computes descriptive statistics for every column and saves two artifacts: a detailed JSON (histograms,
+          percentiles, top values) and a lighter summary JSON (null rates, distinct counts, warnings). A column-summary
+          table is printed to the terminal at the end of the run.</p>
 
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
-          <tbody>
-            <tr><td>--input, -i</td><td><em>required</em></td><td>Run ID or full artifact ID</td></tr>
-            <tr><td>--mode, -m</td><td><code>full</code></td><td><code>full</code> | <code>summary</code></td></tr>
-            <tr><td>--sample-strategy</td><td><code>none</code></td><td><code>none</code> | <code>random</code> | <code>reservoir</code></td></tr>
-            <tr><td>--sample-size</td><td>100 000</td><td>Rows to sample when strategy ≠ none</td></tr>
-            <tr><td>--correlation</td><td><code>pearson</code></td><td><code>pearson</code> | <code>spearman</code> | <code>none</code></td></tr>
-            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>--input, -i</td>
+                <td><em>required</em></td>
+                <td>Run ID or full artifact ID</td>
+              </tr>
+              <tr>
+                <td>--mode, -m</td>
+                <td><code>full</code></td>
+                <td><code>full</code> | <code>summary</code></td>
+              </tr>
+              <tr>
+                <td>--sample-strategy</td>
+                <td><code>none</code></td>
+                <td><code>none</code> | <code>random</code> | <code>reservoir</code></td>
+              </tr>
+              <tr>
+                <td>--sample-size</td>
+                <td>100 000</td>
+                <td>Rows to sample when strategy ≠ none</td>
+              </tr>
+              <tr>
+                <td>--correlation</td>
+                <td><code>pearson</code></td>
+                <td><code>pearson</code> | <code>spearman</code> | <code>none</code></td>
+              </tr>
+              <tr>
+                <td>--out, -o</td>
+                <td><code>src/datapill/artifacts</code></td>
+                <td>Artifact store directory</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> profile <span class="c-flag">--input</span> <span class="c-val">72e0548a</span>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> profile <span class="c-flag">--input</span> <span class="c-val">72e0548a</span>
 <span class="c-cmd">dp</span> profile <span class="c-flag">--input</span> <span class="c-val">72e0548a</span> <span class="c-flag">--mode</span> full <span class="c-flag">--sample-strategy</span> random <span class="c-flag">--sample-size</span> 10000 <span class="c-flag">--correlation</span> pearson
 <span class="c-cmd">dp</span> profile <span class="c-flag">--input</span> <span class="c-path">output/result.parquet</span> <span class="c-flag">--mode</span> summary</pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- dp preprocess -->
-    <section class="section" id="preprocess">
-      <h2>dp preprocess</h2>
-      <p>Applies a sequence of transformation steps defined in a JSON pipeline file. Use <code>--dry-run</code> to validate on the first 1 000 rows before committing. Use <code>--checkpoint</code> to save intermediate Parquet files after each step.</p>
+      <!-- dp preprocess -->
+      <section class="section" id="preprocess">
+        <h2>dp preprocess</h2>
+        <p>Applies a sequence of transformation steps defined in a JSON pipeline file. Use <code>--dry-run</code> to
+          validate on the first 1 000 rows before committing. Use <code>--checkpoint</code> to save intermediate Parquet
+          files after each step.</p>
 
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
-          <tbody>
-            <tr><td>--input, -i</td><td><em>required</em></td><td>Run ID or full artifact ID</td></tr>
-            <tr><td>--pipeline, -p</td><td><em>required</em></td><td>Path to pipeline JSON config file</td></tr>
-            <tr><td>--dry-run</td><td>false</td><td>Run on first 1 000 rows only - no artifact saved</td></tr>
-            <tr><td>--checkpoint</td><td>false</td><td>Save a Parquet file after each step</td></tr>
-            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>--input, -i</td>
+                <td><em>required</em></td>
+                <td>Run ID or full artifact ID</td>
+              </tr>
+              <tr>
+                <td>--pipeline, -p</td>
+                <td><em>required</em></td>
+                <td>Path to pipeline JSON config file</td>
+              </tr>
+              <tr>
+                <td>--dry-run</td>
+                <td>false</td>
+                <td>Run on first 1 000 rows only - no artifact saved</td>
+              </tr>
+              <tr>
+                <td>--checkpoint</td>
+                <td>false</td>
+                <td>Save a Parquet file after each step</td>
+              </tr>
+              <tr>
+                <td>--out, -o</td>
+                <td><code>src/datapill/artifacts</code></td>
+                <td>Artifact store directory</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <h3>Pipeline JSON format</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json - tests/fixtures/preprocess_pipeline.json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre>{
+        <h3>Pipeline JSON format</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json - tests/fixtures/preprocess_pipeline.json</span><button
+              class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <pre>{
   <span class="c-key">"steps"</span>: [
     {<span class="c-key">"type"</span>: <span class="c-val">"impute_mean"</span>,    <span class="c-key">"scope"</span>: {<span class="c-key">"columns"</span>: [<span class="c-val">"price"</span>, <span class="c-val">"quantity"</span>]}},
     {<span class="c-key">"type"</span>: <span class="c-val">"clip_iqr"</span>,       <span class="c-key">"scope"</span>: {<span class="c-key">"columns"</span>: [<span class="c-val">"price"</span>]}},
     {<span class="c-key">"type"</span>: <span class="c-val">"standard_scaler"</span>, <span class="c-key">"scope"</span>: {<span class="c-key">"columns"</span>: [<span class="c-val">"price"</span>, <span class="c-val">"quantity"</span>]}}
   ]
 }</pre>
-      </div>
+        </div>
 
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> preprocess <span class="c-flag">--input</span> <span class="c-val">72e0548a</span> <span class="c-flag">--pipeline</span> <span class="c-path">tests/fixtures/preprocess_pipeline.json</span> <span class="c-flag">--dry-run</span>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> preprocess <span class="c-flag">--input</span> <span class="c-val">72e0548a</span> <span class="c-flag">--pipeline</span> <span class="c-path">tests/fixtures/preprocess_pipeline.json</span> <span class="c-flag">--dry-run</span>
 <span class="c-cmd">dp</span> preprocess <span class="c-flag">--input</span> <span class="c-val">72e0548a</span> <span class="c-flag">--pipeline</span> <span class="c-path">tests/fixtures/preprocess_pipeline.json</span> <span class="c-flag">--checkpoint</span></pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- dp export -->
-    <section class="section" id="export">
-      <h2>dp export</h2>
-      <p>Writes a dataset artifact to a local file or pushes it back to a database or S3. Supports three write modes - replace, append, and upsert.</p>
+      <!-- dp export -->
+      <section class="section" id="export">
+        <h2>dp export</h2>
+        <p>Writes a dataset artifact to a local file or pushes it back to a database or S3. Supports three write modes -
+          replace, append, and upsert.</p>
 
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
-          <tbody>
-            <tr><td>--input, -i</td><td><em>required</em></td><td>Run ID or full artifact ID</td></tr>
-            <tr><td>--format, -f</td><td><em>required</em></td><td><code>csv | parquet | json | jsonl | excel</code></td></tr>
-            <tr><td>--out-path</td><td>-</td><td>Destination file path</td></tr>
-            <tr><td>--connector, -c</td><td>-</td><td>Write-back connector config JSON</td></tr>
-            <tr><td>--write-mode</td><td><code>replace</code></td><td><code>replace | append | upsert</code></td></tr>
-            <tr><td>--primary-keys</td><td>-</td><td>Comma-separated key columns for upsert</td></tr>
-            <tr><td>--compression</td><td>-</td><td><code>snappy | zstd | gzip</code> (parquet only)</td></tr>
-            <tr><td>--dry-run</td><td>false</td><td>Print first 10 rows, skip write</td></tr>
-            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>--input, -i</td>
+                <td><em>required</em></td>
+                <td>Run ID or full artifact ID</td>
+              </tr>
+              <tr>
+                <td>--format, -f</td>
+                <td><em>required</em></td>
+                <td><code>csv | parquet | json | jsonl | excel</code></td>
+              </tr>
+              <tr>
+                <td>--out-path</td>
+                <td>-</td>
+                <td>Destination file path</td>
+              </tr>
+              <tr>
+                <td>--connector, -c</td>
+                <td>-</td>
+                <td>Write-back connector config JSON</td>
+              </tr>
+              <tr>
+                <td>--write-mode</td>
+                <td><code>replace</code></td>
+                <td><code>replace | append | upsert</code></td>
+              </tr>
+              <tr>
+                <td>--primary-keys</td>
+                <td>-</td>
+                <td>Comma-separated key columns for upsert</td>
+              </tr>
+              <tr>
+                <td>--compression</td>
+                <td>-</td>
+                <td><code>snappy | zstd | gzip</code> (parquet only)</td>
+              </tr>
+              <tr>
+                <td>--dry-run</td>
+                <td>false</td>
+                <td>Print first 10 rows, skip write</td>
+              </tr>
+              <tr>
+                <td>--out, -o</td>
+                <td><code>src/datapill/artifacts</code></td>
+                <td>Artifact store directory</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">f1662de6</span> <span class="c-flag">--format</span> parquet <span class="c-flag">--out-path</span> <span class="c-path">output/result.parquet</span>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">f1662de6</span> <span class="c-flag">--format</span> parquet <span class="c-flag">--out-path</span> <span class="c-path">output/result.parquet</span>
 <span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">f1662de6</span> <span class="c-flag">--format</span> csv <span class="c-flag">--out-path</span> <span class="c-path">output/result.csv</span>
 <span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">f1662de6</span> <span class="c-flag">--format</span> parquet \
   <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/pg_write_config.json</span> <span class="c-flag">--write-mode</span> upsert <span class="c-flag">--primary-keys</span> id</pre>
-      </div>
+        </div>
 
-      <div class="callout warn">
-        <span class="callout-icon">⚠</span>
-        <span><strong>append + primary key constraint:</strong> Using <code>--write-mode append</code> on a table with a primary key will fail if duplicate IDs exist. Use <code>upsert</code> with <code>--primary-keys</code> instead.</span>
-      </div>
-    </section>
+        <div class="callout warn">
+          <span class="callout-icon">⚠</span>
+          <span><strong>append + primary key constraint:</strong> Using <code>--write-mode append</code> on a table with
+            a primary key will fail if duplicate IDs exist. Use <code>upsert</code> with <code>--primary-keys</code>
+            instead.</span>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- dp list -->
-    <section class="section" id="list">
-      <h2>dp list</h2>
-      <p>Lists artifacts stored in the artifact store, sorted by creation time (newest first).</p>
+      <!-- dp list -->
+      <section class="section" id="list">
+        <h2>dp list</h2>
+        <p>Lists artifacts stored in the artifact store, sorted by creation time (newest first).</p>
 
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
-          <tbody>
-            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
-            <tr><td>--feature, -f</td><td>-</td><td>Filter: <code>ingest | profile | preprocess | classify</code></td></tr>
-            <tr><td>--limit, -n</td><td>20</td><td>Max number of artifacts to display</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>--out, -o</td>
+                <td><code>src/datapill/artifacts</code></td>
+                <td>Artifact store directory</td>
+              </tr>
+              <tr>
+                <td>--feature, -f</td>
+                <td>-</td>
+                <td>Filter: <code>ingest | profile | preprocess | classify</code></td>
+              </tr>
+              <tr>
+                <td>--limit, -n</td>
+                <td>20</td>
+                <td>Max number of artifacts to display</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> list
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> list
 <span class="c-cmd">dp</span> list <span class="c-flag">--feature</span> ingest
 <span class="c-cmd">dp</span> list <span class="c-flag">--feature</span> classify
 <span class="c-cmd">dp</span> list <span class="c-flag">--feature</span> preprocess <span class="c-flag">--limit</span> 50</pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- dp classify -->
-    <section class="section" id="classify">
-      <h2>dp classify <span class="badge badge-new">new</span></h2>
-      <p>
-        Inspects every column in an ingested or preprocessed dataset and assigns it a
-        <strong>semantic type</strong> - such as <code>identifier</code>,
-        <code>numerical_continuous</code>, or <code>categorical_nominal</code> - along with
-        a confidence score and the reasoning behind the decision.
-      </p>
-      <p>
-        Three classification modes are available. <code>rule_based</code> is instant and
-        requires no additional dependencies; it uses regex patterns against column names and
-        Polars dtype heuristics. <code>embedding</code> uses a local
-        <code>sentence-transformers</code> model (<code>all-MiniLM-L6-v2</code>) to compare
-        each column's semantic context against typed anchor phrases. <code>hybrid</code>
-        (default) runs rule-based first and only falls back to the embedding model for columns
-        that return <code>unknown</code> or a confidence below <strong>0.65</strong> -
-        keeping the run fast while still handling ambiguous columns accurately.
-      </p>
-      <p>
-        The <code>classify</code> output is a JSON artifact. It is not Parquet and cannot be
-        passed to <code>preprocess</code> or <code>export</code>. Use it as a reference when
-        deciding which columns belong in numeric pipeline steps.
-      </p>
+      <!-- dp classify -->
+      <section class="section" id="classify">
+        <h2>dp classify <span class="badge badge-new">new</span></h2>
+        <p>
+          Inspects every column in an ingested or preprocessed dataset and assigns it a
+          <strong>semantic type</strong> - such as <code>identifier</code>,
+          <code>numerical_continuous</code>, or <code>categorical_nominal</code> - along with
+          a confidence score and the reasoning behind the decision.
+        </p>
+        <p>
+          Three classification modes are available. <code>rule_based</code> is instant and
+          requires no additional dependencies; it uses regex patterns against column names and
+          Polars dtype heuristics. <code>embedding</code> uses a local
+          <code>sentence-transformers</code> model (<code>all-MiniLM-L6-v2</code>) to compare
+          each column's semantic context against typed anchor phrases. <code>hybrid</code>
+          (default) runs rule-based first and only falls back to the embedding model for columns
+          that return <code>unknown</code> or a confidence below <strong>0.65</strong> -
+          keeping the run fast while still handling ambiguous columns accurately.
+        </p>
+        <p>
+          The <code>classify</code> output is a JSON artifact. It is not Parquet and cannot be
+          passed to <code>preprocess</code> or <code>export</code>. Use it as a reference when
+          deciding which columns belong in numeric pipeline steps.
+        </p>
 
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead>
-          <tbody>
-            <tr><td>--input, -i</td><td><em>required</em></td><td>Run ID or full artifact ID from a previous ingest or preprocess</td></tr>
-            <tr>
-              <td>--mode, -m</td>
-              <td><code>hybrid</code></td>
-              <td>
-                <code>rule_based</code> - regex + dtype heuristics only (instant, no model)<br>
-                <code>embedding</code> - semantic similarity via sentence-transformers<br>
-                <code>hybrid</code> - rule_based first, embedding for ambiguous columns
-              </td>
-            </tr>
-            <tr><td>--threshold, -t</td><td><code>0.0</code></td><td>Minimum confidence to keep a classification. Columns below the threshold are recorded as <code>unknown</code>. Range: 0.0 – 1.0</td></tr>
-            <tr><td>--overrides</td><td>-</td><td>JSON string to manually pin columns to a semantic type, bypassing classification entirely. e.g. <code>'{"y": "target_label"}'</code></td></tr>
-            <tr><td>--out, -o</td><td><code>src/datapill/artifacts</code></td><td>Artifact store directory</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>--input, -i</td>
+                <td><em>required</em></td>
+                <td>Run ID or full artifact ID from a previous ingest or preprocess</td>
+              </tr>
+              <tr>
+                <td>--mode, -m</td>
+                <td><code>hybrid</code></td>
+                <td>
+                  <code>rule_based</code> - regex + dtype heuristics only (instant, no model)<br>
+                  <code>embedding</code> - semantic similarity via sentence-transformers<br>
+                  <code>hybrid</code> - rule_based first, embedding for ambiguous columns
+                </td>
+              </tr>
+              <tr>
+                <td>--threshold, -t</td>
+                <td><code>0.0</code></td>
+                <td>Minimum confidence to keep a classification. Columns below the threshold are recorded as
+                  <code>unknown</code>. Range: 0.0 – 1.0</td>
+              </tr>
+              <tr>
+                <td>--overrides</td>
+                <td>-</td>
+                <td>JSON string to manually pin columns to a semantic type, bypassing classification entirely. e.g.
+                  <code>'{"y": "target_label"}'</code></td>
+              </tr>
+              <tr>
+                <td>--out, -o</td>
+                <td><code>src/datapill/artifacts</code></td>
+                <td>Artifact store directory</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <h3>Usage</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-comment"># Default: hybrid mode, no threshold filter</span>
+        <h3>Usage</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-comment"># Default: hybrid mode, no threshold filter</span>
 <span class="c-cmd">dp</span> classify <span class="c-flag">--input</span> <span class="c-val">cf78c178</span>
 
 <span class="c-comment"># Instant rule-based only, drop low-confidence results</span>
@@ -812,12 +1616,12 @@ asyncio.run(produce())
 
 <span class="c-comment"># Use a full artifact ID instead of a run ID</span>
 <span class="c-cmd">dp</span> classify <span class="c-flag">--input</span> <span class="c-val">cf78c178_ingest_output</span> <span class="c-flag">--mode</span> hybrid</pre>
-      </div>
+        </div>
 
-      <p>After a successful run, a classification table is printed and the artifact ID is shown:</p>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">output</span></div>
-        <pre>[OK] Classify complete in 38.8s - 7 columns classified
+        <p>After a successful run, a classification table is printed and the artifact ID is shown:</p>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">output</span></div>
+          <pre>[OK] Classify complete in 38.8s - 7 columns classified
   Artifact: <span class="c-val">f9374114_classify_output</span>
   Columns:  <span class="c-val">7</span>
 
@@ -832,51 +1636,52 @@ asyncio.run(produce())
 │ status       │ categorical_nominal  │       0.70 │ embedding  │ no         │ embedding similarity 0.286 to categorical_…    │
 │ created_at   │ datetime             │       0.70 │ rule_based │ no         │ polars dtype is Datetime(…)                    │
 └──────────────┴──────────────────────┴────────────┴────────────┴────────────┴────────────────────────────────────────────────┘</pre>
-      </div>
+        </div>
 
-      <h3>Confidence colour coding</h3>
-      <p>
-        The Confidence column is colour-coded in the terminal:
-        <strong style="color:var(--aws-green)">green</strong> ≥ 0.70 ·
-        <strong style="color:#b7770d">yellow</strong> 0.55 – 0.69 ·
-        <strong style="color:var(--aws-red)">red</strong> &lt; 0.55.
-        Overridden columns always show confidence <code>1.00</code> and source <code>override</code>.
-      </p>
+        <h3>Confidence colour coding</h3>
+        <p>
+          The Confidence column is colour-coded in the terminal:
+          <strong style="color:var(--aws-green)">green</strong> ≥ 0.70 ·
+          <strong style="color:#b7770d">yellow</strong> 0.55 – 0.69 ·
+          <strong style="color:var(--aws-red)">red</strong> &lt; 0.55.
+          Overridden columns always show confidence <code>1.00</code> and source <code>override</code>.
+        </p>
 
-      <div class="callout warn">
-        <span class="callout-icon">⚠</span>
-        <span>
-          <strong>ML extras required:</strong> <code>embedding</code> and <code>hybrid</code> modes
-          <code>pip install "datapill[ml]"</code> required (~3.5 GB, includes PyTorch + sentence-transformers).
-          On first use, <code>all-MiniLM-L6-v2</code> (~90 MB) is downloaded from Hugging Face Hub.
-          Set <code>HF_TOKEN</code> to enable higher rate limits. Subsequent runs load from local cache.
-        </span>
-      </div>
+        <div class="callout warn">
+          <span class="callout-icon">⚠</span>
+          <span>
+            <strong>ML extras required:</strong> <code>embedding</code> and <code>hybrid</code> modes
+            <code>pip install "datapill[ml]"</code> required (~3.5 GB, includes PyTorch + sentence-transformers).
+            On first use, <code>all-MiniLM-L6-v2</code> (~90 MB) is downloaded from Hugging Face Hub.
+            Set <code>HF_TOKEN</code> to enable higher rate limits. Subsequent runs load from local cache.
+          </span>
+        </div>
 
-      <div class="callout info">
-        <span class="callout-icon">ℹ</span>
-        <span>
-          Use the classification result to decide which columns go into which preprocess steps.
-          Columns classified as <code>numerical_continuous</code> or <code>numerical_discrete</code>
-          are safe candidates for <code>impute_mean</code>, <code>clip_iqr</code>, and
-          <code>standard_scaler</code>. Columns classified as <code>identifier</code>,
-          <code>datetime</code>, or <code>text_freeform</code> should generally be excluded from
-          numeric steps.
-        </span>
-      </div>
-    </section>
+        <div class="callout info">
+          <span class="callout-icon">ℹ</span>
+          <span>
+            Use the classification result to decide which columns go into which preprocess steps.
+            Columns classified as <code>numerical_continuous</code> or <code>numerical_discrete</code>
+            are safe candidates for <code>impute_mean</code>, <code>clip_iqr</code>, and
+            <code>standard_scaler</code>. Columns classified as <code>identifier</code>,
+            <code>datetime</code>, or <code>text_freeform</code> should generally be excluded from
+            numeric steps.
+          </span>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- dp run -->
-    <section class="section" id="run">
-      <h2>dp run</h2>
-      <p>Runs an ingest followed immediately by a profile in a single command, driven by a JSON config file.</p>
+      <!-- dp run -->
+      <section class="section" id="run">
+        <h2>dp run</h2>
+        <p>Runs an ingest followed immediately by a profile in a single command, driven by a JSON config file.</p>
 
-      <h3>Config file format</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json - tests/fixtures/run_config_pg.json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre>{
+        <h3>Config file format</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json - tests/fixtures/run_config_pg.json</span><button
+              class="copy-btn" onclick="copyCode(this)">copy</button></div>
+          <pre>{
   <span class="c-key">"source"</span>: <span class="c-val">"postgresql"</span>,
   <span class="c-key">"connector"</span>: {
     <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 5433,
@@ -889,23 +1694,192 @@ asyncio.run(produce())
     <span class="c-key">"sample_size"</span>: 10000, <span class="c-key">"correlation"</span>: <span class="c-val">"pearson"</span>
   }
 }</pre>
-      </div>
+        </div>
 
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> run <span class="c-path">tests/fixtures/run_config_pg.json</span>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> run <span class="c-path">tests/fixtures/run_config_pg.json</span>
 <span class="c-cmd">dp</span> run <span class="c-path">tests/fixtures/run_config_pg.json</span> <span class="c-flag">--out</span> <span class="c-path">/tmp/dp_artifacts</span></pre>
-      </div>
-    </section>
+        </div>
+      </section>
+      <section class="section" id="pipeline-export">
+        <h2>dp pipeline export</h2>
+        <p>
+          Generates a standalone Python script (<code>run_&lt;name&gt;.py</code>) from a previous
+          <code>preprocess</code> run. The resulting script reproduces the same preprocessing pipeline
+          and writes the output to a file – without any dependency on the <code>datapill</code> package.
+          This is ideal for deployment, scheduling, or integrating into production workflows.
+        </p>
+        <p>
+          You provide the <code>--input</code> (a preprocess run ID or its config artifact) together
+          with an <code>--ingest-config</code> that describes where the original data comes from.
+          The command reads the saved preprocessing steps and merges them into a self-contained
+          script that uses <strong>Polars</strong> and <strong>Pandas</strong> only.
+        </p>
 
-    <hr />
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Default</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>--input, -i</td>
+                <td><em>required</em></td>
+                <td>Preprocess run ID or full artifact ID (<code>xxx_preprocess_config</code>)</td>
+              </tr>
+              <tr>
+                <td>--ingest-config, -c</td>
+                <td>-</td>
+                <td>Connector JSON config file (same as <code>dp ingest --config</code>)</td>
+              </tr>
+              <tr>
+                <td>--source, -s</td>
+                <td><code>local_file</code></td>
+                <td>Connector type: <code>local_file | postgresql | mysql | s3 | rest | kafka</code></td>
+              </tr>
+              <tr>
+                <td>--path</td>
+                <td>-</td>
+                <td>Local file path <code>(local_file)</code></td>
+              </tr>
+              <tr>
+                <td>--table</td>
+                <td>-</td>
+                <td>Table name <code>(postgresql | mysql)</code></td>
+              </tr>
+              <tr>
+                <td>--url</td>
+                <td>-</td>
+                <td>S3 URL, e.g. <code>s3://bucket/key.csv</code></td>
+              </tr>
+              <tr>
+                <td>--format, -f</td>
+                <td><code>parquet</code></td>
+                <td>Output format: <code>csv | parquet | json | jsonl | excel</code></td>
+              </tr>
+              <tr>
+                <td>--out-path</td>
+                <td><code>output/result.parquet</code></td>
+                <td>Output path hard‑coded into the generated script</td>
+              </tr>
+              <tr>
+                <td>--name, -n</td>
+                <td>-</td>
+                <td>Name for generated files, e.g. <code>orders_pipeline</code> → <code>run_orders_pipeline.py</code>
+                </td>
+              </tr>
+              <tr>
+                <td>--compression</td>
+                <td>-</td>
+                <td><code>snappy | zstd | gzip</code> (parquet only)</td>
+              </tr>
+              <tr>
+                <td>--with-tests</td>
+                <td><code>False</code></td>
+                <td>Also generate <code>test_pipeline.py</code> with unit tests for each step</td>
+              </tr>
+              <tr>
+                <td>--out-dir, -o</td>
+                <td><code>generated</code></td>
+                <td>Directory to write the generated files</td>
+              </tr>
+              <tr>
+                <td>--store</td>
+                <td><code>src/datapill/artifacts</code></td>
+                <td>Artifact store directory</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-    <!-- WALKTHROUGHS -->
-    <section class="section" id="flow-pg">
-      <h2>Walkthrough - PostgreSQL end-to-end</h2>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-comment"># 1. Verify connection</span>
+        <h3>Usage</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-comment"># Generate from a previous preprocess run (local file source)</span>
+<span class="c-cmd">dp</span> pipeline export \
+  <span class="c-flag">--input</span>       <span class="c-val">def456</span> \
+  <span class="c-flag">--source</span>      local_file \
+  <span class="c-flag">--path</span>        <span class="c-path">data.csv</span> \
+  <span class="c-flag">--format</span>      parquet \
+  <span class="c-flag">--out-path</span>    <span class="c-path">output/clean.parquet</span> \
+  <span class="c-flag">--name</span>        sales_pipeline
+
+<span class="c-comment"># With PostgreSQL as data source</span>
+<span class="c-cmd">dp</span> pipeline export \
+  <span class="c-flag">--input</span>         <span class="c-val">def456</span> \
+  <span class="c-flag">--source</span>        postgresql \
+  <span class="c-flag">--ingest-config</span> <span class="c-path">tests/fixtures/pg_config.json</span> \
+  <span class="c-flag">--table</span>         orders \
+  <span class="c-flag">--format</span>        csv \
+  <span class="c-flag">--out-path</span>      <span class="c-path">output/orders_clean.csv</span> \
+  <span class="c-flag">--with-tests</span>
+
+<span class="c-comment"># Use a full config artifact ID (from a preprocess run)</span>
+<span class="c-cmd">dp</span> pipeline export \
+  <span class="c-flag">--input</span>  <span class="c-val">def456_preprocess_config</span> \
+  <span class="c-flag">--source</span> s3 \
+  <span class="c-flag">--url</span>    s3://mybucket/input/data.csv</pre>
+        </div>
+
+        <div class="callout success">
+          <span class="callout-icon">✓</span>
+          <span>
+            <strong>Generated script behaviour:</strong> The script reads data using the exact
+            source you provided, applies every preprocessing step exactly as defined in the
+            pipeline, and saves the result. It is completely independent of <code>datapill</code>
+            – only requires <code>polars</code> and optionally <code>pandas</code> (for Excel).
+            If <code>--with-tests</code> is given, a <code>test_pipeline.py</code> is created
+            with <code>pytest</code> tests that validate each step on a small sample.
+          </span>
+        </div>
+
+        <div class="callout warn">
+          <span class="callout-icon">⚠</span>
+          <span>
+            When using <code>local_file</code> as the source, the generated script expects the
+            input file at the exact path you provided to <code>--path</code>. If you intend to
+            move the script to another machine, either hard‑code the new path in the script or
+            pass the path as a command‑line argument (the generated script accepts
+            <code>--input-path</code>).
+          </span>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-comment"># After generation, run the script locally</span>
+<span class="c-cmd">python</span> generated/run_sales_pipeline.py <span class="c-flag">--dry-run</span>       <span class="c-comment"># preview first 10 rows</span>
+<span class="c-cmd">python</span> generated/run_sales_pipeline.py                <span class="c-comment"># full run</span>
+
+<span class="c-comment"># With tests</span>
+<span class="c-cmd">python</span> <span class="c-flag">-m</span> pytest generated/test_sales_pipeline.py <span class="c-flag">-v</span></pre>
+        </div>
+
+        <div class="callout info">
+          <span class="callout-icon">ℹ</span>
+          <span>
+            The generated script also contains a <code>--input-path</code> / <code>--input-table</code>
+            / <code>--input-url</code> override, so you can reuse the same script for different
+            input sources without editing the code.
+          </span>
+        </div>
+      </section>
+      <hr />
+
+      <!-- WALKTHROUGHS -->
+      <section class="section" id="flow-pg">
+        <h2>Walkthrough - PostgreSQL end-to-end</h2>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-comment"># 1. Verify connection</span>
 <span class="c-cmd">dp</span> connector test   <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span>
 <span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders
 
@@ -930,14 +1904,15 @@ asyncio.run(produce())
 <span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">f1662de6</span> <span class="c-flag">--format</span> parquet \
   <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/pg_write_config.json</span> \
   <span class="c-flag">--write-mode</span> upsert <span class="c-flag">--primary-keys</span> id</pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <section class="section" id="flow-mysql">
-      <h2>Walkthrough - MySQL end-to-end</h2>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector test   <span class="c-flag">--source</span> mysql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span>
+      <section class="section" id="flow-mysql">
+        <h2>Walkthrough - MySQL end-to-end</h2>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector test   <span class="c-flag">--source</span> mysql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span>
 <span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> mysql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> <span class="c-flag">--table</span> products
 
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> mysql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/mysql_config.json</span> <span class="c-flag">--table</span> products
@@ -947,14 +1922,15 @@ asyncio.run(produce())
 
 <span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">d7859e9e</span> <span class="c-flag">--format</span> parquet \
   <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/mysql_write_config.json</span> <span class="c-flag">--write-mode</span> replace</pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <section class="section" id="flow-s3">
-      <h2>Walkthrough - S3 / MinIO</h2>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span>
+      <section class="section" id="flow-s3">
+        <h2>Walkthrough - S3 / MinIO</h2>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector test <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span>
 <span class="c-cmd">dp</span> connector upload <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> \
   <span class="c-flag">--src-path</span> <span class="c-path">tests/fixtures/data.csv</span> <span class="c-flag">--dest-url</span> <span class="c-val">s3://testbucket/input/data.csv</span>
 <span class="c-cmd">dp</span> connector list <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> <span class="c-flag">--prefix</span> <span class="c-val">input/</span>
@@ -962,15 +1938,18 @@ asyncio.run(produce())
 <span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">&lt;run_id&gt;</span> <span class="c-flag">--format</span> parquet <span class="c-flag">--connector</span> <span class="c-path">tests/fixtures/s3_write_config.json</span>
 <span class="c-cmd">dp</span> connector download <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> \
   <span class="c-flag">--url</span> <span class="c-val">s3://testbucket/output/processed.parquet</span> <span class="c-flag">--out-path</span> <span class="c-path">output/processed.parquet</span></pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <section class="section" id="flow-kafka">
-      <h2>Walkthrough - Kafka</h2>
-      <div class="callout info"><span class="callout-icon">ℹ</span><span><code>GroupCoordinatorNotAvailableError</code> warnings are normal in single-node KRaft mode and do not affect ingestion results.</span></div>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> kafka \
+      <section class="section" id="flow-kafka">
+        <h2>Walkthrough - Kafka</h2>
+        <div class="callout info"><span
+            class="callout-icon">ℹ</span><span><code>GroupCoordinatorNotAvailableError</code> warnings are normal in
+            single-node KRaft mode and do not affect ingestion results.</span></div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> kafka \
   <span class="c-path">//opt/kafka/bin/kafka-topics.sh</span> \
   <span class="c-flag">--bootstrap-server</span> localhost:9092 \
   <span class="c-flag">--create</span> <span class="c-flag">--topic</span> test-topic <span class="c-flag">--partitions</span> 1 <span class="c-flag">--replication-factor</span> 1
@@ -984,31 +1963,35 @@ asyncio.run(produce())
   <span class="c-flag">--config</span>      <span class="c-path">tests/fixtures/kafka_config.json</span> \
   <span class="c-flag">--topic</span>       test-topic \
   <span class="c-flag">--max-records</span> 100</pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <section class="section" id="flow-rest">
-      <h2>Walkthrough - REST API</h2>
-      <div class="callout warn"><span class="callout-icon">⚠</span><span>On Git Bash, never use a leading <code>/</code> in <code>--endpoint</code>. Write <code>posts</code> instead of <code>/posts</code>.</span></div>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">dp</span> connector test   <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span>
+      <section class="section" id="flow-rest">
+        <h2>Walkthrough - REST API</h2>
+        <div class="callout warn"><span class="callout-icon">⚠</span><span>On Git Bash, never use a leading
+            <code>/</code> in <code>--endpoint</code>. Write <code>posts</code> instead of <code>/posts</code>.</span>
+        </div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">dp</span> connector test   <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span>
 <span class="c-cmd">dp</span> connector schema <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span>
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span> <span class="c-flag">--endpoint</span> posts
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_pagination_config.json</span> <span class="c-flag">--endpoint</span> products</pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <section class="section" id="flow-classify">
-      <h2>Walkthrough - classify after ingest</h2>
-      <p>
-        Run <code>dp classify</code> right after ingest to understand the semantic shape of
-        your dataset before designing a preprocess pipeline. Use the results to decide which
-        columns to include in each step.
-      </p>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-comment"># 1. Ingest</span>
+      <section class="section" id="flow-classify">
+        <h2>Walkthrough - classify after ingest</h2>
+        <p>
+          Run <code>dp classify</code> right after ingest to understand the semantic shape of
+          your dataset before designing a preprocess pipeline. Use the results to decide which
+          columns to include in each step.
+        </p>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-comment"># 1. Ingest</span>
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> postgresql <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/pg_config.json</span> <span class="c-flag">--table</span> orders
 <span class="c-comment"># -> Run ID: cf78c178</span>
 
@@ -1042,60 +2025,67 @@ asyncio.run(produce())
 <span class="c-comment"># 4. Export</span>
 <span class="c-cmd">dp</span> export <span class="c-flag">--input</span> <span class="c-val">c4ccb55d</span> <span class="c-flag">--format</span> parquet \
   <span class="c-flag">--out-path</span> <span class="c-path">output/result.parquet</span></pre>
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- CONFIGS -->
-    <section class="section" id="configs">
-      <h2>Config File Reference</h2>
+      <!-- CONFIGS -->
+      <section class="section" id="configs">
+        <h2>Config File Reference</h2>
 
-      <h3>PostgreSQL - pg_config.json</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre>{ <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 5433, <span class="c-key">"database"</span>: <span class="c-val">"testdb"</span>, <span class="c-key">"user"</span>: <span class="c-val">"testuser"</span>, <span class="c-key">"password"</span>: <span class="c-val">"testpass"</span> }</pre>
-      </div>
+        <h3>PostgreSQL - pg_config.json</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre>{ <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 5433, <span class="c-key">"database"</span>: <span class="c-val">"testdb"</span>, <span class="c-key">"user"</span>: <span class="c-val">"testuser"</span>, <span class="c-key">"password"</span>: <span class="c-val">"testpass"</span> }</pre>
+        </div>
 
-      <h3>PostgreSQL write - pg_write_config.json</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre>{ <span class="c-key">"source"</span>: <span class="c-val">"postgresql"</span>, <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 5433,
+        <h3>PostgreSQL write - pg_write_config.json</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre>{ <span class="c-key">"source"</span>: <span class="c-val">"postgresql"</span>, <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 5433,
   <span class="c-key">"database"</span>: <span class="c-val">"testdb"</span>, <span class="c-key">"user"</span>: <span class="c-val">"testuser"</span>, <span class="c-key">"password"</span>: <span class="c-val">"testpass"</span>,
   <span class="c-key">"table"</span>: <span class="c-val">"orders_processed"</span> }</pre>
-      </div>
+        </div>
 
-      <h3>MySQL - mysql_config.json</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre>{ <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 3307, <span class="c-key">"database"</span>: <span class="c-val">"testdb"</span>, <span class="c-key">"user"</span>: <span class="c-val">"testuser"</span>, <span class="c-key">"password"</span>: <span class="c-val">"testpass"</span> }</pre>
-      </div>
+        <h3>MySQL - mysql_config.json</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre>{ <span class="c-key">"host"</span>: <span class="c-val">"localhost"</span>, <span class="c-key">"port"</span>: 3307, <span class="c-key">"database"</span>: <span class="c-val">"testdb"</span>, <span class="c-key">"user"</span>: <span class="c-val">"testuser"</span>, <span class="c-key">"password"</span>: <span class="c-val">"testpass"</span> }</pre>
+        </div>
 
-      <h3>S3 / MinIO - s3_config.json</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre>{ <span class="c-key">"endpoint_url"</span>: <span class="c-val">"http://localhost:9000"</span>, <span class="c-key">"aws_access_key_id"</span>: <span class="c-val">"minioadmin"</span>,
+        <h3>S3 / MinIO - s3_config.json</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre>{ <span class="c-key">"endpoint_url"</span>: <span class="c-val">"http://localhost:9000"</span>, <span class="c-key">"aws_access_key_id"</span>: <span class="c-val">"minioadmin"</span>,
   <span class="c-key">"aws_secret_access_key"</span>: <span class="c-val">"minioadmin"</span>, <span class="c-key">"region"</span>: <span class="c-val">"us-east-1"</span>, <span class="c-key">"bucket"</span>: <span class="c-val">"testbucket"</span> }</pre>
-      </div>
+        </div>
 
-      <h3>Kafka - kafka_config.json</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre>{ <span class="c-key">"bootstrap_servers"</span>: <span class="c-val">"localhost:9092"</span>, <span class="c-key">"value_format"</span>: <span class="c-val">"json"</span> }</pre>
-      </div>
-    </section>
+        <h3>Kafka - kafka_config.json</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre>{ <span class="c-key">"bootstrap_servers"</span>: <span class="c-val">"localhost:9092"</span>, <span class="c-key">"value_format"</span>: <span class="c-val">"json"</span> }</pre>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- WRITE MODES -->
-    <section class="section" id="write-modes">
-      <h2>Write Modes</h2>
-      <p>All three write modes require the <strong>target table to already exist</strong>. The export pipeline does not create tables automatically.</p>
+      <!-- WRITE MODES -->
+      <section class="section" id="write-modes">
+        <h2>Write Modes</h2>
+        <p>All three write modes require the <strong>target table to already exist</strong>. The export pipeline does
+          not create tables automatically.</p>
 
-      <h3>Setup - create the target table first</h3>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">bash - PostgreSQL</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
-        <pre><span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> postgres \
+        <h3>Setup - create the target table first</h3>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">bash - PostgreSQL</span><button class="copy-btn"
+              onclick="copyCode(this)">copy</button></div>
+          <pre><span class="c-cmd">docker</span> compose <span class="c-flag">-f</span> docker-compose.test.yml exec <span class="c-flag">-T</span> postgres \
   psql <span class="c-flag">-U</span> testuser <span class="c-flag">-d</span> testdb \
   <span class="c-flag">-c</span> <span class="c-val">"
 CREATE TABLE IF NOT EXISTS orders_processed (
@@ -1108,83 +2098,189 @@ CREATE TABLE IF NOT EXISTS orders_processed (
     created_at TIMESTAMP
 );
 "</span></pre>
-      </div>
+        </div>
 
-      <h3>Behaviour by mode</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Mode</th><th>Behaviour</th><th>Requires</th></tr></thead>
-          <tbody>
-            <tr><td>replace</td><td>TRUNCATE the target table, then INSERT all rows.</td><td>Table must exist.</td></tr>
-            <tr><td>append</td><td>INSERT all rows without touching existing data. Fails if any row violates a unique constraint.</td><td>Table must exist. No duplicate IDs in source.</td></tr>
-            <tr><td>upsert</td><td>INSERT … ON CONFLICT DO UPDATE. Idempotent and safe to re-run.</td><td>Primary key or unique constraint on <code>--primary-keys</code> columns.</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <h3>Behaviour by mode</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Behaviour</th>
+                <th>Requires</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>replace</td>
+                <td>TRUNCATE the target table, then INSERT all rows.</td>
+                <td>Table must exist.</td>
+              </tr>
+              <tr>
+                <td>append</td>
+                <td>INSERT all rows without touching existing data. Fails if any row violates a unique constraint.</td>
+                <td>Table must exist. No duplicate IDs in source.</td>
+              </tr>
+              <tr>
+                <td>upsert</td>
+                <td>INSERT … ON CONFLICT DO UPDATE. Idempotent and safe to re-run.</td>
+                <td>Primary key or unique constraint on <code>--primary-keys</code> columns.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <div class="callout success"><span class="callout-icon">✓</span><span>When in doubt, use <strong>upsert</strong> with a primary key. It is idempotent and safe to re-run.</span></div>
-    </section>
+        <div class="callout success"><span class="callout-icon">✓</span><span>When in doubt, use <strong>upsert</strong>
+            with a primary key. It is idempotent and safe to re-run.</span></div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- PIPELINE STEPS -->
-    <section class="section" id="pipeline-steps">
-      <h2>Pipeline Steps</h2>
-      <p>Steps are defined in a JSON pipeline file. Each step has a <code>type</code>, an optional <code>scope.columns</code> list, and an optional <code>params</code> object. If <code>columns</code> is omitted or empty, the step applies to all eligible columns. Numeric steps enforce that target columns are numeric - a <code>TypeError</code> is raised at runtime otherwise.</p>
+      <!-- PIPELINE STEPS -->
+      <section class="section" id="pipeline-steps">
+        <h2>Pipeline Steps</h2>
+        <p>Steps are defined in a JSON pipeline file. Each step has a <code>type</code>, an optional
+          <code>scope.columns</code> list, and an optional <code>params</code> object. If <code>columns</code> is
+          omitted or empty, the step applies to all eligible columns. Numeric steps enforce that target columns are
+          numeric - a <code>TypeError</code> is raised at runtime otherwise.</p>
 
-      <h3>Missing Values</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Step type</th><th>Description</th><th>Column types</th><th>params</th></tr></thead>
-          <tbody>
-            <tr><td>impute_mean</td><td>Replace nulls with the column mean.</td><td>Numeric</td><td>-</td></tr>
-            <tr><td>impute_median</td><td>Replace nulls with the column median.</td><td>Numeric</td><td>-</td></tr>
-            <tr><td>impute_mode</td><td>Replace nulls with the most frequent value.</td><td>Any</td><td>-</td></tr>
-            <tr><td>drop_missing</td><td>Drop rows where any of the specified columns are null.</td><td>Any</td><td>-</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <h3>Missing Values</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Step type</th>
+                <th>Description</th>
+                <th>Column types</th>
+                <th>params</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>impute_mean</td>
+                <td>Replace nulls with the column mean.</td>
+                <td>Numeric</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>impute_median</td>
+                <td>Replace nulls with the column median.</td>
+                <td>Numeric</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>impute_mode</td>
+                <td>Replace nulls with the most frequent value.</td>
+                <td>Any</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>drop_missing</td>
+                <td>Drop rows where any of the specified columns are null.</td>
+                <td>Any</td>
+                <td>-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <h3>Outliers</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Step type</th><th>Description</th><th>Column types</th><th>params</th></tr></thead>
-          <tbody>
-            <tr><td>clip_iqr</td><td>Clip values to [Q1 − 1.5×IQR, Q3 + 1.5×IQR].</td><td>Numeric</td><td>-</td></tr>
-            <tr><td>clip_zscore</td><td>Clip values beyond N standard deviations from the mean.</td><td>Numeric</td><td><code>threshold</code> (float, default <code>3.0</code>)</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json - clip_zscore with custom threshold</span></div>
-        <pre>{ <span class="c-key">"type"</span>: <span class="c-val">"clip_zscore"</span>, <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [<span class="c-val">"price"</span>] }, <span class="c-key">"params"</span>: { <span class="c-key">"threshold"</span>: 2.5 } }</pre>
-      </div>
+        <h3>Outliers</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Step type</th>
+                <th>Description</th>
+                <th>Column types</th>
+                <th>params</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>clip_iqr</td>
+                <td>Clip values to [Q1 − 1.5×IQR, Q3 + 1.5×IQR].</td>
+                <td>Numeric</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>clip_zscore</td>
+                <td>Clip values beyond N standard deviations from the mean.</td>
+                <td>Numeric</td>
+                <td><code>threshold</code> (float, default <code>3.0</code>)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json - clip_zscore with custom threshold</span></div>
+          <pre>{ <span class="c-key">"type"</span>: <span class="c-val">"clip_zscore"</span>, <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [<span class="c-val">"price"</span>] }, <span class="c-key">"params"</span>: { <span class="c-key">"threshold"</span>: 2.5 } }</pre>
+        </div>
 
-      <h3>Scaling</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Step type</th><th>Description</th><th>Column types</th><th>params</th></tr></thead>
-          <tbody>
-            <tr><td>standard_scaler</td><td>Standardise to zero mean and unit variance. Skips columns with std = 0.</td><td>Numeric</td><td>-</td></tr>
-            <tr><td>minmax_scaler</td><td>Scale to [0, 1]. Skips columns where max = min.</td><td>Numeric</td><td>-</td></tr>
-            <tr><td>robust_scaler</td><td>Scale using median and IQR - robust to outliers. Skips columns with IQR = 0.</td><td>Numeric</td><td>-</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <h3>Scaling</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Step type</th>
+                <th>Description</th>
+                <th>Column types</th>
+                <th>params</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>standard_scaler</td>
+                <td>Standardise to zero mean and unit variance. Skips columns with std = 0.</td>
+                <td>Numeric</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>minmax_scaler</td>
+                <td>Scale to [0, 1]. Skips columns where max = min.</td>
+                <td>Numeric</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>robust_scaler</td>
+                <td>Scale using median and IQR - robust to outliers. Skips columns with IQR = 0.</td>
+                <td>Numeric</td>
+                <td>-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <h3>Encoding</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Step type</th><th>Description</th><th>Column types</th><th>params</th></tr></thead>
-          <tbody>
-            <tr><td>onehot</td><td>One-hot encode each category as a new <code>Int8</code> column named <code>col__value</code>. Drops the original column.</td><td>String / Categorical</td><td>-</td></tr>
-            <tr><td>ordinal</td><td>Map categories to integers. Auto-sorts alphabetically if no order is given.</td><td>String / Categorical</td><td><code>order</code> (dict: column -> ordered list of values)</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json - ordinal with explicit order</span></div>
-        <pre>{
+        <h3>Encoding</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Step type</th>
+                <th>Description</th>
+                <th>Column types</th>
+                <th>params</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>onehot</td>
+                <td>One-hot encode each category as a new <code>Int8</code> column named <code>col__value</code>. Drops
+                  the original column.</td>
+                <td>String / Categorical</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>ordinal</td>
+                <td>Map categories to integers. Auto-sorts alphabetically if no order is given.</td>
+                <td>String / Categorical</td>
+                <td><code>order</code> (dict: column -> ordered list of values)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json - ordinal with explicit order</span></div>
+          <pre>{
   <span class="c-key">"type"</span>: <span class="c-val">"ordinal"</span>,
   <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [<span class="c-val">"priority"</span>, <span class="c-val">"size"</span>] },
   <span class="c-key">"params"</span>: {
@@ -1194,28 +2290,54 @@ CREATE TABLE IF NOT EXISTS orders_processed (
     }
   }
 }</pre>
-      </div>
+        </div>
 
-      <h3>Structure</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Step type</th><th>Description</th><th>params</th></tr></thead>
-          <tbody>
-            <tr><td>select_columns</td><td>Keep only the specified columns, drop all others.</td><td>-  (uses <code>scope.columns</code>)</td></tr>
-            <tr><td>drop_columns</td><td>Drop the specified columns.</td><td>- (uses <code>scope.columns</code>)</td></tr>
-            <tr><td>rename_columns</td><td>Rename columns using a mapping.</td><td><code>mapping</code> (dict: old_name -> new_name)</td></tr>
-            <tr><td>cast_dtype</td><td>Cast columns to target dtypes.</td><td><code>casts</code> (dict: column -> dtype string)</td></tr>
-            <tr><td>deduplicate</td><td>Remove exact duplicate rows. If <code>columns</code> is set, deduplicates on that subset only.</td><td>- (uses <code>scope.columns</code> as subset)</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json - rename_columns</span></div>
-        <pre>{ <span class="c-key">"type"</span>: <span class="c-val">"rename_columns"</span>, <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [] }, <span class="c-key">"params"</span>: { <span class="c-key">"mapping"</span>: { <span class="c-key">"old_name"</span>: <span class="c-val">"new_name"</span>, <span class="c-key">"qty"</span>: <span class="c-val">"quantity"</span> } } }</pre>
-      </div>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json - cast_dtype</span></div>
-        <pre>{
+        <h3>Structure</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Step type</th>
+                <th>Description</th>
+                <th>params</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>select_columns</td>
+                <td>Keep only the specified columns, drop all others.</td>
+                <td>- (uses <code>scope.columns</code>)</td>
+              </tr>
+              <tr>
+                <td>drop_columns</td>
+                <td>Drop the specified columns.</td>
+                <td>- (uses <code>scope.columns</code>)</td>
+              </tr>
+              <tr>
+                <td>rename_columns</td>
+                <td>Rename columns using a mapping.</td>
+                <td><code>mapping</code> (dict: old_name -> new_name)</td>
+              </tr>
+              <tr>
+                <td>cast_dtype</td>
+                <td>Cast columns to target dtypes.</td>
+                <td><code>casts</code> (dict: column -> dtype string)</td>
+              </tr>
+              <tr>
+                <td>deduplicate</td>
+                <td>Remove exact duplicate rows. If <code>columns</code> is set, deduplicates on that subset only.</td>
+                <td>- (uses <code>scope.columns</code> as subset)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json - rename_columns</span></div>
+          <pre>{ <span class="c-key">"type"</span>: <span class="c-val">"rename_columns"</span>, <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [] }, <span class="c-key">"params"</span>: { <span class="c-key">"mapping"</span>: { <span class="c-key">"old_name"</span>: <span class="c-val">"new_name"</span>, <span class="c-key">"qty"</span>: <span class="c-val">"quantity"</span> } } }</pre>
+        </div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json - cast_dtype</span></div>
+          <pre>{
   <span class="c-key">"type"</span>: <span class="c-val">"cast_dtype"</span>,
   <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [] },
   <span class="c-key">"params"</span>: {
@@ -1227,21 +2349,35 @@ CREATE TABLE IF NOT EXISTS orders_processed (
     }
   }
 }</pre>
-      </div>
-      <p>Supported dtype strings: <code>int8</code> · <code>int16</code> · <code>int32</code> · <code>int64</code> · <code>float32</code> · <code>float64</code> · <code>str</code> · <code>bool</code> · <code>date</code> · <code>datetime</code></p>
+        </div>
+        <p>Supported dtype strings: <code>int8</code> · <code>int16</code> · <code>int32</code> · <code>int64</code> ·
+          <code>float32</code> · <code>float64</code> · <code>str</code> · <code>bool</code> · <code>date</code> ·
+          <code>datetime</code></p>
 
-      <h3>Custom Python</h3>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Step type</th><th>Description</th><th>params</th></tr></thead>
-          <tbody>
-            <tr><td>custom_python</td><td>Run a sandboxed Python function (via RestrictedPython). The function receives a <code>pl.DataFrame</code> and must return a <code>pl.DataFrame</code>.</td><td><code>code</code> (string, Python source) · <code>func</code> (string, function name, default <code>transform</code>)</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="code-block">
-        <div class="code-header"><span class="code-label">json - custom_python</span></div>
-        <pre>{
+        <h3>Custom Python</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Step type</th>
+                <th>Description</th>
+                <th>params</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>custom_python</td>
+                <td>Run a sandboxed Python function (via RestrictedPython). The function receives a
+                  <code>pl.DataFrame</code> and must return a <code>pl.DataFrame</code>.</td>
+                <td><code>code</code> (string, Python source) · <code>func</code> (string, function name, default
+                  <code>transform</code>)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="code-block">
+          <div class="code-header"><span class="code-label">json - custom_python</span></div>
+          <pre>{
   <span class="c-key">"type"</span>: <span class="c-val">"custom_python"</span>,
   <span class="c-key">"scope"</span>: { <span class="c-key">"columns"</span>: [] },
   <span class="c-key">"params"</span>: {
@@ -1250,79 +2386,155 @@ CREATE TABLE IF NOT EXISTS orders_processed (
     return df.with_columns((pl.col('revenue') / pl.col('units')).alias('avg_price'))"</span>
   }
 }</pre>
-      </div>
-      <div class="callout warn">
-        <span class="callout-icon">⚠</span>
-        <span>Custom code is validated by an AST analyzer before execution. Banned: arbitrary imports, dunder access, dangerous builtins. <code>pl</code> (Polars) is injected automatically. For untrusted code, use the Docker sandbox backend instead.</span>
-      </div>
+        </div>
+        <div class="callout warn">
+          <span class="callout-icon">⚠</span>
+          <span>Custom code is validated by an AST analyzer before execution. Banned: arbitrary imports, dunder access,
+            dangerous builtins. <code>pl</code> (Polars) is injected automatically. For untrusted code, use the Docker
+            sandbox backend instead.</span>
+        </div>
 
-      <h3>Step conflict warnings</h3>
-      <p>The pipeline automatically detects and warns about common mistakes before execution:</p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Pattern</th><th>Warning</th></tr></thead>
-          <tbody>
-            <tr><td><code>impute_*</code> followed by <code>drop_missing</code> on the same column</td><td>drop_missing is redundant - column was already imputed</td></tr>
-            <tr><td><code>clip_iqr</code> followed by <code>clip_zscore</code> on the same column</td><td>overlapping outlier clipping steps detected</td></tr>
-            <tr><td><code>standard_scaler</code> / <code>minmax_scaler</code> / <code>robust_scaler</code> without a prior impute on the same column</td><td>scaler may produce NaN - add impute before scaling</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+        <h3>Step conflict warnings</h3>
+        <p>The pipeline automatically detects and warns about common mistakes before execution:</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Pattern</th>
+                <th>Warning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>impute_*</code> followed by <code>drop_missing</code> on the same column</td>
+                <td>drop_missing is redundant - column was already imputed</td>
+              </tr>
+              <tr>
+                <td><code>clip_iqr</code> followed by <code>clip_zscore</code> on the same column</td>
+                <td>overlapping outlier clipping steps detected</td>
+              </tr>
+              <tr>
+                <td><code>standard_scaler</code> / <code>minmax_scaler</code> / <code>robust_scaler</code> without a
+                  prior impute on the same column</td>
+                <td>scaler may produce NaN - add impute before scaling</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    <hr />
+      <hr />
 
-    <!-- SEMANTIC TYPES -->
-    <section class="section" id="semantic-types">
-      <h2>Semantic Types</h2>
-      <p>Full reference for all types returned by <code>dp classify</code>.</p>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Semantic Type</th><th>Description</th><th>Typical columns</th></tr></thead>
-          <tbody>
-            <tr><td>identifier</td><td>Unique or near-unique key - not a model feature</td><td><code>id</code>, <code>uuid</code>, <code>user_id</code></td></tr>
-            <tr><td>numerical_continuous</td><td>Real-valued measurement or financial amount</td><td><code>price</code>, <code>weight</code>, <code>temperature</code></td></tr>
-            <tr><td>numerical_discrete</td><td>Whole-number count or frequency</td><td><code>quantity</code>, <code>num_orders</code>, <code>visits</code></td></tr>
-            <tr><td>categorical_nominal</td><td>Unordered categories with no numeric meaning</td><td><code>category</code>, <code>status</code>, <code>country</code></td></tr>
-            <tr><td>categorical_ordinal</td><td>Ordered categories (low -> medium -> high)</td><td><code>priority</code>, <code>severity</code>, <code>grade</code></td></tr>
-            <tr><td>text_freeform</td><td>Unstructured natural language text</td><td><code>description</code>, <code>comment</code>, <code>review</code></td></tr>
-            <tr><td>text_structured</td><td>Formatted string following a known pattern</td><td><code>email</code>, <code>phone</code>, <code>url</code>, <code>zip</code></td></tr>
-            <tr><td>datetime</td><td>Date, time, or timestamp</td><td><code>created_at</code>, <code>born</code>, <code>expires_at</code></td></tr>
-            <tr><td>boolean</td><td>Binary flag or indicator</td><td><code>is_active</code>, <code>has_verified</code>, <code>deleted</code></td></tr>
-            <tr><td>geospatial</td><td>Geographic coordinate or location field</td><td><code>latitude</code>, <code>longitude</code>, <code>city</code></td></tr>
-            <tr><td>embedding</td><td>Dense vector representation</td><td><code>embedding</code>, <code>vec</code></td></tr>
-            <tr><td>target_label</td><td>Supervised learning target or ground truth</td><td><code>target</code>, <code>label</code>, <code>y</code></td></tr>
-            <tr><td>unknown</td><td>Could not be classified with sufficient confidence</td><td>- (use <code>--overrides</code> to pin manually)</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <!-- SEMANTIC TYPES -->
+      <section class="section" id="semantic-types">
+        <h2>Semantic Types</h2>
+        <p>Full reference for all types returned by <code>dp classify</code>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Semantic Type</th>
+                <th>Description</th>
+                <th>Typical columns</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>identifier</td>
+                <td>Unique or near-unique key - not a model feature</td>
+                <td><code>id</code>, <code>uuid</code>, <code>user_id</code></td>
+              </tr>
+              <tr>
+                <td>numerical_continuous</td>
+                <td>Real-valued measurement or financial amount</td>
+                <td><code>price</code>, <code>weight</code>, <code>temperature</code></td>
+              </tr>
+              <tr>
+                <td>numerical_discrete</td>
+                <td>Whole-number count or frequency</td>
+                <td><code>quantity</code>, <code>num_orders</code>, <code>visits</code></td>
+              </tr>
+              <tr>
+                <td>categorical_nominal</td>
+                <td>Unordered categories with no numeric meaning</td>
+                <td><code>category</code>, <code>status</code>, <code>country</code></td>
+              </tr>
+              <tr>
+                <td>categorical_ordinal</td>
+                <td>Ordered categories (low -> medium -> high)</td>
+                <td><code>priority</code>, <code>severity</code>, <code>grade</code></td>
+              </tr>
+              <tr>
+                <td>text_freeform</td>
+                <td>Unstructured natural language text</td>
+                <td><code>description</code>, <code>comment</code>, <code>review</code></td>
+              </tr>
+              <tr>
+                <td>text_structured</td>
+                <td>Formatted string following a known pattern</td>
+                <td><code>email</code>, <code>phone</code>, <code>url</code>, <code>zip</code></td>
+              </tr>
+              <tr>
+                <td>datetime</td>
+                <td>Date, time, or timestamp</td>
+                <td><code>created_at</code>, <code>born</code>, <code>expires_at</code></td>
+              </tr>
+              <tr>
+                <td>boolean</td>
+                <td>Binary flag or indicator</td>
+                <td><code>is_active</code>, <code>has_verified</code>, <code>deleted</code></td>
+              </tr>
+              <tr>
+                <td>geospatial</td>
+                <td>Geographic coordinate or location field</td>
+                <td><code>latitude</code>, <code>longitude</code>, <code>city</code></td>
+              </tr>
+              <tr>
+                <td>embedding</td>
+                <td>Dense vector representation</td>
+                <td><code>embedding</code>, <code>vec</code></td>
+              </tr>
+              <tr>
+                <td>target_label</td>
+                <td>Supervised learning target or ground truth</td>
+                <td><code>target</code>, <code>label</code>, <code>y</code></td>
+              </tr>
+              <tr>
+                <td>unknown</td>
+                <td>Could not be classified with sufficient confidence</td>
+                <td>- (use <code>--overrides</code> to pin manually)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-  </main>
-</div>
+    </main>
+  </div>
 
-<script>
-  function copyCode(btn) {
-    const pre = btn.closest('.code-block').querySelector('pre');
-    navigator.clipboard.writeText(pre.innerText).then(() => {
-      btn.textContent = 'copied!';
-      btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1800);
-    });
-  }
+  <script>
+    function copyCode(btn) {
+      const pre = btn.closest('.code-block').querySelector('pre');
+      navigator.clipboard.writeText(pre.innerText).then(() => {
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1800);
+      });
+    }
 
-  const links = document.querySelectorAll('.nav-link');
-  const sections = Array.from(document.querySelectorAll('[id]'));
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        links.forEach(l => l.classList.remove('active'));
-        const active = document.querySelector(`.nav-link[href="#${entry.target.id}"]`);
-        if (active) active.classList.add('active');
-      }
-    });
-  }, { rootMargin: '-20% 0px -75% 0px' });
-  sections.forEach(s => observer.observe(s));
-</script>
+    const links = document.querySelectorAll('.nav-link');
+    const sections = Array.from(document.querySelectorAll('[id]'));
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          links.forEach(l => l.classList.remove('active'));
+          const active = document.querySelector(`.nav-link[href="#${entry.target.id}"]`);
+          if (active) active.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-20% 0px -75% 0px' });
+    sections.forEach(s => observer.observe(s));
+  </script>
 </body>
+
 </html>

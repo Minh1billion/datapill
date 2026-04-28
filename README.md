@@ -213,6 +213,49 @@ dp export --input <run_id> --format csv --connector s3.json
 
 ---
 
+### dp pipeline export
+
+Generate a standalone Python script from a preprocess pipeline artifact.
+
+This exports your preprocessing logic into a self-contained script that runs without datapill at runtime - suitable for production jobs, CI/CD, or sharing pipelines.
+
+# Examples
+dp pipeline export -i <run_id> -s local_file --path data.csv
+dp pipeline export -i <run_id> -s postgresql -c pg.json --with-tests
+dp pipeline export -i <artifact_id> --out-dir ./generated
+
+What it does:
+- Load the preprocess config artifact
+- Reconstruct all preprocessing steps
+- Merge with ingest configuration
+- Generate runnable Python code
+
+Generated files:
+- run_<name>.py     (main pipeline script)
+- test_<name>.py    (optional, with --with-tests)
+
+Supported sources:
+local_file | postgresql | mysql | s3
+
+Options:
+--input            run_id or preprocess artifact ID
+--source           connector type
+--ingest-config    connector config JSON
+--path             file path (local_file)
+--table            table name (postgresql | mysql)
+--url              S3 URL
+--format           output format
+--out-path         output path inside generated script
+--compression      snappy | zstd | gzip (parquet only)
+--with-tests       generate test file
+--out-dir          output directory
+
+Run generated pipeline:
+python generated/run_<name>.py --dry-run
+python generated/run_<name>.py
+
+---
+
 ### `dp connector`
 
 Inspect and interact with any connector directly - without running a full pipeline.
