@@ -213,46 +213,61 @@ dp export --input <run_id> --format csv --connector s3.json
 
 ---
 
-### dp pipeline export
+### `dp pipeline export`
 
-Generate a standalone Python script from a preprocess pipeline artifact.
+Generate a standalone Python script from a preprocess pipeline artifact — no datapill dependency required at runtime.
 
-This exports your preprocessing logic into a self-contained script that runs without datapill at runtime - suitable for production jobs, CI/CD, or sharing pipelines.
-
-# Examples
+```bash
 dp pipeline export -i <run_id> -s local_file --path data.csv
-dp pipeline export -i <run_id> -s postgresql -c pg.json --with-tests
-dp pipeline export -i <artifact_id> --out-dir ./generated
+dp pipeline export -i <run_id> -s postgresql -c pg.json
+dp pipeline export -i <run_id> -s local_file --path data.csv --with-tests
+dp pipeline export -i <run_id> --out-dir ./generated
+```
 
-What it does:
-- Load the preprocess config artifact
-- Reconstruct all preprocessing steps
-- Merge with ingest configuration
-- Generate runnable Python code
+**What you get:**
+- Preprocessing steps reconstructed from the saved config artifact
+- Ingest configuration merged into a single self-contained script
+- A `run_<name>.py` entry point with a `--dry-run` flag
+- An optional `test_<name>.py` scaffold (with `--with-tests`)
 
-Generated files:
-- run_<name>.py     (main pipeline script)
-- test_<name>.py    (optional, with --with-tests)
+**Generated files:**
 
-Supported sources:
-local_file | postgresql | mysql | s3
+| File | Description |
+|---|---|
+| `run_<name>.py` | Main pipeline script — runs without datapill |
+| `test_<name>.py` | pytest scaffold (only with `--with-tests`) |
 
-Options:
---input            run_id or preprocess artifact ID
---source           connector type
---ingest-config    connector config JSON
---path             file path (local_file)
---table            table name (postgresql | mysql)
---url              S3 URL
---format           output format
---out-path         output path inside generated script
---compression      snappy | zstd | gzip (parquet only)
---with-tests       generate test file
---out-dir          output directory
+**Options:**
 
-Run generated pipeline:
+| Option | Description |
+|---|---|
+| `--input`, `-i` | `run_id` or preprocess artifact ID |
+| `--source`, `-s` | Connector type: `local_file` · `postgresql` · `mysql` · `s3` |
+| `--ingest-config`, `-c` | Connector JSON config (same as `dp ingest --config`) |
+| `--path` | File path (`local_file`) |
+| `--table` | Table name (`postgresql` \| `mysql`) |
+| `--url` | S3 URL |
+| `--format`, `-f` | Output format: `csv` · `parquet` · `json` · `jsonl` · `excel` |
+| `--out-path` | Output path hard-coded into the generated script |
+| `--name`, `-n` | Base name for generated files, e.g. `orders` → `run_orders.py` |
+| `--compression` | `snappy` · `zstd` · `gzip` (parquet only) |
+| `--with-tests` | Also generate `test_<name>.py` |
+| `--out-dir`, `-o` | Directory to write generated files (default: `generated/`) |
+
+**Run the generated pipeline:**
+
+```bash
 python generated/run_<name>.py --dry-run
 python generated/run_<name>.py
+```
+
+**Run the generated tests:**
+
+```bash
+python -m pytest generated/test_<name>.py -v
+```
+
+> **Note:** `dp pipeline export` requires a preprocess artifact saved without `--dry-run`. If only a dry-run artifact exists, re-run `dp preprocess` without that flag first.
 
 ---
 
@@ -442,18 +457,6 @@ Custom code is validated by an AST analyzer (banned imports, banned builtins, du
 
 ---
 
-## ⚡ Code Generation
-
-Export any preprocess config into a self-contained, runnable Python script - no datapill dependency required at runtime.
-
-```bash
-# Coming soon via: dp pipeline export --config pipeline.json --out-dir generated/
-```
-
-The generated `run_pipeline.py` includes all step logic inline, a `run_pipeline(dry_run=True)` entry point, and an optional `test_pipeline.py` scaffold.
-
----
-
 ## 🧑‍💻 Development Setup
 
 ```bash
@@ -489,7 +492,6 @@ ruff format src/
 
 ## 🗺️ Roadmap
 
-- [ ] `dp pipeline export` - generate standalone scripts from any pipeline config
 - [ ] Web UI / dashboard for artifact browsing and profile visualization
 - [ ] Custom step registry - register and share reusable step plugins
 - [ ] datapill SaaS - hosted pipelines, scheduling, collaboration, and monitoring
