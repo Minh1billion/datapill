@@ -27,6 +27,10 @@ jobs:
       - name: Bump version and tag
         run: |
           OLD=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")
+          echo "=== OLD tag: $OLD ==="
+          echo "=== pyproject.toml version line: ==="
+          grep '^version' pyproject.toml
+          echo "=== head_commit.message: ${{ github.event.head_commit.message }} ==="
           MAJOR=$(echo $OLD | cut -d. -f1)
           MINOR=$(echo $OLD | cut -d. -f2)
           PATCH=$(echo $OLD | cut -d. -f3)
