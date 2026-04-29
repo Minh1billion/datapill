@@ -8,12 +8,11 @@ app = typer.Typer()
 
 @app.command("list")
 def cmd_list(
-    out: str = typer.Option("src/datapill/artifacts", "--out", "-o", help="Artifact store directory"),
     feature: str = typer.Option("", "--feature", "-f", help="Filter by feature: ingest | profile | preprocess"),
     limit: int = typer.Option(20, "--limit", "-n", help="Max number of artifacts to show"),
 ):
     """List artifacts in the artifact store."""
-    ctx = make_context(out)
+    ctx = make_context()
     artifacts = ctx.artifact_store.list_artifacts()
 
     if feature:

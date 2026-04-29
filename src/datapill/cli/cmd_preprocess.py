@@ -14,7 +14,6 @@ app = typer.Typer()
 def cmd_preprocess(
     input: str = typer.Option(..., "--input", "-i", help="run_id or full artifact ID"),
     pipeline_file: str = typer.Option(..., "--pipeline", "-p", help="Path to pipeline JSON config file"),
-    out: str = typer.Option("src/datapill/artifacts", "--out", "-o", help="Artifact output directory"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Run on first 1000 rows, no artifact saved"),
     checkpoint: bool = typer.Option(False, "--checkpoint", help="Save checkpoint parquet after each step"),
 ):
@@ -42,7 +41,7 @@ def cmd_preprocess(
         ]
 
         pipeline = PreprocessPipeline(steps=steps, checkpoint=checkpoint)
-        ctx = make_context(out)
+        ctx = make_context()
         validate_pipeline(pipeline, ctx)
         plan = pipeline.plan(ctx)
         plan.metadata["dry_run"] = dry_run

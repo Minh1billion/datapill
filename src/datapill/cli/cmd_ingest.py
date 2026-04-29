@@ -20,10 +20,10 @@ def cmd_ingest(
     url: Optional[str] = typer.Option(None, "--url", help="S3 URL, e.g. s3://bucket/key.parquet"),
     topic: Optional[str] = typer.Option(None, "--topic", help="Kafka topic name"),
     endpoint: Optional[str] = typer.Option(None, "--endpoint", help="REST endpoint, e.g. /users"),
-    out: str = typer.Option("src/datapill/artifacts", "--out", "-o", help="Artifact output directory"),
     limit: Optional[int] = typer.Option(None, "--limit", "-n", help="Max rows to read"),
     batch_size: int = typer.Option(50_000, "--batch-size", help="Rows per batch"),
     max_records: Optional[int] = typer.Option(None, "--max-records", help="Max records (kafka)"),
+    no_materialize: bool = typer.Option(False, "--no-materialize", help="Skip Parquet write; store connector ref only. Source must remain available for downstream commands."),
 ):
     """Ingest data from a connector into artifact store."""
     async def _exec():
@@ -36,8 +36,13 @@ def cmd_ingest(
         if max_records:
             options["max_records"] = max_records
 
-        pipeline = IngestPipeline(IngestConfig(connector=connector, query=query, options=options))
-        ctx = make_context(out)
+        pipeline = IngestPipeline(IngestConfig(
+            connector=connector,
+            query=query,
+            options=options,
+            materialize=not no_materialize,
+        ))
+        ctx = make_context()
         validate_pipeline(pipeline, ctx)
         plan = pipeline.plan(ctx)
 
@@ -45,12 +50,17 @@ def cmd_ingest(
             task = p.add_task("Ingesting...", total=None)
             async for event in pipeline.execute(plan, ctx):
                 p.update(task, description=event.message)
-                if event.event_type == EventType.DONE:
+                if event.event_type == EventType.PROGRESS and event.message.startswith("Warning:"):
+                    console.print(f"\n[yellow]{event.message}[/yellow]")
+                elif event.event_type == EventType.DONE:
                     payload = event.payload or {}
                     console.print(f"\n[green][OK] {event.message}[/green]")
                     console.print(f"  Artifact: [cyan]{payload.get('output_artifact_id')}[/cyan]")
                     console.print(f"  Schema:   [cyan]{payload.get('schema_artifact_id')}[/cyan]")
-                    console.print(f"  Rows:     [cyan]{payload.get('rows_read', 0):,}[/cyan]")
+                    if payload.get("materialize"):
+                        console.print(f"  Rows:     [cyan]{payload.get('rows_read', 0):,}[/cyan]")
+                    else:
+                        console.print("  [yellow]No data materialized - downstream commands will re-stream from source[/yellow]")
                 elif event.event_type == EventType.ERROR:
                     console.print(f"\n[red][ERROR] {event.message}[/red]")
                     raise typer.Exit(1)

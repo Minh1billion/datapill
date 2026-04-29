@@ -20,7 +20,6 @@ def cmd_classify(
     mode: str = typer.Option("hybrid", "--mode", "-m", help="rule_based | embedding | hybrid"),
     threshold: float = typer.Option(0.0, "--threshold", "-t", help="Minimum confidence (0.0–1.0)"),
     overrides: Optional[str] = typer.Option(None, "--overrides", help='JSON string: {"col_name": "semantic_type"}'),
-    out: str = typer.Option("src/datapill/artifacts", "--out", "-o", help="Artifact store directory"),
 ):
     """Classify columns in a dataset by semantic type.
 
@@ -51,7 +50,7 @@ def cmd_classify(
             confidence_threshold=threshold,
             overrides=override_dict,
         ))
-        ctx = make_context(out)
+        ctx = make_context()
         validate_pipeline(pipeline, ctx)
         plan = pipeline.plan(ctx)
         plan.metadata["input_artifact_id"] = resolve_input(ctx, input, feature_hint="classify")

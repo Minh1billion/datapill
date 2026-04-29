@@ -757,7 +757,7 @@
       <section class="section" id="artifact-system">
         <h2>Artifact System</h2>
         <p>Every pipeline command saves its outputs as <strong>artifacts</strong> - files stored in the artifact store
-          directory (default: <code>src/datapill/artifacts</code>). Understanding artifacts is essential for chaining
+          directory (default: <code>.datapill/artifacts</code>). Understanding artifacts is essential for chaining
           commands together.</p>
 
         <h3>Run ID vs Artifact ID</h3>
@@ -1229,11 +1229,6 @@ asyncio.run(produce())
                 <td>REST endpoint path</td>
               </tr>
               <tr>
-                <td>--out, -o</td>
-                <td><code>src/datapill/artifacts</code></td>
-                <td>Artifact store directory</td>
-              </tr>
-              <tr>
                 <td>--limit, -n</td>
                 <td>-</td>
                 <td>Max rows to read</td>
@@ -1248,6 +1243,12 @@ asyncio.run(produce())
                 <td>-</td>
                 <td>Max messages consumed <code>(kafka)</code></td>
               </tr>
+            
+              <tr>
+                <td>--no-materialize</td>
+                <td>false</td>
+                <td>Skip Parquet write - store a connector ref only. Source must remain available for all downstream commands. Credentials are stored in plaintext inside the artifact store.</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -1261,6 +1262,14 @@ asyncio.run(produce())
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> s3 <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/s3_config.json</span> <span class="c-flag">--url</span> <span class="c-val">s3://testbucket/input/data.csv</span>
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> rest <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/rest_config.json</span> <span class="c-flag">--endpoint</span> posts
 <span class="c-cmd">dp</span> ingest <span class="c-flag">--source</span> kafka <span class="c-flag">--config</span> <span class="c-path">tests/fixtures/kafka_config.json</span> <span class="c-flag">--topic</span> test-topic <span class="c-flag">--max-records</span> 100</pre>
+        </div>
+      
+
+        <div class="callout warn">
+          <span class="callout-icon">⚠</span>
+          <span>
+            <strong>--no-materialize:</strong> No Parquet file is written - only a connector ref artifact is saved. Every downstream command (<code>profile</code>, <code>preprocess</code>, <code>export</code>) will re-stream from the source, so <strong>the source must remain available</strong>. For Kafka, each re-stream advances consumer offsets - data seen by downstream commands may differ from the original ingest. Connector credentials are stored in plaintext inside the artifact store.
+          </span>
         </div>
       </section>
 
@@ -1307,11 +1316,6 @@ asyncio.run(produce())
                 <td>--correlation</td>
                 <td><code>pearson</code></td>
                 <td><code>pearson</code> | <code>spearman</code> | <code>none</code></td>
-              </tr>
-              <tr>
-                <td>--out, -o</td>
-                <td><code>src/datapill/artifacts</code></td>
-                <td>Artifact store directory</td>
               </tr>
             </tbody>
           </table>
@@ -1364,11 +1368,6 @@ asyncio.run(produce())
                 <td>--checkpoint</td>
                 <td>false</td>
                 <td>Save a Parquet file after each step</td>
-              </tr>
-              <tr>
-                <td>--out, -o</td>
-                <td><code>src/datapill/artifacts</code></td>
-                <td>Artifact store directory</td>
               </tr>
             </tbody>
           </table>
@@ -1455,7 +1454,7 @@ asyncio.run(produce())
               </tr>
               <tr>
                 <td>--out, -o</td>
-                <td><code>src/datapill/artifacts</code></td>
+                <td><code>.datapill/artifacts</code></td>
                 <td>Artifact store directory</td>
               </tr>
             </tbody>
@@ -1496,11 +1495,6 @@ asyncio.run(produce())
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>--out, -o</td>
-                <td><code>src/datapill/artifacts</code></td>
-                <td>Artifact store directory</td>
-              </tr>
               <tr>
                 <td>--feature, -f</td>
                 <td>-</td>
@@ -1587,11 +1581,6 @@ asyncio.run(produce())
                 <td>-</td>
                 <td>JSON string to manually pin columns to a semantic type, bypassing classification entirely. e.g.
                   <code>'{"y": "target_label"}'</code></td>
-              </tr>
-              <tr>
-                <td>--out, -o</td>
-                <td><code>src/datapill/artifacts</code></td>
-                <td>Artifact store directory</td>
               </tr>
             </tbody>
           </table>
@@ -1700,7 +1689,6 @@ asyncio.run(produce())
           <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
               onclick="copyCode(this)">copy</button></div>
           <pre><span class="c-cmd">dp</span> run <span class="c-path">tests/fixtures/run_config_pg.json</span>
-<span class="c-cmd">dp</span> run <span class="c-path">tests/fixtures/run_config_pg.json</span> <span class="c-flag">--out</span> <span class="c-path">/tmp/dp_artifacts</span></pre>
         </div>
 
       <hr/>
@@ -1794,7 +1782,7 @@ asyncio.run(produce())
               </tr>
               <tr>
                 <td>--store</td>
-                <td><code>src/datapill/artifacts</code></td>
+                <td><code>.datapill/artifacts</code></td>
                 <td>Artifact store directory</td>
               </tr>
             </tbody>

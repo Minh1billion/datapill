@@ -42,7 +42,32 @@ class ClassifyPipeline(FeaturePipeline):
         yield ProgressEvent(EventType.STARTED, "Classify started", progress_pct=0.0)
 
         input_ref = plan.metadata.get("input_artifact_id")
-        if input_ref:
+        df: pl.DataFrame | None = None
+
+        if input_ref and context.artifact_store.is_ref(input_ref):
+            ref = await context.artifact_store.load_ref(input_ref)
+            schema = ref.get("schema", [])
+            if not schema:
+                yield ProgressEvent(EventType.ERROR, "Ref artifact has no schema - cannot classify")
+                return
+
+            yield ProgressEvent(
+                EventType.PROGRESS,
+                "Using schema from ref artifact - no re-stream needed",
+                progress_pct=0.1,
+            )
+
+            data = {
+                col["name"]: pl.Series(
+                    col["name"],
+                    [],
+                    dtype=_polars_dtype_from_str(col["dtype"]),
+                )
+                for col in schema
+            }
+            df = pl.DataFrame(data)
+
+        elif input_ref:
             df = context.artifact_store.scan_parquet(input_ref).collect()
         elif "dataframe" in plan.metadata:
             df = plan.metadata["dataframe"]
@@ -52,7 +77,7 @@ class ClassifyPipeline(FeaturePipeline):
 
         yield ProgressEvent(
             EventType.PROGRESS,
-            f"Loaded {len(df):,} rows, {len(df.columns)} columns - running {self.config.mode} classifier",
+            f"Classifying {len(df.columns)} columns - mode: {self.config.mode}",
             progress_pct=0.1,
         )
 
@@ -91,3 +116,31 @@ class ClassifyPipeline(FeaturePipeline):
 
     def run(self, df: pl.DataFrame) -> ClassifyResult:
         return run_classify(df, self.config)
+
+
+def _polars_dtype_from_str(dtype_str: str) -> pl.DataType:
+    _MAP = {
+        "Int8": pl.Int8,
+        "Int16": pl.Int16,
+        "Int32": pl.Int32,
+        "Int64": pl.Int64,
+        "UInt8": pl.UInt8,
+        "UInt16": pl.UInt16,
+        "UInt32": pl.UInt32,
+        "UInt64": pl.UInt64,
+        "Float32": pl.Float32,
+        "Float64": pl.Float64,
+        "Boolean": pl.Boolean,
+        "String": pl.String,
+        "Utf8": pl.Utf8,
+        "Date": pl.Date,
+        "Datetime": pl.Datetime,
+        "Duration": pl.Duration,
+        "Time": pl.Time,
+        "Binary": pl.Binary,
+        "Null": pl.Null,
+    }
+    for key, dtype in _MAP.items():
+        if dtype_str.startswith(key):
+            return dtype
+    return pl.Utf8

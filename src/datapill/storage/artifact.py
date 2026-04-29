@@ -12,14 +12,13 @@ import polars as pl
 _REGISTRY_FILE = "registry.json"
 
 _FEATURE_PRIORITY = {
-    "profile":    ["ingest_output", "preprocess_output"],
-    "preprocess": ["ingest_output", "preprocess_output"],
-    "export":     ["preprocess_output", "ingest_output"],
-    "classify":   ["ingest_output", "preprocess_output"],
+    "profile":    ["ingest_output", "ingest_ref", "preprocess_output"],
+    "preprocess": ["ingest_output", "ingest_ref", "preprocess_output"],
+    "export":     ["preprocess_output", "ingest_output", "ingest_ref"],
+    "classify":   ["ingest_output", "ingest_ref", "preprocess_output"],
 }
 
-_DEFAULT_ARTIFACT_DIR = Path(__file__).parent.parent / "artifacts"
-
+_DEFAULT_ARTIFACT_DIR = Path.cwd() / ".datapill" / "artifacts"
 
 def _resolve_base(base_path: str | Path | None) -> Path:
     if base_path is not None:
@@ -27,7 +26,7 @@ def _resolve_base(base_path: str | Path | None) -> Path:
     env = os.environ.get("DATAPILL_ARTIFACT_DIR")
     if env:
         return Path(env)
-    return _DEFAULT_ARTIFACT_DIR
+    return Path.cwd() / ".datapill" / "artifacts"
 
 
 class ArtifactStore:
@@ -91,6 +90,10 @@ class ArtifactStore:
         latest = max(matches.items(), key=lambda x: x[1]["created_at"])
         return latest[0]
 
+    def is_ref(self, artifact_id: str) -> bool:
+        meta = self._registry.get(artifact_id, {})
+        return meta.get("suffix") == "ingest_ref"
+
     def _path(self, artifact_id: str, ext: str) -> Path:
         return self.base / f"{artifact_id}.{ext}"
 
@@ -126,6 +129,9 @@ class ArtifactStore:
 
     def scan_parquet(self, artifact_id: str) -> pl.LazyFrame:
         return pl.scan_parquet(self._path(artifact_id, "parquet"))
+
+    async def load_ref(self, artifact_id: str) -> dict[str, Any]:
+        return await self.load_json(artifact_id)
 
     def exists(self, artifact_id: str, ext: str = "json") -> bool:
         return self._path(artifact_id, ext).exists()

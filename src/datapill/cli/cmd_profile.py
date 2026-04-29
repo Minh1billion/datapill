@@ -17,7 +17,6 @@ def cmd_profile(
     sample_strategy: str = typer.Option("none", "--sample-strategy", help="none | random | reservoir"),
     sample_size: int = typer.Option(100_000, "--sample-size"),
     correlation: str = typer.Option("pearson", "--correlation", help="pearson | spearman | none"),
-    out: str = typer.Option("src/datapill/artifacts", "--out", "-o"),
 ):
     """Run profile pipeline on an ingested dataset."""
     async def _exec():
@@ -27,7 +26,7 @@ def cmd_profile(
             sample_size=sample_size,
             correlation_method=correlation,
         ))
-        ctx = make_context(out)
+        ctx = make_context()
         validate_pipeline(pipeline, ctx)
         plan = pipeline.plan(ctx)
         plan.metadata["input_artifact_id"] = resolve_input(ctx, input, feature_hint="profile")

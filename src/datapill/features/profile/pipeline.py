@@ -17,6 +17,14 @@ from .schema import (
 )
 
 _COLUMN_BATCH = 10
+_KAFKA_RESTREAM_WARNING = (
+    "Warning: input is a Kafka ref - re-consuming from topic. "
+    "Offsets will advance and data may differ from original ingest."
+)
+_RESTREAM_WARNING = (
+    "Warning: input is a ref artifact - re-streaming from source. "
+    "Source must remain available."
+)
 
 
 @dataclass
@@ -59,7 +67,26 @@ class ProfilePipeline(FeaturePipeline):
         yield ProgressEvent(EventType.STARTED, "Profile started", progress_pct=0.0)
 
         input_ref = plan.metadata.get("input_artifact_id")
-        if input_ref:
+        df: pl.DataFrame | None = None
+
+        if input_ref and context.artifact_store.is_ref(input_ref):
+            ref = await context.artifact_store.load_ref(input_ref)
+            from datapill.cli._shared import rebuild_connector_from_ref
+            connector, query = rebuild_connector_from_ref(ref)
+
+            if "Kafka" in ref.get("source_type", ""):
+                yield ProgressEvent(EventType.PROGRESS, _KAFKA_RESTREAM_WARNING, progress_pct=0.02)
+            else:
+                yield ProgressEvent(EventType.PROGRESS, _RESTREAM_WARNING, progress_pct=0.02)
+
+            chunks: list[pl.DataFrame] = []
+            async for chunk in connector.read_stream(query, ref.get("options", {})):
+                if not chunk.is_empty():
+                    chunks.append(chunk)
+            df = pl.concat(chunks) if chunks else pl.DataFrame()
+            await connector.close()
+
+        elif input_ref:
             if self.options.sample_strategy == "none":
                 df = context.artifact_store.scan_parquet(input_ref).collect()
             else:
@@ -71,6 +98,9 @@ class ProfilePipeline(FeaturePipeline):
         else:
             yield ProgressEvent(EventType.ERROR, "No input data provided")
             return
+
+        if self.options.sample_strategy != "none" and input_ref and context.artifact_store.is_ref(input_ref):
+            df = self._apply_sampling_eager(df)
 
         yield ProgressEvent(EventType.PROGRESS, "Sampling complete", progress_pct=0.1,
                             payload={"rows": len(df), "cols": len(df.columns)})

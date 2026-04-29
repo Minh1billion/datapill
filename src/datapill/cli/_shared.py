@@ -22,6 +22,15 @@ console = Console()
 SOURCES = "local_file | postgresql | mysql | s3 | rest | kafka"
 FORMATS = "csv | parquet | json | jsonl | excel"
 
+_SOURCE_TYPE_MAP = {
+    "LocalFileConnector": "local_file",
+    "PostgreSQLConnector": "postgresql",
+    "MySQLConnector": "mysql",
+    "S3Connector": "s3",
+    "RESTConnector": "rest",
+    "KafkaConnector": "kafka",
+}
+
 
 def run_async(coro):
     return asyncio.run(coro)
@@ -115,6 +124,31 @@ def build_connector(
 
     console.print(f"[red]Unknown source: {source}. Available: {SOURCES}[/red]")
     raise typer.Exit(1)
+
+
+def rebuild_connector_from_ref(ref: dict) -> tuple[BaseConnector, dict]:
+    source_type = ref.get("source_type", "")
+    source = _SOURCE_TYPE_MAP.get(source_type)
+    if not source:
+        raise ValueError(f"Cannot rebuild connector: unknown source_type '{source_type}'")
+
+    config = ref.get("connector_config", {})
+    query = ref.get("query", {})
+
+    if source == "local_file":
+        return LocalFileConnector(config), query
+    if source == "postgresql":
+        return PostgreSQLConnector(config), query
+    if source == "mysql":
+        return MySQLConnector(config), query
+    if source == "s3":
+        return S3Connector(config), query
+    if source == "rest":
+        return RESTConnector(config), query
+    if source == "kafka":
+        return KafkaConnector(config), query
+
+    raise ValueError(f"Cannot rebuild connector for source: {source}")
 
 
 def resolve_input(ctx: PipelineContext, input_str: str, feature_hint: str) -> str:

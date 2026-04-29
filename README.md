@@ -9,7 +9,7 @@
 [![Tests](https://img.shields.io/badge/tests-pytest-blue?logo=pytest&logoColor=white)](https://docs.pytest.org/)
 [![SaaS](https://img.shields.io/badge/SaaS-coming%20soon-orange)](https://minh1billion.github.io/datapill/)
 
-datapill gives you a single command-line tool to ingest, profile, classify, preprocess, and export data - from any source, to any destination - with a clean pipeline model and full artifact tracking. A hosted SaaS is coming soon.
+datapill gives you a single command-line tool to ingest, profile, classify, preprocess, and export data — from any source, to any destination — with a clean pipeline model and full artifact tracking. A hosted SaaS is coming soon.
 
 ---
 
@@ -106,6 +106,24 @@ dp ingest --source local_file --path data/sales.csv --limit 50000
 
 **Supported formats (local / S3):** `csv` · `parquet` · `json` · `jsonl` · `excel`
 
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--source`, `-s` | Connector type (required) |
+| `--config`, `-c` | Path to JSON config file for the connector |
+| `--path` | File path (`local_file`) |
+| `--table` | Table name (`postgresql` \| `mysql`) |
+| `--url` | S3 URL, e.g. `s3://bucket/key.parquet` |
+| `--topic` | Kafka topic name |
+| `--endpoint` | REST endpoint, e.g. `/users` |
+| `--limit`, `-n` | Max rows to read |
+| `--batch-size` | Rows per batch (default: 50,000) |
+| `--max-records` | Max records to consume (Kafka only) |
+| `--no-materialize` | Skip Parquet write; store connector ref only. Source must remain available for downstream commands. |
+
+> **`--no-materialize` warning:** Credentials are stored in plaintext inside the artifact store. For Kafka, each downstream command (profile, preprocess, export) will re-consume from the topic — offsets will advance and data may differ between runs.
+
 ---
 
 ### `dp profile`
@@ -126,11 +144,21 @@ dp profile --input <run_id> --correlation spearman
 - Correlation matrix (Pearson or Spearman) for all numeric columns
 - Warnings: `HIGH_NULL_RATE`, `CONSTANT_COLUMN`, `SKEWED_DISTRIBUTION`, `HIGH_CARDINALITY`, `POTENTIAL_IDENTIFIER`
 
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--input`, `-i` | `run_id` or full artifact ID (required) |
+| `--mode`, `-m` | `full` \| `summary` (default: `full`) |
+| `--sample-strategy` | `none` \| `random` \| `reservoir` (default: `none`) |
+| `--sample-size` | Number of rows to sample (default: 100,000) |
+| `--correlation` | `pearson` \| `spearman` \| `none` (default: `pearson`) |
+
 ---
 
 ### `dp classify`
 
-Classify every column in a dataset by its semantic type - automatically.
+Classify every column in a dataset by its semantic type — automatically.
 
 ```bash
 dp classify --input <run_id> --mode hybrid
@@ -149,6 +177,15 @@ dp classify --input <run_id> --overrides '{"age": "numerical_continuous", "y": "
 > **Without `[ml]`:** `hybrid` mode runs entirely on rule-based logic. Columns that cannot be resolved by rules are returned as `unknown` instead of being sent to the embedding model.
 
 **Semantic types detected:** `identifier` · `numerical_continuous` · `numerical_discrete` · `categorical_nominal` · `categorical_ordinal` · `text_freeform` · `text_structured` · `datetime` · `boolean` · `geospatial` · `embedding` · `target_label`
+
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--input`, `-i` | `run_id` or full artifact ID (required) |
+| `--mode`, `-m` | `rule_based` \| `embedding` \| `hybrid` (default: `hybrid`) |
+| `--threshold`, `-t` | Minimum confidence to accept a classification, 0.0–1.0 (default: `0.0`) |
+| `--overrides` | JSON string to force semantic type for specific columns, e.g. `'{"col": "boolean"}'` |
 
 ---
 
@@ -187,8 +224,14 @@ dp preprocess --input <run_id> --pipeline pipeline.json --checkpoint
 | Structure | `select_columns` · `drop_columns` · `rename_columns` · `cast_dtype` · `deduplicate` |
 | Custom | `custom_python` (sandboxed via RestrictedPython) |
 
-`--dry-run` runs on the first 1,000 rows and prints a preview without saving any artifact.  
-`--checkpoint` saves the DataFrame after each step so you can resume from any point.
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--input`, `-i` | `run_id` or full artifact ID (required) |
+| `--pipeline`, `-p` | Path to pipeline JSON config file (required) |
+| `--dry-run` | Run on first 1,000 rows, no artifact saved |
+| `--checkpoint` | Save a Parquet checkpoint after each step |
 
 ---
 
@@ -208,8 +251,23 @@ dp export --input <run_id> --format parquet \
 dp export --input <run_id> --format csv --connector s3.json
 ```
 
-**Write modes:** `replace` · `append` · `upsert`  
-**Output formats:** `csv` · `parquet` · `json` · `jsonl` · `excel` · `arrow`
+**Write modes:** `replace` · `append` · `upsert`
+
+**Output formats:** `csv` · `parquet` · `json` · `jsonl` · `excel`
+
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--input`, `-i` | `run_id` or full artifact ID (required) |
+| `--format`, `-f` | Output format (required) |
+| `--out-path` | Output file path (required unless `--connector` is used) |
+| `--write-mode` | `replace` \| `append` \| `upsert` (default: `replace`) |
+| `--primary-keys` | Comma-separated key columns for `upsert` |
+| `--connector`, `-c` | Connector config JSON for write-back to DB or S3 |
+| `--dry-run` | Print first 10 rows, skip write |
+| `--compression` | `snappy` \| `zstd` \| `gzip` (Parquet only) |
+| `--out`, `-o` | Artifact store directory (default: `src/datapill/artifacts`) |
 
 ---
 
@@ -230,29 +288,32 @@ dp pipeline export -i <run_id> --out-dir ./generated
 - A `run_<name>.py` entry point with a `--dry-run` flag
 - An optional `test_<name>.py` scaffold (with `--with-tests`)
 
+> **Note:** `dp pipeline export` requires a preprocess artifact saved without `--dry-run`. If only a dry-run artifact exists, re-run `dp preprocess` without that flag first.
+
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--input`, `-i` | `run_id` or preprocess artifact ID (required) |
+| `--source`, `-s` | Connector type: `local_file` · `postgresql` · `mysql` · `s3` (default: `local_file`) |
+| `--ingest-config`, `-c` | Connector JSON config (same as `dp ingest --config`) |
+| `--path` | File path (`local_file`) |
+| `--table` | Table name (`postgresql` \| `mysql`) |
+| `--url` | S3 URL |
+| `--format`, `-f` | Output format (default: `parquet`) |
+| `--out-path` | Output path hard-coded into the generated script (default: `output/result.parquet`) |
+| `--name`, `-n` | Base name for generated files, e.g. `orders` → `run_orders.py` |
+| `--compression` | `snappy` \| `zstd` \| `gzip` (Parquet only) |
+| `--with-tests` | Also generate `test_<name>.py` |
+| `--out-dir`, `-o` | Directory to write generated files (default: `generated/`) |
+| `--store` | Artifact store directory (default: `src/datapill/artifacts`) |
+
 **Generated files:**
 
 | File | Description |
 |---|---|
 | `run_<name>.py` | Main pipeline script — runs without datapill |
 | `test_<name>.py` | pytest scaffold (only with `--with-tests`) |
-
-**Options:**
-
-| Option | Description |
-|---|---|
-| `--input`, `-i` | `run_id` or preprocess artifact ID |
-| `--source`, `-s` | Connector type: `local_file` · `postgresql` · `mysql` · `s3` |
-| `--ingest-config`, `-c` | Connector JSON config (same as `dp ingest --config`) |
-| `--path` | File path (`local_file`) |
-| `--table` | Table name (`postgresql` \| `mysql`) |
-| `--url` | S3 URL |
-| `--format`, `-f` | Output format: `csv` · `parquet` · `json` · `jsonl` · `excel` |
-| `--out-path` | Output path hard-coded into the generated script |
-| `--name`, `-n` | Base name for generated files, e.g. `orders` → `run_orders.py` |
-| `--compression` | `snappy` · `zstd` · `gzip` (parquet only) |
-| `--with-tests` | Also generate `test_<name>.py` |
-| `--out-dir`, `-o` | Directory to write generated files (default: `generated/`) |
 
 **Run the generated pipeline:**
 
@@ -267,13 +328,11 @@ python generated/run_<name>.py
 python -m pytest generated/test_<name>.py -v
 ```
 
-> **Note:** `dp pipeline export` requires a preprocess artifact saved without `--dry-run`. If only a dry-run artifact exists, re-run `dp preprocess` without that flag first.
-
 ---
 
 ### `dp connector`
 
-Inspect and interact with any connector directly - without running a full pipeline.
+Inspect and interact with any connector directly — without running a full pipeline.
 
 ```bash
 dp connector test     --source postgresql --config pg.json
@@ -286,6 +345,19 @@ dp connector truncate --source postgresql --config pg.json --table orders
 dp connector produce  --source kafka --config kafka.json --topic events --file records.json
 ```
 
+**Actions:**
+
+| Action | Description | Supported sources |
+|---|---|---|
+| `test` | Check connectivity and measure latency | all |
+| `schema` | Inspect column names, types, and nullable flags | all |
+| `upload` | Upload a local file to a destination | `s3`, `local_file` |
+| `download` | Download a remote file to local disk | `s3` |
+| `list` | List objects under a key prefix | `s3` |
+| `exec` | Run an arbitrary SQL statement | `postgresql`, `mysql` |
+| `truncate` | Truncate a table | `postgresql`, `mysql` |
+| `produce` | Publish records from a JSON or CSV file to a topic | `kafka` |
+
 ---
 
 ### `dp list`
@@ -297,6 +369,13 @@ dp list
 dp list --feature ingest
 dp list --limit 50
 ```
+
+**Options:**
+
+| Option | Description |
+|---|---|
+| `--feature`, `-f` | Filter by feature: `ingest` \| `profile` \| `preprocess` \| `classify` \| `export` |
+| `--limit`, `-n` | Max number of artifacts to show (default: 20) |
 
 ---
 
@@ -314,11 +393,12 @@ dp run pipeline.json
 {
   "source": "postgresql",
   "connector": { "host": "localhost", "database": "mydb", "user": "u", "password": "p" },
-  "query": { "table": "orders" },
-  "ingest": { "batch_size": 10000 },
+  "query":   { "table": "orders" },
+  "ingest":  { "batch_size": 10000 },
   "profile": { "mode": "full", "correlation": "pearson" }
 }
 ```
+
 
 ---
 
@@ -360,7 +440,7 @@ All connectors are configured via JSON files passed with `--config`.
 }
 ```
 
-SASL/SSL is supported - add `sasl_mechanism`, `sasl_username`, `sasl_password`, and `ssl_cafile` as needed.
+SASL/SSL is supported — add `sasl_mechanism`, `sasl_username`, `sasl_password`, and `ssl_cafile` as needed.
 
 ### REST API
 
@@ -384,10 +464,12 @@ Pagination modes: `offset` · `cursor` · `link_header`
 
 ## 🗃️ Artifact Store
 
-Every pipeline run produces **artifacts** - Parquet files and JSON metadata - stored locally and tracked in a registry.
+Every pipeline run produces **artifacts** — Parquet files and JSON metadata — stored locally and tracked in a registry.
+
+By default, artifacts are stored in `.datapill/artifacts/` inside your current working directory:
 
 ```
-src/datapill/artifacts/
+.datapill/artifacts/
 ├── registry.json
 ├── a1b2c3d4_ingest_output.parquet
 ├── a1b2c3d4_ingest_schema.json
@@ -395,12 +477,16 @@ src/datapill/artifacts/
 └── e5f6g7h8_profile_summary.json
 ```
 
-You can reference any artifact by its `run_id` (short 8-char hex) or full `artifact_id`. datapill resolves ambiguity automatically using feature-aware priority rules.
+You can reference any artifact by its `run_id` (short 8-char hex) or full `artifact_id`. datapill resolves ambiguity automatically using feature-aware priority rules — for example, `dp profile` prefers `ingest_output` over `preprocess_output` when given only a `run_id`.
 
-Change the artifact directory with `--out`:
+**Overriding the artifact directory:**
+
+`dp export` supports `--out-path` to write the exported file to any location. For all commands, you can override the artifact store directory with the `DATAPILL_ARTIFACT_DIR` environment variable:
 
 ```bash
-dp ingest --source local_file --path data.csv --out /my/artifacts
+export DATAPILL_ARTIFACT_DIR=/my/artifacts
+dp ingest --source local_file --path data.csv
+dp profile --input <run_id>
 ```
 
 ---
@@ -409,7 +495,7 @@ dp ingest --source local_file --path data.csv --out /my/artifacts
 
 ```
 datapill/
-├── cli/            # Typer CLI - entry point for all commands
+├── cli/            # Typer CLI — entry point for all commands
 ├── connectors/     # Source adapters (local, PG, MySQL, S3, REST, Kafka)
 ├── core/           # PipelineContext, ProgressEvent, FeaturePipeline interface
 ├── executor/       # Sandboxed code execution (RestrictedPython + Docker)
@@ -419,7 +505,7 @@ datapill/
 │   ├── classify/   # Semantic type classification (rule-based + embedding)
 │   ├── preprocess/ # Step-based transformation pipeline
 │   └── export/     # File export + DB/S3 write-back + code generation
-└── storage/        # ArtifactStore - registry, save/load, resolve
+└── storage/        # ArtifactStore — registry, save/load, resolve
 ```
 
 Every feature implements the same `FeaturePipeline` interface: `validate → plan → execute`. Pipelines emit async `ProgressEvent` streams so the CLI can render live progress bars.
@@ -452,8 +538,8 @@ def transform(df):
 
 Custom code is validated by an AST analyzer (banned imports, banned builtins, dunder access) before execution. Two sandbox backends are available:
 
-- **RestrictedPython** - in-process, low overhead, suitable for most use cases
-- **Docker** - full container isolation (`--network none`, read-only FS, memory + CPU limits), for untrusted code
+- **RestrictedPython** — in-process, low overhead, suitable for most use cases
+- **Docker** — full container isolation (`--network none`, read-only FS, memory + CPU limits), for untrusted code
 
 ---
 
@@ -493,10 +579,10 @@ ruff format src/
 ## 🗺️ Roadmap
 
 - [ ] Web UI / dashboard for artifact browsing and profile visualization
-- [ ] Custom step registry - register and share reusable step plugins
-- [ ] datapill SaaS - hosted pipelines, scheduling, collaboration, and monitoring
-- [ ] dbt integration - use datapill as a pre-processing layer before dbt models
-- [ ] Great Expectations integration - attach data quality assertions to any pipeline step
+- [ ] Custom step registry — register and share reusable step plugins
+- [ ] datapill SaaS — hosted pipelines, scheduling, collaboration, and monitoring
+- [ ] dbt integration — use datapill as a pre-processing layer before dbt models
+- [ ] Great Expectations integration — attach data quality assertions to any pipeline step
 
 ---
 
@@ -518,4 +604,4 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
-*datapill SaaS - hosted pipelines, scheduling, and collaboration - coming soon.*
+*datapill SaaS — hosted pipelines, scheduling, and collaboration — coming soon.*

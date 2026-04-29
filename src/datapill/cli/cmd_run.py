@@ -14,7 +14,6 @@ app = typer.Typer()
 @app.command("run")
 def cmd_run(
     config_file: str = typer.Argument(..., help="Path to pipeline JSON config file"),
-    out: str = typer.Option("src/datapill/artifacts", "--out", "-o"),
 ):
     """Run a full ingest + profile pipeline from a JSON config file.
 
@@ -44,7 +43,7 @@ def cmd_run(
             endpoint=raw_query.get("endpoint"),
         )
 
-        ctx = make_context(out)
+        ctx = make_context()
 
         console.rule("[bold]Ingest")
         ingest_pipeline = IngestPipeline(IngestConfig(
