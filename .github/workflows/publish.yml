@@ -26,7 +26,6 @@ jobs:
 
       - name: Bump version and tag
         run: |
-          # Lấy version hiện tại từ pyproject.toml (nguồn sự thật)
           OLD=$(grep '^version' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
           echo "=== OLD version from pyproject.toml: $OLD ==="
 
@@ -51,11 +50,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pyproject.toml
 
-          # Chỉ commit nếu có thay đổi
           git diff --cached --quiet || git commit -m "chore: bump version to $NEW [skip ci]"
           git push origin main
 
-          # Xóa tag cũ nếu tồn tại rồi tạo lại
           git tag -d "$NEW" 2>/dev/null || true
           git push origin ":refs/tags/$NEW" 2>/dev/null || true
           git tag "$NEW"
