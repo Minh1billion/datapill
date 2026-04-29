@@ -36,7 +36,7 @@ def run_async(coro):
     return asyncio.run(coro)
 
 
-def make_context(out: str) -> PipelineContext:
+def make_context(out: str | None = None) -> PipelineContext:
     return PipelineContext(artifact_store=ArtifactStore(out))
 
 

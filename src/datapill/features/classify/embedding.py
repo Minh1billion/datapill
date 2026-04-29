@@ -4,7 +4,7 @@ from typing import Optional
 
 from .schema import SemanticType, ColumnClassification
 
-_MODEL_NAME = "all-MiniLM-L6-v2"
+_MODEL_NAME = "BAAI/bge-small-en-v1.5"  # ~130MB ONNX, no torch required
 _AMBIGUOUS_THRESHOLD = 0.70
 
 _ANCHOR_TEXTS: dict[SemanticType, list[str]] = {
@@ -91,6 +91,10 @@ def _build_column_text(col_name: str, dtype: pl.DataType, series: pl.Series) -> 
     return " ".join(p for p in parts if p).strip()
 
 
+def _encode(model, texts: list[str]) -> np.ndarray:
+    return np.array(list(model.embed(texts)), dtype=np.float32)
+
+
 class EmbeddingClassifier:
     def __init__(self) -> None:
         self._model = None
@@ -100,13 +104,13 @@ class EmbeddingClassifier:
         if self._model is not None:
             return
         try:
-            from sentence_transformers import SentenceTransformer
+            from fastembed import TextEmbedding
         except ImportError:
             raise ImportError(
-                "Embedding mode requires ML dependencies. "
+                "Embedding mode requires fastembed. "
                 "Install with: pip install datapill[ml]"
             )
-        self._model = SentenceTransformer(_MODEL_NAME)
+        self._model = TextEmbedding(model_name=_MODEL_NAME, show_progress=False)
 
     def _build_anchors(self):
         if self._anchor_embeddings is not None:
@@ -114,7 +118,7 @@ class EmbeddingClassifier:
         self._load_model()
         self._anchor_embeddings = {}
         for semantic_type, texts in _ANCHOR_TEXTS.items():
-            embeddings = self._model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
+            embeddings = _encode(self._model, texts)
             self._anchor_embeddings[semantic_type] = embeddings.mean(axis=0)
 
     def classify_column(
@@ -126,7 +130,7 @@ class EmbeddingClassifier:
         self._build_anchors()
 
         col_text = _build_column_text(col_name, dtype, series)
-        col_embedding = self._model.encode([col_text], convert_to_numpy=True, show_progress_bar=False)[0]
+        col_embedding = _encode(self._model, [col_text])[0]
 
         best_type = SemanticType.UNKNOWN
         best_sim = -1.0
@@ -160,7 +164,7 @@ class EmbeddingClassifier:
         self._build_anchors()
 
         texts = [_build_column_text(name, dtype, series) for name, dtype, series in columns]
-        col_embeddings = self._model.encode(texts, convert_to_numpy=True, show_progress_bar=False, batch_size=32)
+        col_embeddings = _encode(self._model, texts)  # (N, D)
 
         results = []
         for i, (col_name, dtype, series) in enumerate(columns):
