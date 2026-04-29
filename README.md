@@ -36,16 +36,6 @@ Requires Python 3.11+.
 
 This installs the core CLI (~200 MB) with rule-based classification, profiling, preprocessing, and export. No ML model is required.
 
-### With embedding support
-
-To use `--mode embedding` or `--mode hybrid` in `dp classify`, install the ML extras (~3.5 GB, includes PyTorch and sentence-transformers):
-
-```bash
-pip install "datapill[ml]"
-```
-
-> **Note:** Without `[ml]`, `hybrid` mode still works — it runs rule-based classification for all columns and skips the embedding fallback. Only columns that would otherwise be sent to the embedding model are affected.
-
 Verify the install:
 
 ```bash
@@ -72,6 +62,7 @@ dp profile --input <run_id>
 
 ```bash
 dp classify --input <run_id> --mode hybrid
+dp classify --input <run_id> --mode hybrid --profile <profile_run_id>
 ```
 
 ### 4. Preprocess with a pipeline config
@@ -171,10 +162,8 @@ dp classify --input <run_id> --overrides '{"age": "numerical_continuous", "y": "
 | Mode | How it works | Requires |
 |---|---|---|
 | `rule_based` | Regex patterns on column names + dtype heuristics. Fast, zero ML dependencies. | core |
-| `embedding` | Semantic similarity via `sentence-transformers` (`all-MiniLM-L6-v2`) against anchor texts per type. | `datapill[ml]` |
-| `hybrid` | Rule-based first; embedding kicks in only for ambiguous or unknown columns. | `datapill[ml]` for full accuracy |
-
-> **Without `[ml]`:** `hybrid` mode runs entirely on rule-based logic. Columns that cannot be resolved by rules are returned as `unknown` instead of being sent to the embedding model.
+| `embedding` | Semantic similarity via `fastembed` (`all-MiniLM-L6-v2`) against anchor texts per type. | core |
+| `hybrid` | Rule-based first; embedding kicks in only for ambiguous or unknown columns. | core |
 
 **Semantic types detected:** `identifier` · `numerical_continuous` · `numerical_discrete` · `categorical_nominal` · `categorical_ordinal` · `text_freeform` · `text_structured` · `datetime` · `boolean` · `geospatial` · `embedding` · `target_label`
 
@@ -186,6 +175,7 @@ dp classify --input <run_id> --overrides '{"age": "numerical_continuous", "y": "
 | `--mode`, `-m` | `rule_based` \| `embedding` \| `hybrid` (default: `hybrid`) |
 | `--threshold`, `-t` | Minimum confidence to accept a classification, 0.0–1.0 (default: `0.0`) |
 | `--overrides` | JSON string to force semantic type for specific columns, e.g. `'{"col": "boolean"}'` |
+| `--profile` | `run_id` or full artifact ID of a `dp profile` result. Adds pre-computed statistics (null rates, cardinality, patterns, skewness) as extra signals for all classification modes. |
 
 ---
 

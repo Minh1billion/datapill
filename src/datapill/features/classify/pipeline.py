@@ -7,7 +7,7 @@ import polars as pl
 from datapill.core.context import PipelineContext
 from datapill.core.events import EventType, ProgressEvent
 from datapill.core.interfaces import ExecutionPlan, FeaturePipeline, ValidationResult
-from .schema import ClassifyConfig, ClassifyResult
+from .schema import ClassifyConfig, ClassifyResult, ProfileSignals, extract_profile_signals
 from .runner import run_classify
 
 
@@ -25,7 +25,7 @@ class ClassifyPipeline(FeaturePipeline):
         return ValidationResult(ok=len(errors) == 0, errors=errors)
 
     def plan(self, context: PipelineContext) -> ExecutionPlan:
-        steps = ["load_data", "classify_columns", "build_output"]
+        steps = ["load_data", "load_profile", "classify_columns", "build_output"]
         return ExecutionPlan(
             steps=[{"name": s} for s in steps],
             metadata={
@@ -54,7 +54,7 @@ class ClassifyPipeline(FeaturePipeline):
             yield ProgressEvent(
                 EventType.PROGRESS,
                 "Using schema from ref artifact - no re-stream needed",
-                progress_pct=0.1,
+                progress_pct=0.05,
             )
 
             data = {
@@ -75,14 +75,37 @@ class ClassifyPipeline(FeaturePipeline):
             yield ProgressEvent(EventType.ERROR, "No input data provided")
             return
 
+        profile_signals_map: dict[str, ProfileSignals] | None = None
+        profile_artifact_id = plan.metadata.get("profile_artifact_id")
+
+        if profile_artifact_id:
+            try:
+                resolved_profile_id = context.artifact_store.resolve(
+                    profile_artifact_id, feature_hint="profile_detail"
+                )
+                profile_data = await context.artifact_store.load_json(resolved_profile_id)
+                profile_signals_map = extract_profile_signals(profile_data)
+                yield ProgressEvent(
+                    EventType.PROGRESS,
+                    f"Loaded profile signals for {len(profile_signals_map)} columns",
+                    progress_pct=0.10,
+                )
+            except Exception as exc:
+                yield ProgressEvent(
+                    EventType.PROGRESS,
+                    f"Warning: could not load profile artifact '{profile_artifact_id}': {exc} - continuing without profile",
+                    progress_pct=0.10,
+                )
+
         yield ProgressEvent(
             EventType.PROGRESS,
-            f"Classifying {len(df.columns)} columns - mode: {self.config.mode}",
-            progress_pct=0.1,
+            f"Classifying {len(df.columns)} columns - mode: {self.config.mode}"
+            + (" (with profile)" if profile_signals_map else ""),
+            progress_pct=0.15,
         )
 
         try:
-            result = run_classify(df, self.config)
+            result = run_classify(df, self.config, profile_signals_map=profile_signals_map)
         except Exception as exc:
             yield ProgressEvent(EventType.ERROR, str(exc))
             raise
@@ -102,6 +125,7 @@ class ClassifyPipeline(FeaturePipeline):
                 "output_artifact_id": output_id,
                 "column_count": len(result.columns),
                 "duration_s": round(duration, 3),
+                "profile_used": result.profile_used,
             },
         )
 
@@ -114,8 +138,8 @@ class ClassifyPipeline(FeaturePipeline):
             "overrides": self.config.overrides,
         }
 
-    def run(self, df: pl.DataFrame) -> ClassifyResult:
-        return run_classify(df, self.config)
+    def run(self, df: pl.DataFrame, profile_signals_map: dict[str, ProfileSignals] | None = None) -> ClassifyResult:
+        return run_classify(df, self.config, profile_signals_map=profile_signals_map)
 
 
 def _polars_dtype_from_str(dtype_str: str) -> pl.DataType:

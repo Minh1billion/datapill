@@ -20,17 +20,24 @@ def cmd_classify(
     mode: str = typer.Option("hybrid", "--mode", "-m", help="rule_based | embedding | hybrid"),
     threshold: float = typer.Option(0.0, "--threshold", "-t", help="Minimum confidence (0.0–1.0)"),
     overrides: Optional[str] = typer.Option(None, "--overrides", help='JSON string: {"col_name": "semantic_type"}'),
+    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="run_id or full artifact ID of a profile result (detail or summary)"),
 ):
     """Classify columns in a dataset by semantic type.
 
     Modes:
       rule_based  - fast, regex + dtype heuristics only
-      embedding   - semantic similarity via sentence-transformers
+      embedding   - semantic similarity via fastembed (BAAI/bge-small-en-v1.5)
       hybrid      - rule_based first, embedding for ambiguous columns (default)
+
+    Providing --profile improves classification accuracy by using pre-computed
+    statistics (null rates, cardinality, detected patterns, skewness) as additional
+    signals for all modes.
 
     Examples:
 
       dp classify -i <run_id> --mode hybrid
+
+      dp classify -i <run_id> --profile <profile_run_id>
 
       dp classify -i <run_id> --mode rule_based --threshold 0.65
 
@@ -45,6 +52,12 @@ def cmd_classify(
                 console.print("[red]--overrides must be valid JSON, e.g. '{\"col\": \"boolean\"}'[/red]")
                 raise typer.Exit(1)
 
+        if not profile:
+            console.print(
+                "[yellow]Tip: run [bold]dp profile -i <run_id>[/bold] first and pass [bold]--profile <run_id>[/bold] "
+                "to improve classification quality with pre-computed statistics.[/yellow]"
+            )
+
         pipeline = ClassifyPipeline(ClassifyConfig(
             mode=mode,
             confidence_threshold=threshold,
@@ -54,6 +67,9 @@ def cmd_classify(
         validate_pipeline(pipeline, ctx)
         plan = pipeline.plan(ctx)
         plan.metadata["input_artifact_id"] = resolve_input(ctx, input, feature_hint="classify")
+
+        if profile:
+            plan.metadata["profile_artifact_id"] = profile
 
         with Progress(
             SpinnerColumn(), BarColumn(),
@@ -71,8 +87,9 @@ def cmd_classify(
                 if event.event_type == EventType.DONE:
                     payload = event.payload or {}
                     console.print(f"\n[green][OK] {event.message}[/green]")
-                    console.print(f"  Artifact: [cyan]{payload.get('output_artifact_id')}[/cyan]")
-                    console.print(f"  Columns:  [cyan]{payload.get('column_count')}[/cyan]")
+                    console.print(f"  Artifact:     [cyan]{payload.get('output_artifact_id')}[/cyan]")
+                    console.print(f"  Columns:      [cyan]{payload.get('column_count')}[/cyan]")
+                    console.print(f"  Profile used: [cyan]{payload.get('profile_used')}[/cyan]")
                     await print_classify_table(ctx, payload.get("output_artifact_id"))
 
     run_async(_exec())

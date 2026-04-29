@@ -30,10 +30,48 @@ class ColumnClassification:
 
 
 @dataclass
+class ProfileSignals:
+    null_pct: float = 0.0
+    distinct_count: int = 0
+    distinct_pct: float = 0.0
+    is_unique: bool = False
+    skewness: Optional[float] = None
+    pattern_names: list[str] = field(default_factory=list)
+    top_value_count: Optional[int] = None
+
+    @classmethod
+    def from_profile_column(cls, col: dict) -> "ProfileSignals":
+        pattern_matches = col.get("pattern_matches") or []
+        pattern_names = [p["pattern"] for p in pattern_matches if p.get("pct", 0) >= 0.5]
+
+        distinct_count = col.get("distinct_count", 0)
+
+        return cls(
+            null_pct=col.get("null_pct", 0.0),
+            distinct_count=distinct_count,
+            distinct_pct=col.get("distinct_pct", 0.0),
+            is_unique=col.get("is_unique", False),
+            skewness=col.get("skewness"),
+            pattern_names=pattern_names,
+            top_value_count=distinct_count if distinct_count > 0 else None,
+        )
+
+
+def extract_profile_signals(profile_data: dict) -> dict[str, "ProfileSignals"]:
+    signals: dict[str, ProfileSignals] = {}
+    for col in profile_data.get("columns", []):
+        name = col.get("name")
+        if name:
+            signals[name] = ProfileSignals.from_profile_column(col)
+    return signals
+
+
+@dataclass
 class ClassifyResult:
     columns: list[ColumnClassification] = field(default_factory=list)
     dataset_domain: Optional[str] = None
     dataset_purpose: Optional[str] = None
+    profile_used: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -50,6 +88,7 @@ class ClassifyResult:
             ],
             "dataset_domain": self.dataset_domain,
             "dataset_purpose": self.dataset_purpose,
+            "profile_used": self.profile_used,
         }
 
 

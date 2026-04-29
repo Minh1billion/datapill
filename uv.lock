@@ -734,7 +734,7 @@ wheels = [
 
 [[package]]
 name = "datapill"
-version = "0.2.4"
+version = "0.2.6"
 source = { editable = "." }
 dependencies = [
     { name = "aioboto3" },
@@ -747,6 +747,7 @@ dependencies = [
     { name = "cryptography" },
     { name = "duckdb" },
     { name = "fastavro" },
+    { name = "fastembed" },
     { name = "fastexcel" },
     { name = "numpy" },
     { name = "openpyxl" },
@@ -770,9 +771,6 @@ dev = [
     { name = "pytest-httpserver" },
     { name = "ruff" },
 ]
-ml = [
-    { name = "fastembed" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -786,7 +784,7 @@ requires-dist = [
     { name = "cryptography", specifier = ">=42.0.0" },
     { name = "duckdb", specifier = ">=1.0.0" },
     { name = "fastavro", specifier = ">=1.9.0" },
-    { name = "fastembed", marker = "extra == 'ml'", specifier = ">=0.3.0" },
+    { name = "fastembed", specifier = ">=0.3.0" },
     { name = "fastexcel", specifier = ">=0.11.0" },
     { name = "numpy", specifier = ">=1.26.0" },
     { name = "openpyxl", specifier = ">=3.1.0" },
@@ -806,7 +804,7 @@ requires-dist = [
     { name = "typer", specifier = ">=0.12.0" },
     { name = "xlsxwriter", specifier = ">=3.2.0" },
 ]
-provides-extras = ["ml", "dev"]
+provides-extras = ["dev"]
 
 [[package]]
 name = "duckdb"

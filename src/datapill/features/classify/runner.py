@@ -1,25 +1,23 @@
 import polars as pl
 
-from .schema import ClassifyConfig, ClassifyResult, ColumnClassification, SemanticType
+from .schema import ClassifyConfig, ClassifyResult, ColumnClassification, SemanticType, ProfileSignals
 from .rule_based import classify_column_rule_based
 from .embedding import get_embedding_classifier
 
 
-def run_classify(df: pl.DataFrame, config: ClassifyConfig) -> ClassifyResult:
-    columns: list[ColumnClassification] = []
-
-    if config.mode == "embedding":
-        classifier = get_embedding_classifier()
-        batch = [(col, df[col].dtype, df[col]) for col in df.columns]
-        raw = classifier.classify_batch(batch)
-    elif config.mode == "rule_based":
-        raw = [
-            classify_column_rule_based(col, df[col].dtype, df[col])
-            for col in df.columns
-        ]
+def run_classify(
+    df: pl.DataFrame,
+    config: ClassifyConfig,
+    profile_signals_map: dict[str, ProfileSignals] | None = None,
+) -> ClassifyResult:
+    if config.mode == "rule_based":
+        raw = _rule_only(df, profile_signals_map)
+    elif config.mode == "embedding":
+        raw = _embedding_only(df, profile_signals_map)
     else:
-        raw = _hybrid_classify(df)
+        raw = _hybrid_classify(df, profile_signals_map)
 
+    columns: list[ColumnClassification] = []
     for classification in raw:
         col_name = classification.name
 
@@ -49,37 +47,57 @@ def run_classify(df: pl.DataFrame, config: ClassifyConfig) -> ClassifyResult:
                 overridden=False,
             ))
 
-    return ClassifyResult(columns=columns)
+    return ClassifyResult(columns=columns, profile_used=profile_signals_map is not None)
 
 
-def _hybrid_classify(df: pl.DataFrame) -> list[ColumnClassification]:
-    rule_results = {
-        col: classify_column_rule_based(col, df[col].dtype, df[col])
-        for col in df.columns
+def _rule_only(
+    df: pl.DataFrame,
+    profile_signals_map: dict[str, ProfileSignals] | None,
+) -> list[ColumnClassification]:
+    results = []
+    for col in df.columns:
+        signals = profile_signals_map.get(col) if profile_signals_map else None
+        result = classify_column_rule_based(col, df[col].dtype, df[col], profile_signals=signals)
+        if result is None:
+            result = ColumnClassification(
+                name=col,
+                semantic_type=SemanticType.UNKNOWN,
+                confidence=0.0,
+                reasoning="no certain rule matched",
+                source="rule_based",
+            )
+        results.append(result)
+    return results
+
+
+def _embedding_only(
+    df: pl.DataFrame,
+    profile_signals_map: dict[str, ProfileSignals] | None,
+) -> list[ColumnClassification]:
+    classifier = get_embedding_classifier()
+    batch = [(col, df[col].dtype, df[col]) for col in df.columns]
+    return classifier.classify_batch(batch, profile_signals_map=profile_signals_map)
+
+
+def _hybrid_classify(
+    df: pl.DataFrame,
+    profile_signals_map: dict[str, ProfileSignals] | None,
+) -> list[ColumnClassification]:
+    classifier = get_embedding_classifier()
+    emb_batch = [(col, df[col].dtype, df[col]) for col in df.columns]
+    embedding_results = {
+        r.name: r
+        for r in classifier.classify_batch(emb_batch, profile_signals_map=profile_signals_map)
     }
 
-    ambiguous_cols = [
-        col for col, r in rule_results.items()
-        if r.semantic_type == SemanticType.UNKNOWN
-    ]
-
-    embedding_results: dict[str, ColumnClassification] = {}
-    if ambiguous_cols:
-        classifier = get_embedding_classifier()
-        batch = [(col, df[col].dtype, df[col]) for col in ambiguous_cols]
-        for result in classifier.classify_batch(batch):
-            embedding_results[result.name] = result
-
-    final: list[ColumnClassification] = []
+    results = []
     for col in df.columns:
-        rule_r = rule_results[col]
-        if col in embedding_results:
-            emb_r = embedding_results[col]
-            if emb_r.semantic_type != SemanticType.UNKNOWN:
-                final.append(emb_r)
-            else:
-                final.append(rule_r)
-        else:
-            final.append(rule_r)
+        signals = profile_signals_map.get(col) if profile_signals_map else None
+        rule_result = classify_column_rule_based(col, df[col].dtype, df[col], profile_signals=signals)
 
-    return final
+        if rule_result is not None:
+            results.append(rule_result)
+        else:
+            results.append(embedding_results[col])
+
+    return results

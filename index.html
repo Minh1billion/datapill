@@ -701,25 +701,19 @@
       <!-- INSTALLATION -->
       <section class="section" id="installation">
         <h2>Installation</h2>
-        <p>Install via pip. The <code>dp</code> entry point is registered automatically. The core install (~200 MB)
-          includes rule-based classification, profiling, preprocessing, and export - no ML model required.</p>
+        <p>Install via pip. The <code>dp</code> entry point is registered automatically. The core install (~400 MB) includes rule-based and embedding classification (powered by <a href="https://github.com/qdrant/fastembed">fastembed</a>), profiling, preprocessing, and export.</p>
         <div class="code-block">
           <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
               onclick="copyCode(this)">copy</button></div>
-          <pre><span class="c-comment"># Core install (~200 MB) - rule-based classify, profile, preprocess, export</span>
+          <pre><span class="c-comment"># Core install (~400 MB) - includes fastembed for classify, profile, preprocess, export</span>
 <span class="c-cmd">pip</span> install <span class="c-val">datapill</span>
-
-<span class="c-comment"># With ML extras (~3.5 GB) - enables embedding and full hybrid classify</span>
-<span class="c-cmd">pip</span> install <span class="c-val">"datapill[ml]"</span>
 
 <span class="c-comment"># Verify</span>
 <span class="c-cmd">dp</span> <span class="c-flag">--help</span></pre>
         </div>
         <div class="callout info">
           <span class="callout-icon">ℹ</span>
-          <span>Without <code>[ml]</code>, <code>--mode hybrid</code> runs entirely on rule-based logic - columns that
-            cannot be resolved by rules are returned as <code>unknown</code> instead of being sent to the embedding
-            model. Install <code>datapill[ml]</code> for full hybrid accuracy.</span>
+          <span>Classification uses <code>fastembed</code> and is included in the core install — no extras required. On first use, the model (~130 MB) is downloaded and cached automatically.
         </div>
       </section>
 
@@ -1533,8 +1527,7 @@ asyncio.run(produce())
         <p>
           Three classification modes are available. <code>rule_based</code> is instant and
           requires no additional dependencies; it uses regex patterns against column names and
-          Polars dtype heuristics. <code>embedding</code> uses a local
-          <code>sentence-transformers</code> model (<code>all-MiniLM-L6-v2</code>) to compare
+          Polars dtype heuristics. <code>embedding</code> uses <code>fastembed</code> (<code>BAAI/bge-small-en-v1.5</code>) to compare
           each column's semantic context against typed anchor phrases. <code>hybrid</code>
           (default) runs rule-based first and only falls back to the embedding model for columns
           that return <code>unknown</code> or a confidence below <strong>0.65</strong> -
@@ -1566,7 +1559,7 @@ asyncio.run(produce())
                 <td><code>hybrid</code></td>
                 <td>
                   <code>rule_based</code> - regex + dtype heuristics only (instant, no model)<br>
-                  <code>embedding</code> - semantic similarity via sentence-transformers<br>
+                  <code>embedding</code> - semantic similarity via fastembed<br>
                   <code>hybrid</code> - rule_based first, embedding for ambiguous columns
                 </td>
               </tr>
@@ -1586,6 +1579,15 @@ asyncio.run(produce())
           </table>
         </div>
 
+                <div class="callout info">
+          <span class="callout-icon">ℹ</span>
+          <span>
+            <strong>Tip:</strong> Run <code>dp profile -i &lt;run_id&gt;</code> first, then pass
+            <code>--profile &lt;run_id&gt;</code> to <code>dp classify</code>. Pre-computed statistics
+            significantly improve accuracy for ambiguous columns.
+          </span>
+        </div>
+
         <h3>Usage</h3>
         <div class="code-block">
           <div class="code-header"><span class="code-label">bash</span><button class="copy-btn"
@@ -1603,6 +1605,9 @@ asyncio.run(produce())
 <span class="c-cmd">dp</span> classify <span class="c-flag">--input</span> <span class="c-val">cf78c178</span> <span class="c-flag">--mode</span> hybrid \
   <span class="c-flag">--overrides</span> <span class="c-val">'{"status": "categorical_ordinal", "y": "target_label"}'</span>
 
+<span class="c-comment"># Use a profile artifact to improve accuracy</span>
+<span class="c-cmd">dp</span> classify <span class="c-flag">--input</span> <span class="c-val">cf78c178</span> <span class="c-flag">--profile</span> <span class="c-val">&lt;profile_run_id&gt;</span>
+
 <span class="c-comment"># Use a full artifact ID instead of a run ID</span>
 <span class="c-cmd">dp</span> classify <span class="c-flag">--input</span> <span class="c-val">cf78c178_ingest_output</span> <span class="c-flag">--mode</span> hybrid</pre>
         </div>
@@ -1613,6 +1618,7 @@ asyncio.run(produce())
           <pre>[OK] Classify complete in 38.8s - 7 columns classified
   Artifact: <span class="c-val">f9374114_classify_output</span>
   Columns:  <span class="c-val">7</span>
+  Profile used: <span class="c-val">false</span>
 
 ┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Column       ┃ Semantic Type        ┃ Confidence ┃ Source     ┃ Overridden ┃ Reasoning                                      ┃
@@ -1636,13 +1642,12 @@ asyncio.run(produce())
           Overridden columns always show confidence <code>1.00</code> and source <code>override</code>.
         </p>
 
-        <div class="callout warn">
-          <span class="callout-icon">⚠</span>
+        <div class="callout info">
+          <span class="callout-icon">ℹ</span>
           <span>
-            <strong>ML extras required:</strong> <code>embedding</code> and <code>hybrid</code> modes
-            <code>pip install "datapill[ml]"</code> required (~3.5 GB, includes PyTorch + sentence-transformers).
-            On first use, <code>all-MiniLM-L6-v2</code> (~90 MB) is downloaded from Hugging Face Hub.
-            Set <code>HF_TOKEN</code> to enable higher rate limits. Subsequent runs load from local cache.
+            <strong>Embedding model:</strong> On first use, <code>fastembed</code> downloads
+            <code>BAAI/bge-small-en-v1.5</code> (~130 MB) from Hugging Face Hub and caches it locally.
+            No extra pip install is required — <code>fastembed</code> is bundled with the core install.
           </span>
         </div>
 
@@ -1989,6 +1994,8 @@ asyncio.run(produce())
 
 <span class="c-comment"># 2. Classify - hybrid mode (recommended)</span>
 <span class="c-cmd">dp</span> classify <span class="c-flag">--input</span> <span class="c-val">cf78c178</span> <span class="c-flag">--mode</span> hybrid
+<span class="c-comment"># 2b. With profile for better accuracy (recommended)</span>
+<span class="c-cmd">dp</span> classify <span class="c-flag">--input</span> <span class="c-val">cf78c178</span> <span class="c-flag">--mode</span> hybrid <span class="c-flag">--profile</span> <span class="c-val">&lt;profile_run_id&gt;</span>
 <span class="c-comment"># -> Artifact: f9374114_classify_output</span>
 <span class="c-comment"># price -> numerical_continuous  (safe: impute_mean, clip_iqr, standard_scaler)</span>
 <span class="c-comment"># quantity -> numerical_discrete  (safe: impute_median)</span>
@@ -1996,10 +2003,10 @@ asyncio.run(produce())
 <span class="c-comment"># id -> identifier  (exclude from all transformations)</span>
 <span class="c-comment"># created_at -> datetime  (exclude from numeric steps)</span>
 
-<span class="c-comment"># 2b. Rule-based only - instant, no model required</span>
+<span class="c-comment"># 2c. Rule-based only - instant, no model required</span>
 <span class="c-cmd">dp</span> classify <span class="c-flag">--input</span> <span class="c-val">cf78c178</span> <span class="c-flag">--mode</span> rule_based <span class="c-flag">--threshold</span> <span class="c-val">0.65</span>
 
-<span class="c-comment"># 2c. Override a column when you know better than the classifier</span>
+<span class="c-comment"># 2d. Override a column when you know better than the classifier</span>
 <span class="c-cmd">dp</span> classify <span class="c-flag">--input</span> <span class="c-val">cf78c178</span> <span class="c-flag">--mode</span> hybrid \
   <span class="c-flag">--overrides</span> <span class="c-val">'{"status": "categorical_ordinal"}'</span>
 

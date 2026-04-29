@@ -16,6 +16,8 @@ _FEATURE_PRIORITY = {
     "preprocess": ["ingest_output", "ingest_ref", "preprocess_output"],
     "export":     ["preprocess_output", "ingest_output", "ingest_ref"],
     "classify":   ["ingest_output", "ingest_ref", "preprocess_output"],
+    "profile_detail":  ["detail"],
+    "profile_summary": ["summary"],
 }
 
 _DEFAULT_ARTIFACT_DIR = Path.cwd() / ".datapill" / "artifacts"
