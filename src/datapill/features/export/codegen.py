@@ -320,7 +320,7 @@ order_map = {repr(order_map)}
 for col in active_cols:
     order = order_map.get(col) or df[col].drop_nulls().unique().sort().to_list()
     mapping = {{v: i for i, v in enumerate(order)}}
-    df = df.with_columns(pl.col(col).replace(mapping, default=None).cast(pl.Int32))"""
+    df = df.with_columns(pl.col(col).replace_strict(mapping, default=None).cast(pl.Int32))"""
 
     if step_type == "select_columns":
         return "df = df.select(active_cols)"

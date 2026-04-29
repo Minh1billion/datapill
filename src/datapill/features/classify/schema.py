@@ -97,3 +97,4 @@ class ClassifyConfig:
     mode: str = "hybrid"
     confidence_threshold: float = 0.0
     overrides: dict[str, str] = field(default_factory=dict)
+    model_cache_dir: Optional[str] = None

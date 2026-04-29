@@ -13,9 +13,9 @@ def run_classify(
     if config.mode == "rule_based":
         raw = _rule_only(df, profile_signals_map)
     elif config.mode == "embedding":
-        raw = _embedding_only(df, profile_signals_map)
+        raw = _embedding_only(df, profile_signals_map, cache_dir=config.model_cache_dir)
     else:
-        raw = _hybrid_classify(df, profile_signals_map)
+        raw = _hybrid_classify(df, profile_signals_map, cache_dir=config.model_cache_dir)
 
     columns: list[ColumnClassification] = []
     for classification in raw:
@@ -73,8 +73,9 @@ def _rule_only(
 def _embedding_only(
     df: pl.DataFrame,
     profile_signals_map: dict[str, ProfileSignals] | None,
+    cache_dir: str | None = None,
 ) -> list[ColumnClassification]:
-    classifier = get_embedding_classifier()
+    classifier = get_embedding_classifier(cache_dir=cache_dir)
     batch = [(col, df[col].dtype, df[col]) for col in df.columns]
     return classifier.classify_batch(batch, profile_signals_map=profile_signals_map)
 
@@ -82,8 +83,9 @@ def _embedding_only(
 def _hybrid_classify(
     df: pl.DataFrame,
     profile_signals_map: dict[str, ProfileSignals] | None,
+    cache_dir: str | None = None,
 ) -> list[ColumnClassification]:
-    classifier = get_embedding_classifier()
+    classifier = get_embedding_classifier(cache_dir=cache_dir)
     emb_batch = [(col, df[col].dtype, df[col]) for col in df.columns]
     embedding_results = {
         r.name: r

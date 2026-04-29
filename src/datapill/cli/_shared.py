@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -22,6 +23,33 @@ console = Console()
 SOURCES = "local_file | postgresql | mysql | s3 | rest | kafka"
 FORMATS = "csv | parquet | json | jsonl | excel"
 
+# Default artifact store: prefer env var, then walk up from CWD to find
+# an existing .datapill/artifacts directory, then fall back to
+# .datapill/artifacts in CWD.
+_DEFAULT_STORE_DIR = ".datapill/artifacts"
+
+
+def _resolve_store_path(out: str | None) -> str:
+    """Return the artifact store path to use, in priority order:
+
+    1. Explicit ``out`` argument (from --out / --store CLI flags).
+    2. ``DATAPILL_ARTIFACT_STORE`` environment variable.
+    3. Nearest ``.datapill/artifacts`` directory found by walking up from CWD.
+    4. ``.datapill/artifacts`` relative to CWD (created on first write).
+    """
+    if out:
+        return out
+    env = os.environ.get("DATAPILL_ARTIFACT_STORE")
+    if env:
+        return env
+    # Walk up directory tree looking for an existing store.
+    cwd = Path.cwd()
+    for parent in [cwd, *cwd.parents]:
+        candidate = parent / ".datapill" / "artifacts"
+        if candidate.is_dir():
+            return str(candidate)
+    return str(cwd / _DEFAULT_STORE_DIR)
+
 _SOURCE_TYPE_MAP = {
     "LocalFileConnector": "local_file",
     "PostgreSQLConnector": "postgresql",
@@ -37,7 +65,7 @@ def run_async(coro):
 
 
 def make_context(out: str | None = None) -> PipelineContext:
-    return PipelineContext(artifact_store=ArtifactStore(out))
+    return PipelineContext(artifact_store=ArtifactStore(_resolve_store_path(out)))
 
 
 def load_config(config_path: str | None) -> dict:
@@ -193,6 +221,20 @@ def write_local(df: pl.DataFrame, path: Path, fmt: str) -> None:
     elif fmt in ("jsonl", "ndjson"):
         df.write_ndjson(path)
     elif fmt in ("xlsx", "excel"):
+        _EXCEL_ROW_WARN = 50_000
+        _EXCEL_ROW_LIMIT = 1_048_576  # Excel hard limit
+        nrows = len(df)
+        if nrows > _EXCEL_ROW_LIMIT:
+            console.print(
+                f"[red]Excel supports at most 1,048,576 rows; dataset has {nrows:,}. "
+                "Export as parquet or csv instead.[/red]"
+            )
+            raise typer.Exit(1)
+        if nrows > _EXCEL_ROW_WARN:
+            console.print(
+                f"[yellow]⚠ Writing {nrows:,} rows to Excel — this may take a while (10+ seconds). "
+                "Consider --format parquet or csv for large datasets.[/yellow]"
+            )
         df.write_excel(path)
     else:
         raise ValueError(f"Unsupported format for write: '{fmt}'")

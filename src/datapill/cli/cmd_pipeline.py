@@ -5,7 +5,7 @@ import typer
 
 from datapill.features.export.codegen import CodegenConfig, generate
 
-from ._shared import FORMATS, SOURCES, console, load_config, make_context, run_async
+from ._shared import FORMATS, SOURCES, _resolve_store_path, console, load_config, make_context, run_async
 
 app = typer.Typer(help="Pipeline utilities")
 
@@ -24,7 +24,7 @@ def cmd_pipeline_export(
     compression: Optional[str] = typer.Option(None, "--compression", help="snappy | zstd | gzip (parquet only)"),
     with_tests: bool = typer.Option(False, "--with-tests", help="Also generate test_pipeline.py"),
     out_dir: str = typer.Option("generated", "--out-dir", "-o", help="Directory to write generated files"),
-    artifact_store: str = typer.Option("src/datapill/artifacts", "--store", help="Artifact store directory"),
+    artifact_store: str = typer.Option("", "--store", help="Artifact store directory (default: auto-detect from CWD or DATAPILL_ARTIFACT_STORE env var)"),
 ):
     """Generate a standalone run_pipeline.py from a preprocess run.
 
@@ -42,7 +42,7 @@ def cmd_pipeline_export(
       dp pipeline export -i def456_preprocess_config --out-dir ./generated
     """
     async def _exec():
-        ctx = make_context(artifact_store)
+        ctx = make_context(_resolve_store_path(artifact_store or None))
 
         try:
             resolved = ctx.artifact_store.resolve(input, feature_hint="preprocess")

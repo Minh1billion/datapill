@@ -1,4 +1,6 @@
 import json
+import os
+from pathlib import Path
 from typing import Optional
 
 import typer
@@ -21,6 +23,7 @@ def cmd_classify(
     threshold: float = typer.Option(0.0, "--threshold", "-t", help="Minimum confidence (0.0–1.0)"),
     overrides: Optional[str] = typer.Option(None, "--overrides", help='JSON string: {"col_name": "semantic_type"}'),
     profile: Optional[str] = typer.Option(None, "--profile", "-p", help="run_id or full artifact ID of a profile result (detail or summary)"),
+    model_cache_dir: Optional[str] = typer.Option(None, "--model-cache-dir", help="Directory to cache embedding model (default: ~/.cache/datapill/models). Set DATAPILL_MODEL_CACHE env var as alternative."),
 ):
     """Classify columns in a dataset by semantic type.
 
@@ -28,6 +31,10 @@ def cmd_classify(
       rule_based  - fast, regex + dtype heuristics only
       embedding   - semantic similarity via fastembed (BAAI/bge-small-en-v1.5)
       hybrid      - rule_based first, embedding for ambiguous columns (default)
+
+    NOTE: modes 'embedding' and 'hybrid' download ~130 MB on first use.
+    Use --model-cache-dir to control where the model is cached, or set
+    DATAPILL_MODEL_CACHE. Use --mode rule_based for fully offline operation.
 
     Providing --profile improves classification accuracy by using pre-computed
     statistics (null rates, cardinality, detected patterns, skewness) as additional
@@ -42,6 +49,8 @@ def cmd_classify(
       dp classify -i <run_id> --mode rule_based --threshold 0.65
 
       dp classify -i <run_id> --overrides '{"age": "numerical_continuous", "y": "target_label"}'
+
+      dp classify -i <run_id> --mode embedding --model-cache-dir /mnt/models
     """
     async def _exec():
         override_dict: dict = {}
@@ -58,10 +67,29 @@ def cmd_classify(
                 "to improve classification quality with pre-computed statistics.[/yellow]"
             )
 
+        # Resolve model cache directory: CLI flag > env var > default.
+        resolved_cache = (
+            model_cache_dir
+            or os.environ.get("DATAPILL_MODEL_CACHE")
+            or str(Path.home() / ".cache" / "datapill" / "models")
+        )
+
+        if mode in ("embedding", "hybrid"):
+            cache_path = Path(resolved_cache)
+            model_present = cache_path.is_dir() and any(cache_path.iterdir())
+            if not model_present:
+                console.print(
+                    f"[yellow]⚠ Mode '{mode}' requires the BAAI/bge-small-en-v1.5 embedding model "
+                    f"(~130 MB). It will be downloaded on first use to:[/yellow]\n"
+                    f"  [cyan]{resolved_cache}[/cyan]\n"
+                    "[yellow]Use [bold]--mode rule_based[/bold] for fully offline operation.[/yellow]"
+                )
+
         pipeline = ClassifyPipeline(ClassifyConfig(
             mode=mode,
             confidence_threshold=threshold,
             overrides=override_dict,
+            model_cache_dir=resolved_cache,
         ))
         ctx = make_context()
         validate_pipeline(pipeline, ctx)

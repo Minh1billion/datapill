@@ -192,9 +192,10 @@ def _encode(model, texts: list[str]) -> np.ndarray:
 
 
 class EmbeddingClassifier:
-    def __init__(self) -> None:
+    def __init__(self, cache_dir: Optional[str] = None) -> None:
         self._model = None
         self._anchor_embeddings: Optional[dict[SemanticType, np.ndarray]] = None
+        self._cache_dir = cache_dir
 
     def _load_model(self):
         if self._model is not None:
@@ -206,7 +207,11 @@ class EmbeddingClassifier:
                 "Embedding mode requires fastembed. "
                 "Install with: pip install datapill[ml]"
             )
-        self._model = TextEmbedding(model_name=_MODEL_NAME, show_progress=False)
+        self._model = TextEmbedding(
+            model_name=_MODEL_NAME,
+            cache_dir=self._cache_dir,
+            show_progress=False,
+        )
 
     def _build_anchors(self):
         if self._anchor_embeddings is not None:
@@ -312,8 +317,10 @@ class EmbeddingClassifier:
 _shared_classifier: Optional[EmbeddingClassifier] = None
 
 
-def get_embedding_classifier() -> EmbeddingClassifier:
+def get_embedding_classifier(cache_dir: Optional[str] = None) -> EmbeddingClassifier:
     global _shared_classifier
     if _shared_classifier is None:
-        _shared_classifier = EmbeddingClassifier()
+        _shared_classifier = EmbeddingClassifier(cache_dir=cache_dir)
+    elif cache_dir and _shared_classifier._cache_dir != cache_dir:
+        _shared_classifier = EmbeddingClassifier(cache_dir=cache_dir)
     return _shared_classifier

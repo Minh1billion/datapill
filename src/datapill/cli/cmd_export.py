@@ -23,7 +23,7 @@ def cmd_export(
     connector_file: Optional[str] = typer.Option(None, "--connector", "-c", help="Connector config JSON for write-back"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print first 10 rows, skip write"),
     compression: Optional[str] = typer.Option(None, "--compression", help="snappy | zstd | gzip (parquet only)"),
-    out: str = typer.Option("src/datapill/artifacts", "--out", "-o", help="Artifact store directory"),
+    out: Optional[str] = typer.Option(None, "--out", "-o", help="Artifact store directory"),
 ):
     """Export a dataset to file or write back to a connector.
 
