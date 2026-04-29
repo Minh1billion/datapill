@@ -5,7 +5,6 @@ import polars as pl
 from .schema import SemanticType, ColumnClassification, ProfileSignals
 
 _CERTAIN_CONFIDENCE = 1.0
-_HEURISTIC_CONFIDENCE = 0.80
 
 _DTYPE_CERTAIN: list[tuple[tuple, SemanticType, str]] = [
     ((pl.Boolean,), SemanticType.BOOLEAN, "dtype Boolean"),
@@ -13,21 +12,31 @@ _DTYPE_CERTAIN: list[tuple[tuple, SemanticType, str]] = [
     ((pl.Float32, pl.Float64), SemanticType.NUMERICAL_CONTINUOUS, "dtype Float"),
 ]
 
+
+def _is_numeric_dtype(dtype: pl.DataType) -> bool:
+    return dtype in (pl.Float32, pl.Float64) or isinstance(dtype, pl.Decimal)
+
+
+def _is_temporal_dtype(dtype: pl.DataType) -> bool:
+    return isinstance(dtype, (pl.Date, pl.Datetime, pl.Duration, pl.Time))
+
 _NAME_CERTAIN: list[tuple[re.Pattern, SemanticType, str]] = [
-    (re.compile(r"\b(uuid|guid)\b", re.I),                                        SemanticType.IDENTIFIER,           "name: uuid/guid"),
-    (re.compile(r"(^|_)id$", re.I),                                               SemanticType.IDENTIFIER,           "name: id/_id suffix"),
-    (re.compile(r"^id_", re.I),                                                    SemanticType.IDENTIFIER,           "name: id_ prefix"),
-    (re.compile(r"\b(email|e_mail)\b", re.I),                                     SemanticType.TEXT_STRUCTURED,      "name: email"),
-    (re.compile(r"\b(phone|tel|mobile|cellphone)\b", re.I),                       SemanticType.TEXT_STRUCTURED,      "name: phone"),
-    (re.compile(r"\b(url|href|uri)\b", re.I),                                     SemanticType.TEXT_STRUCTURED,      "name: url/href/uri"),
-    (re.compile(r"\b(zip|zipcode|postal|postcode|iban|ssn|npi)\b", re.I),         SemanticType.TEXT_STRUCTURED,      "name: structured code field"),
-    (re.compile(r"\b(lat|latitude)\b", re.I),                                     SemanticType.GEOSPATIAL,           "name: latitude"),
-    (re.compile(r"\b(lon|lng|longitude)\b", re.I),                                SemanticType.GEOSPATIAL,           "name: longitude"),
-    (re.compile(r"\b(embedding|embed|vector|vec)\b", re.I),                       SemanticType.EMBEDDING,            "name: embedding/vector"),
-    (re.compile(r"(^|_)(at|date|datetime|timestamp)$", re.I),                     SemanticType.DATETIME,             "name: _at/_date/_datetime/_timestamp suffix"),
-    (re.compile(r"^(is|has|can|was|did|should|will)_", re.I),                     SemanticType.BOOLEAN,              "name: boolean prefix"),
-    (re.compile(r"_(flag|enabled|active|deleted|verified|approved)$", re.I),      SemanticType.BOOLEAN,              "name: boolean suffix"),
+    (re.compile(r"\b(uuid|guid)\b", re.I),                                        SemanticType.IDENTIFIER,       "name: uuid/guid"),
+    (re.compile(r"(^|_)id$", re.I),                                               SemanticType.IDENTIFIER,       "name: id/_id suffix"),
+    (re.compile(r"^id_", re.I),                                                    SemanticType.IDENTIFIER,       "name: id_ prefix"),
+    (re.compile(r"\b(email|e_mail)\b", re.I),                                     SemanticType.TEXT_STRUCTURED,  "name: email"),
+    (re.compile(r"\b(phone|tel|mobile|cellphone)\b", re.I),                       SemanticType.TEXT_STRUCTURED,  "name: phone"),
+    (re.compile(r"\b(url|href|uri)\b", re.I),                                     SemanticType.TEXT_STRUCTURED,  "name: url/href/uri"),
+    (re.compile(r"\b(zip|zipcode|postal|postcode|iban|ssn|npi)\b", re.I),         SemanticType.TEXT_STRUCTURED,  "name: structured code field"),
+    (re.compile(r"\b(lat|latitude)\b", re.I),                                     SemanticType.GEOSPATIAL,       "name: latitude"),
+    (re.compile(r"\b(lon|lng|longitude)\b", re.I),                                SemanticType.GEOSPATIAL,       "name: longitude"),
+    (re.compile(r"\b(embedding|embed|vector|vec)\b", re.I),                       SemanticType.EMBEDDING,        "name: embedding/vector"),
+    (re.compile(r"(^|_)(at|date|datetime|timestamp)$", re.I),                     SemanticType.DATETIME,         "name: _at/_date/_datetime/_timestamp suffix"),
+    (re.compile(r"^(is|has|can|was|did|should|will)_", re.I),                     SemanticType.BOOLEAN,          "name: boolean prefix"),
+    (re.compile(r"_(flag|enabled|active|deleted|verified|approved)$", re.I),      SemanticType.BOOLEAN,          "name: boolean suffix"),
 ]
+
+_HEURISTIC_CONFIDENCE = 0.80
 
 _NAME_HEURISTIC: list[tuple[re.Pattern, SemanticType, str]] = [
     (re.compile(r"\b(price|cost|amount|revenue|salary|wage|income|fee|rate|budget|balance|subtotal|discount|tax)\b", re.I),
@@ -62,15 +71,21 @@ _IDENTIFIER_UNIQUE_THRESHOLD = 0.95
 
 
 def _classify_certain(col_name: str, dtype: pl.DataType) -> Optional[ColumnClassification]:
-    for dtypes, semantic_type, reasoning in _DTYPE_CERTAIN:
-        if dtype in dtypes:
-            return ColumnClassification(
-                name=col_name,
-                semantic_type=semantic_type,
-                confidence=_CERTAIN_CONFIDENCE,
-                reasoning=f"certain: {reasoning}",
-                source="rule_based",
-            )
+    if dtype == pl.Boolean:
+        return ColumnClassification(
+            name=col_name, semantic_type=SemanticType.BOOLEAN,
+            confidence=_CERTAIN_CONFIDENCE, reasoning="certain: dtype Boolean", source="rule_based",
+        )
+    if _is_temporal_dtype(dtype):
+        return ColumnClassification(
+            name=col_name, semantic_type=SemanticType.DATETIME,
+            confidence=_CERTAIN_CONFIDENCE, reasoning="certain: dtype is temporal", source="rule_based",
+        )
+    if _is_numeric_dtype(dtype):
+        return ColumnClassification(
+            name=col_name, semantic_type=SemanticType.NUMERICAL_CONTINUOUS,
+            confidence=_CERTAIN_CONFIDENCE, reasoning="certain: dtype Float", source="rule_based",
+        )
 
     for pattern, semantic_type, reasoning in _NAME_CERTAIN:
         if pattern.search(col_name):

@@ -20,6 +20,14 @@ _DTYPE_MAP: dict[str, str] = {
     "Binary": "binary",
 }
 
+
+def _infer_dtype(dtype: pl.DataType) -> str:
+    if isinstance(dtype, pl.Decimal):
+        return "float"
+    if isinstance(dtype, (pl.Datetime, pl.Date, pl.Duration, pl.Time)):
+        return "datetime"
+    return _DTYPE_MAP.get(str(dtype), "unknown")
+
 _PATTERNS: dict[str, re.Pattern] = {
     "email": re.compile(r"^[\w.+-]+@[\w-]+\.[a-zA-Z]{2,}$"),
     "url": re.compile(r"^https?://\S+$"),
@@ -51,7 +59,7 @@ class ColumnStatsComputer:
         null_count = series.null_count()
         dtype = series.dtype
         dtype_str = str(dtype)
-        dtype_inferred = _DTYPE_MAP.get(dtype_str, "unknown")
+        dtype_inferred = _infer_dtype(dtype)
 
         clean = series.drop_nulls()
         distinct_count = series.n_unique()
@@ -81,10 +89,14 @@ class ColumnStatsComputer:
             "warnings": [],
         }
 
-        if dtype in _NUMERIC_DTYPES and len(clean) > 0:
-            result.update(self._numeric_stats(clean, n))
+        is_numeric = dtype in _NUMERIC_DTYPES or isinstance(dtype, pl.Decimal)
+        is_datetime = isinstance(dtype, (pl.Datetime, pl.Date, pl.Duration, pl.Time))
 
-        elif dtype in _DATETIME_DTYPES and len(clean) > 0:
+        if is_numeric and len(clean) > 0:
+            numeric_clean = clean.cast(pl.Float64) if isinstance(dtype, pl.Decimal) else clean
+            result.update(self._numeric_stats(numeric_clean, n))
+
+        elif is_datetime and len(clean) > 0:
             result["min"] = str(clean.min())
             result["max"] = str(clean.max())
 
@@ -207,11 +219,15 @@ def compute_correlation_matrix(
         c for c in df.columns
         if df[c].dtype in (pl.Int32, pl.Int64, pl.Float32, pl.Float64,
                            pl.Int8, pl.Int16, pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64)
+        or isinstance(df[c].dtype, pl.Decimal)
     ]
     if len(numeric_cols) < 2:
         return []
 
-    sample = df.select(numeric_cols)
+    sample = df.select([
+        pl.col(c).cast(pl.Float64).alias(c) if isinstance(df[c].dtype, pl.Decimal) else pl.col(c)
+        for c in numeric_cols
+    ])
     if len(sample) > max_rows:
         sample = sample.sample(n=max_rows, seed=42)
 
