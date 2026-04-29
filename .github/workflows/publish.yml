@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv
@@ -39,7 +40,9 @@ jobs:
             NEW="$MAJOR.$MINOR.$((PATCH + 1))"
           fi
 
+          echo "OLD=$OLD  NEW=$NEW"
           sed -i "s/^version = \"$OLD\"/version = \"$NEW\"/" pyproject.toml
+          grep '^version' pyproject.toml
           git tag "$NEW"
           git push origin "$NEW"
 
