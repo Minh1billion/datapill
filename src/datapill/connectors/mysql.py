@@ -2,7 +2,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional, AsyncGenerator, Any
 import polars as pl
-import aiomysql
+import asyncmy
+import asyncmy.cursors
 
 from .base import BaseConnector, ConnectionStatus
 from ..utils.streaming import estimate_from_sample, records_to_df
@@ -32,7 +33,7 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
     async def connect(self) -> ConnectionStatus:
         t0 = time.perf_counter()
         try:
-            self.pool = await aiomysql.create_pool(
+            self.pool = await asyncmy.create_pool(
                 host=self.config.host,
                 port=self.config.port,
                 user=self.config.user,
@@ -69,18 +70,16 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
 
         if not stream:
             async with self.pool.acquire() as conn:
-                async with conn.cursor(aiomysql.DictCursor) as cur:
+                async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
                     await cur.execute(sql, params or [])
                     rows = await cur.fetchall()
             if not rows:
                 return pl.DataFrame()
-            keys = list(rows[0].keys())
-            columns = list(zip(*[r.values() for r in rows]))
-            return pl.DataFrame(dict(zip(keys, columns)))
+            return pl.DataFrame({k: [r[k] for r in rows] for k in rows[0]})
 
         async def _stream() -> AsyncGenerator[pl.DataFrame, Any]:
             async with self.pool.acquire() as conn:
-                async with conn.cursor(aiomysql.DictCursor) as cur:
+                async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
                     await cur.execute(sql, params or [])
                     sample = await cur.fetchmany(1000)
                     if not sample:

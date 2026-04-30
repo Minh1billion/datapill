@@ -5,7 +5,7 @@ from typing import Optional, AsyncGenerator, Any
 import polars as pl
 
 from .base import BaseConnector, ConnectionStatus
-from ..utils.file import resolve_path
+from ..utils.file_process import resolve_path
 from ..utils.streaming import estimate_batch_size
 
 @dataclass

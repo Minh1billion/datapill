@@ -1,0 +1,119 @@
+import time
+from dataclasses import dataclass, field
+from typing import Optional, AsyncGenerator, Any
+import polars as pl
+import aioboto3
+import io
+
+from .base import BaseConnector, ConnectionStatus
+from ..utils.streaming import estimate_batch_size
+from ..utils.file_process import parse_bytes, get_format, resolve_key
+
+
+@dataclass
+class S3ConnectorConfig:
+    bucket: str
+    region: str = "us-east-1"
+    access_key: Optional[str] = None
+    secret_key: Optional[str] = None
+    endpoint_url: Optional[str] = None
+    prefix: str = ""
+    read_only: bool = False
+    format_filter: Optional[list[str]] = None
+    encoding: str = "utf-8"
+
+
+class S3Connector(BaseConnector[S3ConnectorConfig]):
+    def __init__(self, config: S3ConnectorConfig):
+        super().__init__(config)
+        self.session = aioboto3.Session(
+            aws_access_key_id=config.access_key,
+            aws_secret_access_key=config.secret_key,
+            region_name=config.region,
+        )
+
+    async def connect(self) -> ConnectionStatus:
+        t0 = time.perf_counter()
+        try:
+            async with self.session.client("s3", endpoint_url=self.config.endpoint_url) as s3:
+                await s3.head_bucket(Bucket=self.config.bucket)
+            return ConnectionStatus(ok=True, latency_ms=1000 * (time.perf_counter() - t0))
+        except Exception as e:
+            return ConnectionStatus(ok=False, error=str(e))
+
+    async def cleanup(self) -> None:
+        return
+
+    async def read(
+        self,
+        path: str,
+        format: Optional[str] = None,
+        stream: bool = False,
+        batch_size: Optional[int] = None,
+    ) -> pl.DataFrame | AsyncGenerator[pl.DataFrame, Any]:
+
+        key = resolve_key(self.config.prefix, path)
+        fmt = get_format(path, format)
+
+        if self.config.format_filter and fmt not in self.config.format_filter:
+            raise ValueError("format not allowed")
+
+        async with self.session.client("s3", endpoint_url=self.config.endpoint_url) as s3:
+            obj = await s3.get_object(Bucket=self.config.bucket, Key=key)
+            data = await obj["Body"].read()
+
+        df = parse_bytes(data, fmt, self.config.encoding)
+
+        if not stream:
+            return df
+
+        resolved = batch_size or estimate_batch_size(len(data), len(df))
+
+        return (
+            df.slice(i, resolved)
+            for i in range(0, len(df), resolved)
+        )
+
+    async def write(
+        self,
+        df: pl.DataFrame,
+        path: str,
+        format: Optional[str] = None,
+    ) -> None:
+        if self.config.read_only:
+            raise PermissionError("read only")
+
+        key = resolve_key(self.config.prefix, path)
+        fmt = get_format(path, format)
+
+        buf = io.BytesIO()
+
+        if fmt == "parquet":
+            df.write_parquet(buf)
+        elif fmt == "csv":
+            df.write_csv(buf)
+        elif fmt == "json":
+            df.write_json(buf)
+        else:
+            raise ValueError(f"unsupported format: {fmt}")
+
+        buf.seek(0)
+
+        async with self.session.client("s3", endpoint_url=self.config.endpoint_url) as s3:
+            await s3.put_object(
+                Bucket=self.config.bucket,
+                Key=key,
+                Body=buf.read()
+            )
+
+    async def list_objects(self, prefix: Optional[str] = None) -> list[str]:
+        base = resolve_key(self.config.prefix, prefix or "")
+
+        keys = []
+        async with self.session.client("s3", endpoint_url=self.config.endpoint_url) as s3:
+            paginator = s3.get_paginator("list_objects_v2")
+            async for page in paginator.paginate(Bucket=self.config.bucket, Prefix=base):
+                for obj in page.get("Contents", []):
+                    keys.append(obj["Key"])
+
+        return keys
