@@ -2,57 +2,59 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional, AsyncGenerator, Any
 import polars as pl
-import asyncpg
+import aiomysql
 
 from .base import BaseConnector, ConnectionStatus
 from ..utils.streaming import estimate_from_sample, records_to_df
 
+
 @dataclass
-class PostgreSQLConnectorConfig:
+class MySQLConnectorConfig:
     host: str
     database: str
     user: str
     password: str
-    port: int = 5432
-    schema: str = "public"
+    port: int = 3306
+    schema: str = None
     read_only: bool = False
     min_pool_size: int = 1
     max_pool_size: int = 10
-    ssl: Optional[str] = None
     connect_timeout: float = 10.0
-    command_timeout: float = 60.0
-    statement_cache_size: int = 100
+    charset: str = "utf8mb4"
     server_settings: dict = field(default_factory=dict)
 
 
-class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
-    def __init__(self, config: PostgreSQLConnectorConfig):
+class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
+    def __init__(self, config: MySQLConnectorConfig):
         super().__init__(config)
-        self.connection_string = f"postgresql://{config.user}:{config.password}@{config.host}:{config.port}/{config.database}"
         self.pool = None
 
     async def connect(self) -> ConnectionStatus:
         t0 = time.perf_counter()
         try:
-            self.pool = await asyncpg.create_pool(
-                dsn=self.connection_string,
-                min_size=self.config.min_pool_size,
-                max_size=self.config.max_pool_size,
-                ssl=self.config.ssl,
+            self.pool = await aiomysql.create_pool(
+                host=self.config.host,
+                port=self.config.port,
+                user=self.config.user,
+                password=self.config.password,
+                db=self.config.database,
+                minsize=self.config.min_pool_size,
+                maxsize=self.config.max_pool_size,
                 connect_timeout=self.config.connect_timeout,
-                command_timeout=self.config.command_timeout,
-                statement_cache_size=self.config.statement_cache_size,
-                server_settings=self.config.server_settings,
+                charset=self.config.charset,
+                autocommit=True,
             )
             async with self.pool.acquire() as conn:
-                await conn.fetchval("SELECT 1")
+                async with conn.cursor() as cur:
+                    await cur.execute("SELECT 1")
             return ConnectionStatus(ok=True, latency_ms=1000 * (time.perf_counter() - t0))
         except Exception as e:
             return ConnectionStatus(ok=False, error=str(e))
 
     async def cleanup(self):
         if self.pool:
-            await self.pool.close()
+            self.pool.close()
+            await self.pool.wait_closed()
             self.pool = None
 
     async def query(
@@ -67,20 +69,26 @@ class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
 
         if not stream:
             async with self.pool.acquire() as conn:
-                rows = await conn.fetch(sql, *params or [])
-            return records_to_df(rows)
+                async with conn.cursor(aiomysql.DictCursor) as cur:
+                    await cur.execute(sql, params or [])
+                    rows = await cur.fetchall()
+            if not rows:
+                return pl.DataFrame()
+            keys = list(rows[0].keys())
+            columns = list(zip(*[r.values() for r in rows]))
+            return pl.DataFrame(dict(zip(keys, columns)))
 
         async def _stream() -> AsyncGenerator[pl.DataFrame, Any]:
             async with self.pool.acquire() as conn:
-                async with conn.transaction():
-                    cursor = await conn.cursor(sql, *params or [])
-                    sample = await cursor.fetch(1000)
+                async with conn.cursor(aiomysql.DictCursor) as cur:
+                    await cur.execute(sql, params or [])
+                    sample = await cur.fetchmany(1000)
                     if not sample:
                         return
                     resolved = estimate_from_sample(sample, batch_size)
                     yield records_to_df(sample)
                     while True:
-                        rows = await cursor.fetch(resolved)
+                        rows = await cur.fetchmany(resolved)
                         if not rows:
                             break
                         yield records_to_df(rows)
@@ -96,21 +104,24 @@ class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
         if not self.pool:
             raise ValueError("Pool not connected")
         async with self.pool.acquire() as conn:
-            if many:
-                await conn.executemany(sql, params or [])
-                return len(params or [])
-            result = await conn.execute(sql, *params or [])
-            return int(result.split()[-1]) if result else 0
+            async with conn.cursor() as cur:
+                if many:
+                    await cur.executemany(sql, params or [])
+                    return len(params or [])
+                await cur.execute(sql, params or [])
+                return cur.rowcount
 
     async def list_tables(self, schema: Optional[str] = None) -> list[str]:
         if not self.pool:
             raise ValueError("Pool not connected")
-        s = schema or self.config.schema
+        db = schema or self.config.database
         async with self.pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT table_name FROM information_schema.tables "
-                "WHERE table_schema = $1 AND table_type = 'BASE TABLE' "
-                "ORDER BY table_name",
-                s,
-            )
-        return [r["table_name"] for r in rows]
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_schema = %s AND table_type = 'BASE TABLE' "
+                    "ORDER BY table_name",
+                    (db,),
+                )
+                rows = await cur.fetchall()
+        return [r[0] for r in rows]
