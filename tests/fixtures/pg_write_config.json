@@ -1,9 +1,0 @@
-{
-  "source": "postgresql",
-  "host": "localhost",
-  "port": 5433,
-  "database": "testdb",
-  "user": "testuser",
-  "password": "testpass",
-  "table": "orders_processed"
-}

@@ -1,9 +1,8 @@
-from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import AsyncGenerator, Any
-from .context import PipelineContext
-from .events import ProgressEvent
+from ..core.context import PipelineContext
+from ..core.events import ProgressEvent
 
 
 @dataclass
@@ -20,7 +19,7 @@ class ExecutionPlan:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class FeaturePipeline(ABC):
+class Pipeline(ABC):
 
     @abstractmethod
     def validate(self, context: PipelineContext) -> ValidationResult: ...

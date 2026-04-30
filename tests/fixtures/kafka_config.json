@@ -1,4 +1,0 @@
-{
-  "bootstrap_servers": "localhost:9092",
-  "value_format": "json"
-}

@@ -1,6 +1,0 @@
-{
-  "base_url": "https://jsonplaceholder.typicode.com",
-  "response_path": "",
-  "health_endpoint": "/posts/1",
-  "default_endpoint": "/posts"
-}

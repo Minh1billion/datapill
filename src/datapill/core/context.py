@@ -1,14 +1,12 @@
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 import uuid
 
-if TYPE_CHECKING:
-    from datapill.storage.artifact import ArtifactStore
-
+from ..storage.artifact_store import ArtifactStore
 
 @dataclass
-class PipelineContext:
-    artifact_store: "ArtifactStore"
+class Context:
+    artifact_store: ArtifactStore
     run_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     options: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)

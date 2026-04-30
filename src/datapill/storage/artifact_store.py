@@ -1,0 +1,2 @@
+class ArtifactStore:
+    pass
