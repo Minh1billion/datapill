@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, AsyncGenerator, Any
 import asyncio
-import sqlite3
 import aiosqlite
 import duckdb
 import polars as pl
@@ -24,6 +23,10 @@ class SQLiteConnector(BaseConnector[SQLiteConnectorConfig]):
     def __init__(self, config: SQLiteConnectorConfig):
         super().__init__(config)
         self.conn: Optional[aiosqlite.Connection] = None
+        self._attach = (
+            f"ATTACH '{config.path}' AS _src "
+            f"(TYPE sqlite{', READ_ONLY' if config.read_only else ''})"
+        )
 
     async def connect(self) -> ConnectionStatus:
         async def probe():
@@ -58,44 +61,20 @@ class SQLiteConnector(BaseConnector[SQLiteConnectorConfig]):
         if not self.conn:
             raise ValueError("Not connected")
 
-        attach_mode = "READ_ONLY" if self.config.read_only else ""
-        attach_sql = (
-            f"ATTACH '{self.config.path}' AS _src "
-            f"(TYPE sqlite{', ' + attach_mode if attach_mode else ''})"
-        )
-
         if not stream:
-            def _read() -> pl.DataFrame:
-                con = duckdb.connect()
-                con.execute(attach_sql)
-                return con.execute(sql, params or []).pl()
-
-            return await asyncio.to_thread(_read)
+            return await asyncio.to_thread(
+                lambda: [c := duckdb.connect(), c.execute(self._attach), c.sql(sql).pl()][-1]
+            )
 
         nb = batch_size or self.config.fetch_size
-        loop = asyncio.get_running_loop()
-        queue: asyncio.Queue[Optional[pl.DataFrame]] = asyncio.Queue(maxsize=4)
-
-        def _produce():
-            try:
-                con = duckdb.connect()
-                con.execute(attach_sql)
-                reader = con.execute(sql, params or []).to_arrow_reader(nb)
-                for chunk in reader:
-                    asyncio.run_coroutine_threadsafe(
-                        queue.put(pl.from_arrow(chunk)), loop
-                    ).result()
-            finally:
-                asyncio.run_coroutine_threadsafe(queue.put(None), loop).result()
-
-        loop.run_in_executor(None, _produce)
 
         async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
-            while True:
-                chunk = await queue.get()
-                if chunk is None:
-                    break
-                yield chunk
+            reader = await asyncio.to_thread(
+                lambda: [c := duckdb.connect(), c.execute(self._attach), c.sql(sql).fetch_arrow_reader(nb)][-1]
+            )
+            for chunk in reader:
+                yield pl.from_arrow(chunk)
+                await asyncio.sleep(0)
 
         return generate()
 

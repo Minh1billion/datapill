@@ -24,8 +24,12 @@ class PostgreSQLConnectorConfig:
     connect_timeout: float = 10.0
     command_timeout: float = 60.0
     statement_cache_size: int = 100
-    fetch_size: int = 50_000
+    fetch_size: int = 200_000
     server_settings: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        if self.fetch_size <= 0:
+            self.fetch_size = 200_000
 
 
 class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
@@ -84,15 +88,18 @@ class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
             return pl.read_csv(buf)
 
         async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
-            nb = batch_size or self.config.fetch_size
+            nb = batch_size if batch_size and batch_size > 0 else self.config.fetch_size
             async with self.pool.acquire() as conn:
                 async with conn.transaction():
-                    cursor = await conn.cursor(sql, *(params or []))
+                    cur = await conn.cursor(sql, *(params or []))
                     while True:
-                        rows = await cursor.fetch(nb)
+                        rows = await cur.fetch(nb)
                         if not rows:
                             break
-                        yield pl.DataFrame([dict(r) for r in rows])
+                        keys = list(rows[0].keys())
+                        yield pl.DataFrame(
+                            {k: [r[k] for r in rows] for k in keys}
+                        )
 
         return generate()
 

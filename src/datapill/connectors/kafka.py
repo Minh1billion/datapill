@@ -24,6 +24,8 @@ class KafkaConnectorConfig:
     sasl_password: Optional[str] = None
     producer_acks: str = "all"
     produce_batch_size: int = 5_000
+    producer_compression: str = "gzip"
+    producer_linger_ms: int = 20
     extra: dict = field(default_factory=dict)
 
 
@@ -33,7 +35,11 @@ class KafkaConnector(BaseConnector[KafkaConnectorConfig]):
         self._bootstrap = ",".join(config.brokers)
         self._auth = {"security_protocol": config.security_protocol}
         if config.sasl_mechanism:
-            self._auth.update(build_sasl_auth(config.sasl_mechanism, config.sasl_username, config.sasl_password))
+            self._auth.update(
+                build_sasl_auth(
+                    config.sasl_mechanism, config.sasl_username, config.sasl_password
+                )
+            )
 
     async def connect(self) -> ConnectionStatus:
         async def probe():
@@ -65,13 +71,17 @@ class KafkaConnector(BaseConnector[KafkaConnectorConfig]):
             auto_offset_reset=self.config.auto_offset_reset,
             max_poll_records=self.config.max_poll_records,
             session_timeout_ms=self.config.session_timeout_ms,
+            fetch_max_bytes=52428800,
             **self._auth,
         )
         await consumer.start()
         received = 0
         try:
             while True:
-                batch = await consumer.getmany(timeout_ms=timeout_ms, max_records=self.config.max_poll_records)
+                batch = await consumer.getmany(
+                    timeout_ms=timeout_ms,
+                    max_records=self.config.max_poll_records,
+                )
                 if not batch:
                     break
                 columns: dict[str, list] = {}
@@ -82,9 +92,7 @@ class KafkaConnector(BaseConnector[KafkaConnectorConfig]):
                         except Exception:
                             row = {"_raw": msg.value.decode("utf-8", errors="replace")}
                         for k, v in row.items():
-                            if k not in columns:
-                                columns[k] = []
-                            columns[k].append(v)
+                            columns.setdefault(k, []).append(v)
                         received += 1
                 if columns:
                     yield pl.DataFrame(columns)
@@ -102,6 +110,9 @@ class KafkaConnector(BaseConnector[KafkaConnectorConfig]):
         producer = AIOKafkaProducer(
             bootstrap_servers=self._bootstrap,
             acks=self.config.producer_acks,
+            compression_type=self.config.producer_compression,
+            linger_ms=self.config.producer_linger_ms,
+            max_batch_size=self.config.produce_batch_size * 256,
             **self._auth,
         )
         await producer.start()
@@ -138,7 +149,6 @@ class KafkaConnector(BaseConnector[KafkaConnectorConfig]):
         )
         await consumer.start()
         try:
-            tp = TopicPartition(topic, partition)
-            consumer.seek(tp, offset)
+            consumer.seek(TopicPartition(topic, partition), offset)
         finally:
             await consumer.stop()

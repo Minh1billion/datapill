@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from typing import Optional, AsyncGenerator, Any
 import asyncio
 import asyncmy
-import aiomysql
 import connectorx as cx
 import polars as pl
 
@@ -32,7 +31,7 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
             f"mysql://{config.user}:{config.password}"
             f"@{config.host}:{config.port}/{config.database}"
         )
-        self._asyncmy_cfg = dict(
+        self._pool_cfg = dict(
             host=config.host,
             port=config.port,
             user=config.user,
@@ -41,33 +40,17 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
             charset=config.charset,
             autocommit=True,
         )
-        self._aiomysql_cfg = dict(
-            host=config.host,
-            port=config.port,
-            user=config.user,
-            password=config.password,
-            db=config.database,
-            charset=config.charset,
-            autocommit=True,
-        )
-        self._asyncmy_pool: Optional[asyncmy.Pool] = None
-        self._aiomysql_pool: Optional[aiomysql.Pool] = None
+        self._pool: Optional[asyncmy.Pool] = None
 
     async def connect(self) -> ConnectionStatus:
         async def probe():
-            self._asyncmy_pool = await asyncmy.create_pool(
-                **self._asyncmy_cfg,
+            self._pool = await asyncmy.create_pool(
+                **self._pool_cfg,
                 minsize=self.config.min_pool_size,
                 maxsize=self.config.max_pool_size,
                 connect_timeout=self.config.connect_timeout,
             )
-            self._aiomysql_pool = await aiomysql.create_pool(
-                **self._aiomysql_cfg,
-                minsize=self.config.min_pool_size,
-                maxsize=self.config.max_pool_size,
-                connect_timeout=self.config.connect_timeout,
-            )
-            async with self._asyncmy_pool.acquire() as conn:
+            async with self._pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute("SELECT 1")
 
@@ -75,14 +58,10 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
         return ConnectionStatus(ok=ok, latency_ms=latency_ms, error=error)
 
     async def cleanup(self):
-        if self._asyncmy_pool:
-            self._asyncmy_pool.close()
-            await self._asyncmy_pool.wait_closed()
-            self._asyncmy_pool = None
-        if self._aiomysql_pool:
-            self._aiomysql_pool.close()
-            await self._aiomysql_pool.wait_closed()
-            self._aiomysql_pool = None
+        if self._pool:
+            self._pool.close()
+            await self._pool.wait_closed()
+            self._pool = None
 
     async def query(
         self,
@@ -91,7 +70,7 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
         stream: bool = False,
         batch_size: Optional[int] = None,
     ) -> pl.DataFrame | AsyncGenerator[pl.DataFrame, Any]:
-        if not self._asyncmy_pool or not self._aiomysql_pool:
+        if not self._pool:
             raise ValueError("Pool not connected")
 
         if not stream:
@@ -101,17 +80,17 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
 
         async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
             nb = batch_size or self.config.fetch_size
-            async with self._aiomysql_pool.acquire() as conn:
-                async with conn.cursor(aiomysql.SSCursor) as cur:
+            async with self._pool.acquire() as conn:
+                async with conn.cursor(asyncmy.cursors.SSCursor) as cur:
                     await cur.execute(sql, params or None)
                     cols = [d[0] for d in cur.description]
-                    n_cols = len(cols)
+                    n = len(cols)
                     while True:
                         rows = await cur.fetchmany(nb)
                         if not rows:
                             break
                         yield pl.DataFrame(
-                            {cols[i]: [row[i] for row in rows] for i in range(n_cols)}
+                            {cols[i]: [r[i] for r in rows] for i in range(n)}
                         )
 
         return generate()
@@ -122,9 +101,9 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
         params: Optional[list] = None,
         many: bool = False,
     ) -> int:
-        if not self._asyncmy_pool:
+        if not self._pool:
             raise ValueError("Pool not connected")
-        async with self._asyncmy_pool.acquire() as conn:
+        async with self._pool.acquire() as conn:
             async with conn.cursor() as cur:
                 if many:
                     await cur.executemany(sql, params or [])
@@ -133,10 +112,10 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
                 return cur.rowcount
 
     async def list_tables(self, schema: Optional[str] = None) -> list[str]:
-        if not self._asyncmy_pool:
+        if not self._pool:
             raise ValueError("Pool not connected")
         db = schema or self.config.database
-        async with self._asyncmy_pool.acquire() as conn:
+        async with self._pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     "SELECT table_name FROM information_schema.tables "

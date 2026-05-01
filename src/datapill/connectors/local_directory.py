@@ -5,6 +5,7 @@ from typing import Optional, AsyncGenerator, Any
 
 import polars as pl
 import pyarrow.parquet as pq
+import pyarrow as pa
 
 from .base import BaseConnector, ConnectionStatus
 from ..utils.connection import timed_connect
@@ -50,41 +51,46 @@ class LocalDirectoryConnector(BaseConnector[LocalConnectorConfig]):
         batch_size: Optional[int] = None,
     ) -> "pl.DataFrame | AsyncGenerator[pl.DataFrame, Any]":
         p = resolve_path(self.base_path, path)
+        fmt = format or p.suffix.lstrip(".")
 
-        if format is None:
-            format = p.suffix.lstrip(".")
-
-        if self.config.format_filter and format not in self.config.format_filter:
+        if self.config.format_filter and fmt not in self.config.format_filter:
             raise ValueError("format not allowed")
 
         if not stream:
-            if format == "parquet":
+            if fmt == "parquet":
                 return await asyncio.to_thread(pl.read_parquet, p)
-            if format == "csv":
+            if fmt == "csv":
                 return await asyncio.to_thread(pl.read_csv, p, encoding=self.config.encoding)
-            if format in ("json", "ndjson"):
+            if fmt in ("json", "ndjson"):
                 return await asyncio.to_thread(pl.read_ndjson, p)
-            raise ValueError(f"unsupported format: {format}")
+            raise ValueError(f"unsupported format: {fmt}")
 
         async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
-            if format == "parquet":
+            if fmt == "parquet":
                 pf = await asyncio.to_thread(pq.ParquetFile, p)
-                for batch in pf.iter_batches():
+                nb = batch_size or pf.metadata.row_group(0).num_rows
+                for batch in pf.iter_batches(batch_size=nb):
                     yield await asyncio.to_thread(pl.from_arrow, batch)
-            elif format == "csv":
+            elif fmt == "csv":
                 file_size = p.stat().st_size
-                full = await asyncio.to_thread(pl.read_csv, p, encoding=self.config.encoding)
-                resolved = batch_size or estimate_batch_size(file_size, len(full))
-                for i in range(0, len(full), resolved):
-                    yield full.slice(i, resolved)
-            elif format in ("json", "ndjson"):
+                nb = batch_size or max(10_000, file_size // 200)
+                _enc = "utf8" if self.config.encoding.lower() in ("utf-8", "utf8") else self.config.encoding
+                reader = await asyncio.to_thread(
+                    lambda: pl.read_csv_batched(p, batch_size=nb, encoding=_enc)
+                )
+                while True:
+                    batches = await asyncio.to_thread(reader.next_batches, 1)
+                    if not batches:
+                        break
+                    yield batches[0]
+            elif fmt in ("json", "ndjson"):
                 file_size = p.stat().st_size
                 full = await asyncio.to_thread(pl.read_ndjson, p)
-                resolved = batch_size or estimate_batch_size(file_size, len(full))
-                for i in range(0, len(full), resolved):
-                    yield full.slice(i, resolved)
+                nb = batch_size or estimate_batch_size(file_size, len(full))
+                for i in range(0, len(full), nb):
+                    yield full.slice(i, nb)
             else:
-                raise ValueError(f"unsupported format: {format}")
+                raise ValueError(f"unsupported format: {fmt}")
 
         return generate()
 
@@ -100,21 +106,19 @@ class LocalDirectoryConnector(BaseConnector[LocalConnectorConfig]):
             raise PermissionError("read only")
 
         p = resolve_path(self.base_path, path)
+        fmt = format or p.suffix.replace(".", "")
 
-        if format is None:
-            format = p.suffix.replace(".", "")
-
-        if self.config.format_filter and format not in self.config.format_filter:
+        if self.config.format_filter and fmt not in self.config.format_filter:
             raise ValueError("format not allowed")
 
         if mode == "overwrite" and p.exists():
             p.unlink()
 
-        if format == "csv":
+        if fmt == "csv":
             await asyncio.to_thread(df.write_csv, p)
-        elif format == "parquet":
+        elif fmt == "parquet":
             await asyncio.to_thread(df.write_parquet, p)
-        elif format == "json":
+        elif fmt == "json":
             await asyncio.to_thread(df.write_json, p)
         else:
             raise ValueError("unsupported format")
