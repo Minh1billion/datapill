@@ -1,12 +1,13 @@
-import time
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional, AsyncGenerator, Any
 import polars as pl
 
 from .base import BaseConnector, ConnectionStatus
+from ..utils.connection import timed_connect
 from ..utils.file_process import resolve_path
 from ..utils.streaming import estimate_batch_size
+
 
 @dataclass
 class LocalConnectorConfig:
@@ -17,24 +18,23 @@ class LocalConnectorConfig:
     encoding: str = "utf-8"
     recursive: bool = False
 
+
 class LocalDirectoryConnector(BaseConnector[LocalConnectorConfig]):
     def __init__(self, config: LocalConnectorConfig):
         super().__init__(config)
         self.base_path = Path(config.base_path)
 
     async def connect(self) -> ConnectionStatus:
-        t0 = time.perf_counter()
+        async def probe():
+            if self.config.mkdir:
+                self.base_path.mkdir(parents=True, exist_ok=True)
+            if not self.base_path.exists():
+                raise FileNotFoundError(f"{self.base_path} does not exist")
+            if not self.base_path.is_dir():
+                raise NotADirectoryError(f"{self.base_path} is not a directory")
 
-        if self.config.mkdir:
-            self.base_path.mkdir(parents=True, exist_ok=True)
-
-        if not self.base_path.exists():
-            return ConnectionStatus(ok=False, error=f"{self.base_path} does not exist")
-
-        if not self.base_path.is_dir():
-            return ConnectionStatus(ok=False, error=f"{self.base_path} is not a directory")
-
-        return ConnectionStatus(ok=True, latency_ms=1000 * (time.perf_counter() - t0))
+        ok, latency_ms, error = await timed_connect(probe)
+        return ConnectionStatus(ok=ok, latency_ms=latency_ms, error=error)
 
     async def cleanup(self) -> None:
         return
@@ -66,19 +66,22 @@ class LocalDirectoryConnector(BaseConnector[LocalConnectorConfig]):
         file_size = p.stat().st_size
 
         if format == "parquet":
-            meta = pl.read_parquet_metadata(p)
-            batch_size = estimate_batch_size(file_size, meta.num_rows) if batch_size is None and stream else batch_size
-            return pl.scan_parquet(p).collect(streaming=True).iter_slices(batch_size)
+            if batch_size is None:
+                num_rows = pl.scan_parquet(p).select(pl.len()).collect().item()
+                resolved = estimate_batch_size(file_size, num_rows)
+            else:
+                resolved = batch_size
+            return pl.scan_parquet(p).collect(streaming=True).iter_slices(resolved)
 
         if format == "csv":
             sample = pl.read_csv(p, n_rows=1000, encoding=self.config.encoding)
-            batch_size = estimate_batch_size(file_size, len(sample)) if batch_size is None and stream else batch_size
-            return pl.scan_csv(p).collect_batches(batch_size)
+            resolved = estimate_batch_size(file_size, len(sample)) if batch_size is None else batch_size
+            return pl.scan_csv(p).collect(streaming=True).iter_slices(resolved)
 
         if format in ("json", "ndjson"):
             sample = pl.read_ndjson(p, n_rows=1000)
-            batch_size = estimate_batch_size(file_size, len(sample)) if batch_size is None and stream else batch_size
-            return pl.scan_ndjson(p).collect(streaming=True).iter_slices(batch_size)
+            resolved = estimate_batch_size(file_size, len(sample)) if batch_size is None else batch_size
+            return pl.scan_ndjson(p).collect(streaming=True).iter_slices(resolved)
 
         raise ValueError(f"unsupported format: {format}")
 
@@ -88,7 +91,7 @@ class LocalDirectoryConnector(BaseConnector[LocalConnectorConfig]):
         path: str,
         *,
         format: Optional[str] = None,
-        mode: str = "overwrite"
+        mode: str = "overwrite",
     ) -> None:
         if self.config.read_only:
             raise PermissionError("read only")
@@ -106,12 +109,9 @@ class LocalDirectoryConnector(BaseConnector[LocalConnectorConfig]):
 
         if format == "csv":
             df.write_csv(p)
-            return
-        if format == "parquet":
+        elif format == "parquet":
             df.write_parquet(p)
-            return
-        if format == "json":
+        elif format == "json":
             df.write_json(p)
-            return
-
-        raise ValueError("unsupported format")
+        else:
+            raise ValueError("unsupported format")

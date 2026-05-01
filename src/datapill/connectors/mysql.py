@@ -1,12 +1,13 @@
-import time
 from dataclasses import dataclass, field
 from typing import Optional, AsyncGenerator, Any
-import polars as pl
+import asyncio
 import asyncmy
-import asyncmy.cursors
+import connectorx as cx
+import polars as pl
 
 from .base import BaseConnector, ConnectionStatus
-from ..utils.streaming import estimate_from_sample, records_to_df
+from ..utils.connection import timed_connect
+from ..utils.streaming import estimate_batch_size
 
 
 @dataclass
@@ -22,6 +23,7 @@ class MySQLConnectorConfig:
     max_pool_size: int = 10
     connect_timeout: float = 10.0
     charset: str = "utf8mb4"
+    fetch_size: int = 50_000
     server_settings: dict = field(default_factory=dict)
 
 
@@ -29,10 +31,13 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
     def __init__(self, config: MySQLConnectorConfig):
         super().__init__(config)
         self.pool = None
+        self._cx_url = (
+            f"mysql://{config.user}:{config.password}"
+            f"@{config.host}:{config.port}/{config.database}"
+        )
 
     async def connect(self) -> ConnectionStatus:
-        t0 = time.perf_counter()
-        try:
+        async def probe():
             self.pool = await asyncmy.create_pool(
                 host=self.config.host,
                 port=self.config.port,
@@ -44,13 +49,14 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
                 connect_timeout=self.config.connect_timeout,
                 charset=self.config.charset,
                 autocommit=True,
+                init_command="SET SESSION net_read_timeout=3600, net_write_timeout=3600",
             )
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute("SELECT 1")
-            return ConnectionStatus(ok=True, latency_ms=1000 * (time.perf_counter() - t0))
-        except Exception as e:
-            return ConnectionStatus(ok=False, error=str(e))
+
+        ok, latency_ms, error = await timed_connect(probe)
+        return ConnectionStatus(ok=ok, latency_ms=latency_ms, error=error)
 
     async def cleanup(self):
         if self.pool:
@@ -69,30 +75,19 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
             raise ValueError("Pool not connected")
 
         if not stream:
-            async with self.pool.acquire() as conn:
-                async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
-                    await cur.execute(sql, params or [])
-                    rows = await cur.fetchall()
-            if not rows:
-                return pl.DataFrame()
-            return pl.DataFrame({k: [r[k] for r in rows] for k in rows[0]})
+            return await asyncio.to_thread(
+                cx.read_sql, self._cx_url, sql, return_type="polars"
+            )
 
-        async def _stream() -> AsyncGenerator[pl.DataFrame, Any]:
-            async with self.pool.acquire() as conn:
-                async with conn.cursor(asyncmy.cursors.DictCursor) as cur:
-                    await cur.execute(sql, params or [])
-                    sample = await cur.fetchmany(1000)
-                    if not sample:
-                        return
-                    resolved = estimate_from_sample(sample, batch_size)
-                    yield records_to_df(sample)
-                    while True:
-                        rows = await cur.fetchmany(resolved)
-                        if not rows:
-                            break
-                        yield records_to_df(rows)
+        async def _gen():
+            df = await asyncio.to_thread(
+                cx.read_sql, self._cx_url, sql, return_type="polars"
+            )
+            nb = batch_size or estimate_batch_size(df.estimated_size(), len(df))
+            for i in range(0, len(df), nb):
+                yield df.slice(i, nb)
 
-        return _stream()
+        return _gen()
 
     async def execute(
         self,

@@ -1,12 +1,12 @@
-import asyncio
 import json
 from dataclasses import dataclass, field
 from typing import Optional, AsyncGenerator, Any
 import polars as pl
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from aiokafka.errors import KafkaConnectionError
 
 from .base import BaseConnector, ConnectionStatus
+from ..utils.connection import timed_connect
+from ..utils.auth import build_sasl_auth
 
 
 @dataclass
@@ -29,22 +29,12 @@ class KafkaConnector(BaseConnector[KafkaConnectorConfig]):
     def __init__(self, config: KafkaConnectorConfig):
         super().__init__(config)
         self._bootstrap = ",".join(config.brokers)
-        self._auth = dict(
-            security_protocol=config.security_protocol,
-            **(
-                dict(
-                    sasl_mechanism=config.sasl_mechanism,
-                    sasl_plain_username=config.sasl_username,
-                    sasl_plain_password=config.sasl_password,
-                )
-                if config.sasl_mechanism else {}
-            ),
-        )
+        self._auth = {"security_protocol": config.security_protocol}
+        if config.sasl_mechanism:
+            self._auth.update(build_sasl_auth(config.sasl_mechanism, config.sasl_username, config.sasl_password))
 
     async def connect(self) -> ConnectionStatus:
-        import time
-        t0 = time.perf_counter()
-        try:
+        async def probe():
             consumer = AIOKafkaConsumer(
                 bootstrap_servers=self._bootstrap,
                 request_timeout_ms=self.config.request_timeout_ms,
@@ -53,9 +43,9 @@ class KafkaConnector(BaseConnector[KafkaConnectorConfig]):
             await consumer.start()
             await consumer.topics()
             await consumer.stop()
-            return ConnectionStatus(ok=True, latency_ms=1000 * (time.perf_counter() - t0))
-        except Exception as e:
-            return ConnectionStatus(ok=False, error=str(e))
+
+        ok, latency_ms, error = await timed_connect(probe)
+        return ConnectionStatus(ok=ok, latency_ms=latency_ms, error=error)
 
     async def cleanup(self) -> None:
         return
@@ -122,10 +112,7 @@ class KafkaConnector(BaseConnector[KafkaConnectorConfig]):
         return sent
 
     async def list_topics(self) -> list[str]:
-        consumer = AIOKafkaConsumer(
-            bootstrap_servers=self._bootstrap,
-            **self._auth,
-        )
+        consumer = AIOKafkaConsumer(bootstrap_servers=self._bootstrap, **self._auth)
         await consumer.start()
         try:
             topics = await consumer.topics()

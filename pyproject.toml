@@ -29,6 +29,7 @@ dependencies = [
     "pyarrow>=16.0.0",
     "numpy>=1.26.0",
 
+    "connectorx",
     "asyncpg>=0.29.0",
     "asyncmy>=0.2.9",
     "aioboto3>=12.0.0",

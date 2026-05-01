@@ -1,11 +1,14 @@
-import time
 from dataclasses import dataclass, field
 from typing import Optional, AsyncGenerator, Any
-import polars as pl
+import asyncio
 import asyncpg
+import connectorx as cx
+import polars as pl
 
 from .base import BaseConnector, ConnectionStatus
-from ..utils.streaming import estimate_from_sample, records_to_df
+from ..utils.connection import timed_connect
+from ..utils.streaming import estimate_batch_size
+
 
 @dataclass
 class PostgreSQLConnectorConfig:
@@ -22,33 +25,36 @@ class PostgreSQLConnectorConfig:
     connect_timeout: float = 10.0
     command_timeout: float = 60.0
     statement_cache_size: int = 100
+    fetch_size: int = 50_000
     server_settings: dict = field(default_factory=dict)
 
 
 class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
     def __init__(self, config: PostgreSQLConnectorConfig):
         super().__init__(config)
-        self.connection_string = f"postgresql://{config.user}:{config.password}@{config.host}:{config.port}/{config.database}"
+        self.connection_string = (
+            f"postgresql://{config.user}:{config.password}"
+            f"@{config.host}:{config.port}/{config.database}"
+        )
         self.pool = None
 
     async def connect(self) -> ConnectionStatus:
-        t0 = time.perf_counter()
-        try:
+        async def probe():
             self.pool = await asyncpg.create_pool(
                 dsn=self.connection_string,
                 min_size=self.config.min_pool_size,
                 max_size=self.config.max_pool_size,
                 ssl=self.config.ssl,
-                connect_timeout=self.config.connect_timeout,
+                timeout=self.config.connect_timeout,
                 command_timeout=self.config.command_timeout,
                 statement_cache_size=self.config.statement_cache_size,
                 server_settings=self.config.server_settings,
             )
             async with self.pool.acquire() as conn:
                 await conn.fetchval("SELECT 1")
-            return ConnectionStatus(ok=True, latency_ms=1000 * (time.perf_counter() - t0))
-        except Exception as e:
-            return ConnectionStatus(ok=False, error=str(e))
+
+        ok, latency_ms, error = await timed_connect(probe)
+        return ConnectionStatus(ok=ok, latency_ms=latency_ms, error=error)
 
     async def cleanup(self):
         if self.pool:
@@ -66,26 +72,19 @@ class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
             raise ValueError("Pool not connected")
 
         if not stream:
-            async with self.pool.acquire() as conn:
-                rows = await conn.fetch(sql, *params or [])
-            return records_to_df(rows)
+            return await asyncio.to_thread(
+                cx.read_sql, self.connection_string, sql, return_type="polars"
+            )
 
-        async def _stream() -> AsyncGenerator[pl.DataFrame, Any]:
-            async with self.pool.acquire() as conn:
-                async with conn.transaction():
-                    cursor = await conn.cursor(sql, *params or [])
-                    sample = await cursor.fetch(1000)
-                    if not sample:
-                        return
-                    resolved = estimate_from_sample(sample, batch_size)
-                    yield records_to_df(sample)
-                    while True:
-                        rows = await cursor.fetch(resolved)
-                        if not rows:
-                            break
-                        yield records_to_df(rows)
+        async def _gen():
+            df = await asyncio.to_thread(
+                cx.read_sql, self.connection_string, sql, return_type="polars"
+            )
+            nb = batch_size or estimate_batch_size(df.estimated_size(), len(df))
+            for i in range(0, len(df), nb):
+                yield df.slice(i, nb)
 
-        return _stream()
+        return _gen()
 
     async def execute(
         self,
@@ -100,7 +99,10 @@ class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
                 await conn.executemany(sql, params or [])
                 return len(params or [])
             result = await conn.execute(sql, *params or [])
-            return int(result.split()[-1]) if result else 0
+            try:
+                return int(result.split()[-1])
+            except (ValueError, IndexError):
+                return 0
 
     async def list_tables(self, schema: Optional[str] = None) -> list[str]:
         if not self.pool:

@@ -1,11 +1,11 @@
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, AsyncGenerator, Any
 import polars as pl
 import aioboto3
 import io
 
 from .base import BaseConnector, ConnectionStatus
+from ..utils.connection import timed_connect
 from ..utils.streaming import estimate_batch_size
 from ..utils.file_process import parse_bytes, get_format, resolve_key
 
@@ -32,14 +32,16 @@ class S3Connector(BaseConnector[S3ConnectorConfig]):
             region_name=config.region,
         )
 
+    def _client(self):
+        return self.session.client("s3", endpoint_url=self.config.endpoint_url)
+
     async def connect(self) -> ConnectionStatus:
-        t0 = time.perf_counter()
-        try:
-            async with self.session.client("s3", endpoint_url=self.config.endpoint_url) as s3:
+        async def probe():
+            async with self._client() as s3:
                 await s3.head_bucket(Bucket=self.config.bucket)
-            return ConnectionStatus(ok=True, latency_ms=1000 * (time.perf_counter() - t0))
-        except Exception as e:
-            return ConnectionStatus(ok=False, error=str(e))
+
+        ok, latency_ms, error = await timed_connect(probe)
+        return ConnectionStatus(ok=ok, latency_ms=latency_ms, error=error)
 
     async def cleanup(self) -> None:
         return
@@ -51,14 +53,13 @@ class S3Connector(BaseConnector[S3ConnectorConfig]):
         stream: bool = False,
         batch_size: Optional[int] = None,
     ) -> pl.DataFrame | AsyncGenerator[pl.DataFrame, Any]:
-
         key = resolve_key(self.config.prefix, path)
         fmt = get_format(path, format)
 
         if self.config.format_filter and fmt not in self.config.format_filter:
             raise ValueError("format not allowed")
 
-        async with self.session.client("s3", endpoint_url=self.config.endpoint_url) as s3:
+        async with self._client() as s3:
             obj = await s3.get_object(Bucket=self.config.bucket, Key=key)
             data = await obj["Body"].read()
 
@@ -68,11 +69,7 @@ class S3Connector(BaseConnector[S3ConnectorConfig]):
             return df
 
         resolved = batch_size or estimate_batch_size(len(data), len(df))
-
-        return (
-            df.slice(i, resolved)
-            for i in range(0, len(df), resolved)
-        )
+        return (df.slice(i, resolved) for i in range(0, len(df), resolved))
 
     async def write(
         self,
@@ -85,7 +82,6 @@ class S3Connector(BaseConnector[S3ConnectorConfig]):
 
         key = resolve_key(self.config.prefix, path)
         fmt = get_format(path, format)
-
         buf = io.BytesIO()
 
         if fmt == "parquet":
@@ -98,22 +94,15 @@ class S3Connector(BaseConnector[S3ConnectorConfig]):
             raise ValueError(f"unsupported format: {fmt}")
 
         buf.seek(0)
-
-        async with self.session.client("s3", endpoint_url=self.config.endpoint_url) as s3:
-            await s3.put_object(
-                Bucket=self.config.bucket,
-                Key=key,
-                Body=buf.read()
-            )
+        async with self._client() as s3:
+            await s3.put_object(Bucket=self.config.bucket, Key=key, Body=buf.read())
 
     async def list_objects(self, prefix: Optional[str] = None) -> list[str]:
         base = resolve_key(self.config.prefix, prefix or "")
-
         keys = []
-        async with self.session.client("s3", endpoint_url=self.config.endpoint_url) as s3:
+        async with self._client() as s3:
             paginator = s3.get_paginator("list_objects_v2")
             async for page in paginator.paginate(Bucket=self.config.bucket, Prefix=base):
                 for obj in page.get("Contents", []):
                     keys.append(obj["Key"])
-
         return keys
