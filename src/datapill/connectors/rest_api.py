@@ -71,7 +71,7 @@ class RestApiConnector(BaseConnector[RestApiConnectorConfig]):
             rows = convert_to_list_of_dicts(data, self.config.results_key)
             return pl.DataFrame(rows) if rows else pl.DataFrame()
 
-        async def _stream() -> AsyncGenerator[pl.DataFrame, Any]:
+        async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
             async with self._session() as session:
                 if self.config.pagination_type == "page":
                     page = 1
@@ -107,7 +107,7 @@ class RestApiConnector(BaseConnector[RestApiConnectorConfig]):
                     if rows:
                         yield pl.DataFrame(rows)
 
-        return _stream()
+        return generate()
 
     async def execute(
         self,

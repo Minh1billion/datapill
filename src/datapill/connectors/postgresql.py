@@ -83,7 +83,7 @@ class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
             buf.seek(0)
             return pl.read_csv(buf)
 
-        async def _stream_gen() -> AsyncGenerator[pl.DataFrame, Any]:
+        async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
             nb = batch_size or self.config.fetch_size
             async with self.pool.acquire() as conn:
                 async with conn.transaction():
@@ -94,7 +94,7 @@ class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
                             break
                         yield pl.DataFrame([dict(r) for r in rows])
 
-        return _stream_gen()
+        return generate()
 
     async def execute(
         self,

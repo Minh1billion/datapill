@@ -1,3 +1,4 @@
+import asyncio
 import json
 from dataclasses import dataclass, field
 from typing import Optional, AsyncGenerator, Any
@@ -22,6 +23,7 @@ class KafkaConnectorConfig:
     sasl_username: Optional[str] = None
     sasl_password: Optional[str] = None
     producer_acks: str = "all"
+    produce_batch_size: int = 5_000
     extra: dict = field(default_factory=dict)
 
 
@@ -72,16 +74,20 @@ class KafkaConnector(BaseConnector[KafkaConnectorConfig]):
                 batch = await consumer.getmany(timeout_ms=timeout_ms, max_records=self.config.max_poll_records)
                 if not batch:
                     break
-                records = []
-                for tp, messages in batch.items():
+                columns: dict[str, list] = {}
+                for messages in batch.values():
                     for msg in messages:
                         try:
-                            records.append(json.loads(msg.value))
+                            row = json.loads(msg.value)
                         except Exception:
-                            records.append({"_raw": msg.value.decode("utf-8", errors="replace")})
+                            row = {"_raw": msg.value.decode("utf-8", errors="replace")}
+                        for k, v in row.items():
+                            if k not in columns:
+                                columns[k] = []
+                            columns[k].append(v)
                         received += 1
-                if records:
-                    yield pl.DataFrame(records)
+                if columns:
+                    yield pl.DataFrame(columns)
                 if max_messages and received >= max_messages:
                     break
         finally:
@@ -101,12 +107,15 @@ class KafkaConnector(BaseConnector[KafkaConnectorConfig]):
         await producer.start()
         sent = 0
         try:
-            for row in df.iter_rows(named=True):
-                key = str(row[key_column]).encode() if key_column else None
-                value = json.dumps(row, default=str).encode()
-                await producer.send(topic, value=value, key=key)
-                sent += 1
-            await producer.flush()
+            for offset in range(0, len(df), self.config.produce_batch_size):
+                for row in df.slice(offset, self.config.produce_batch_size).iter_rows(named=True):
+                    await producer.send(
+                        topic,
+                        value=json.dumps(row, default=str).encode(),
+                        key=str(row[key_column]).encode() if key_column else None,
+                    )
+                    sent += 1
+                await producer.flush()
         finally:
             await producer.stop()
         return sent

@@ -99,7 +99,7 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
                 cx.read_sql, self._cx_url, sql, return_type="polars"
             )
 
-        async def _stream_gen() -> AsyncGenerator[pl.DataFrame, Any]:
+        async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
             nb = batch_size or self.config.fetch_size
             async with self._aiomysql_pool.acquire() as conn:
                 async with conn.cursor(aiomysql.SSCursor) as cur:
@@ -114,7 +114,7 @@ class MySQLConnector(BaseConnector[MySQLConnectorConfig]):
                             {cols[i]: [row[i] for row in rows] for i in range(n_cols)}
                         )
 
-        return _stream_gen()
+        return generate()
 
     async def execute(
         self,

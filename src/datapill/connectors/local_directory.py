@@ -1,7 +1,10 @@
+import asyncio
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional, AsyncGenerator, Any
+
 import polars as pl
+import pyarrow.parquet as pq
 
 from .base import BaseConnector, ConnectionStatus
 from ..utils.connection import timed_connect
@@ -45,7 +48,7 @@ class LocalDirectoryConnector(BaseConnector[LocalConnectorConfig]):
         format: Optional[str] = None,
         stream: bool = False,
         batch_size: Optional[int] = None,
-    ) -> pl.DataFrame | AsyncGenerator[pl.DataFrame, Any]:
+    ) -> "pl.DataFrame | AsyncGenerator[pl.DataFrame, Any]":
         p = resolve_path(self.base_path, path)
 
         if format is None:
@@ -55,35 +58,35 @@ class LocalDirectoryConnector(BaseConnector[LocalConnectorConfig]):
             raise ValueError("format not allowed")
 
         if not stream:
-            if format == "csv":
-                return pl.read_csv(p, encoding=self.config.encoding)
             if format == "parquet":
-                return pl.read_parquet(p)
+                return await asyncio.to_thread(pl.read_parquet, p)
+            if format == "csv":
+                return await asyncio.to_thread(pl.read_csv, p, encoding=self.config.encoding)
             if format in ("json", "ndjson"):
-                return pl.read_json(p)
+                return await asyncio.to_thread(pl.read_ndjson, p)
             raise ValueError(f"unsupported format: {format}")
 
-        file_size = p.stat().st_size
-
-        if format == "parquet":
-            if batch_size is None:
-                num_rows = pl.scan_parquet(p).select(pl.len()).collect().item()
-                resolved = estimate_batch_size(file_size, num_rows)
+        async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
+            if format == "parquet":
+                pf = await asyncio.to_thread(pq.ParquetFile, p)
+                for batch in pf.iter_batches():
+                    yield await asyncio.to_thread(pl.from_arrow, batch)
+            elif format == "csv":
+                file_size = p.stat().st_size
+                full = await asyncio.to_thread(pl.read_csv, p, encoding=self.config.encoding)
+                resolved = batch_size or estimate_batch_size(file_size, len(full))
+                for i in range(0, len(full), resolved):
+                    yield full.slice(i, resolved)
+            elif format in ("json", "ndjson"):
+                file_size = p.stat().st_size
+                full = await asyncio.to_thread(pl.read_ndjson, p)
+                resolved = batch_size or estimate_batch_size(file_size, len(full))
+                for i in range(0, len(full), resolved):
+                    yield full.slice(i, resolved)
             else:
-                resolved = batch_size
-            return pl.scan_parquet(p).collect(streaming=True).iter_slices(resolved)
+                raise ValueError(f"unsupported format: {format}")
 
-        if format == "csv":
-            sample = pl.read_csv(p, n_rows=1000, encoding=self.config.encoding)
-            resolved = estimate_batch_size(file_size, len(sample)) if batch_size is None else batch_size
-            return pl.scan_csv(p).collect(streaming=True).iter_slices(resolved)
-
-        if format in ("json", "ndjson"):
-            sample = pl.read_ndjson(p, n_rows=1000)
-            resolved = estimate_batch_size(file_size, len(sample)) if batch_size is None else batch_size
-            return pl.scan_ndjson(p).collect(streaming=True).iter_slices(resolved)
-
-        raise ValueError(f"unsupported format: {format}")
+        return generate()
 
     async def write(
         self,
@@ -108,10 +111,10 @@ class LocalDirectoryConnector(BaseConnector[LocalConnectorConfig]):
             p.unlink()
 
         if format == "csv":
-            df.write_csv(p)
+            await asyncio.to_thread(df.write_csv, p)
         elif format == "parquet":
-            df.write_parquet(p)
+            await asyncio.to_thread(df.write_parquet, p)
         elif format == "json":
-            df.write_json(p)
+            await asyncio.to_thread(df.write_json, p)
         else:
             raise ValueError("unsupported format")

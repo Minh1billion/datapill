@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from typing import Optional, AsyncGenerator, Any
-import polars as pl
-import aioboto3
 import io
+
+import polars as pl
+import pyarrow.parquet as pq
+import aioboto3
 
 from .base import BaseConnector, ConnectionStatus
 from ..utils.connection import timed_connect
@@ -52,24 +54,36 @@ class S3Connector(BaseConnector[S3ConnectorConfig]):
         format: Optional[str] = None,
         stream: bool = False,
         batch_size: Optional[int] = None,
-    ) -> pl.DataFrame | AsyncGenerator[pl.DataFrame, Any]:
+    ) -> "pl.DataFrame | AsyncGenerator[pl.DataFrame, Any]":
         key = resolve_key(self.config.prefix, path)
         fmt = get_format(path, format)
 
         if self.config.format_filter and fmt not in self.config.format_filter:
             raise ValueError("format not allowed")
 
-        async with self._client() as s3:
-            obj = await s3.get_object(Bucket=self.config.bucket, Key=key)
-            data = await obj["Body"].read()
-
-        df = parse_bytes(data, fmt, self.config.encoding)
-
         if not stream:
-            return df
+            async with self._client() as s3:
+                obj = await s3.get_object(Bucket=self.config.bucket, Key=key)
+                data = await obj["Body"].read()
+            return parse_bytes(data, fmt, self.config.encoding)
 
-        resolved = batch_size or estimate_batch_size(len(data), len(df))
-        return (df.slice(i, resolved) for i in range(0, len(df), resolved))
+        async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
+            if fmt == "parquet":
+                async with self._client() as s3:
+                    obj = await s3.get_object(Bucket=self.config.bucket, Key=key)
+                    data = await obj["Body"].read()
+                for batch in pq.ParquetFile(io.BytesIO(data)).iter_batches():
+                    yield pl.from_arrow(batch)
+            else:
+                async with self._client() as s3:
+                    obj = await s3.get_object(Bucket=self.config.bucket, Key=key)
+                    data = await obj["Body"].read()
+                df = parse_bytes(data, fmt, self.config.encoding)
+                resolved = batch_size or estimate_batch_size(len(data), len(df))
+                for i in range(0, len(df), resolved):
+                    yield df.slice(i, resolved)
+
+        return generate()
 
     async def write(
         self,

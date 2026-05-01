@@ -90,14 +90,14 @@ class SQLiteConnector(BaseConnector[SQLiteConnectorConfig]):
 
         loop.run_in_executor(None, _produce)
 
-        async def _stream_gen() -> AsyncGenerator[pl.DataFrame, Any]:
+        async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
             while True:
                 chunk = await queue.get()
                 if chunk is None:
                     break
                 yield chunk
 
-        return _stream_gen()
+        return generate()
 
     async def execute(
         self,
