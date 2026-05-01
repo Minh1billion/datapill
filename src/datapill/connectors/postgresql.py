@@ -1,13 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Optional, AsyncGenerator, Any
 import asyncio
+import io
 import asyncpg
-import connectorx as cx
 import polars as pl
 
 from .base import BaseConnector, ConnectionStatus
 from ..utils.connection import timed_connect
-from ..utils.streaming import estimate_batch_size
 
 
 @dataclass
@@ -36,7 +35,7 @@ class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
             f"postgresql://{config.user}:{config.password}"
             f"@{config.host}:{config.port}/{config.database}"
         )
-        self.pool = None
+        self.pool: Optional[asyncpg.Pool] = None
 
     async def connect(self) -> ConnectionStatus:
         async def probe():
@@ -72,19 +71,30 @@ class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
             raise ValueError("Pool not connected")
 
         if not stream:
-            return await asyncio.to_thread(
-                cx.read_sql, self.connection_string, sql, return_type="polars"
-            )
+            buf = io.BytesIO()
+            async with self.pool.acquire() as conn:
+                await conn.copy_from_query(
+                    sql,
+                    **({"args": params} if params else {}),
+                    output=buf,
+                    format="csv",
+                    header=True,
+                )
+            buf.seek(0)
+            return pl.read_csv(buf)
 
-        async def _gen():
-            df = await asyncio.to_thread(
-                cx.read_sql, self.connection_string, sql, return_type="polars"
-            )
-            nb = batch_size or estimate_batch_size(df.estimated_size(), len(df))
-            for i in range(0, len(df), nb):
-                yield df.slice(i, nb)
+        async def _stream_gen() -> AsyncGenerator[pl.DataFrame, Any]:
+            nb = batch_size or self.config.fetch_size
+            async with self.pool.acquire() as conn:
+                async with conn.transaction():
+                    cursor = await conn.cursor(sql, *(params or []))
+                    while True:
+                        rows = await cursor.fetch(nb)
+                        if not rows:
+                            break
+                        yield pl.DataFrame([dict(r) for r in rows])
 
-        return _gen()
+        return _stream_gen()
 
     async def execute(
         self,
@@ -98,7 +108,7 @@ class PostgreSqlConnector(BaseConnector[PostgreSQLConnectorConfig]):
             if many:
                 await conn.executemany(sql, params or [])
                 return len(params or [])
-            result = await conn.execute(sql, *params or [])
+            result = await conn.execute(sql, *(params or []))
             try:
                 return int(result.split()[-1])
             except (ValueError, IndexError):
