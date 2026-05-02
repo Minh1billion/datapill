@@ -51,7 +51,7 @@ class IngestPipeline(Pipeline):
                 "stream": True,
                 **({"sample_size": sample_size} if is_sample else {}),
                 **({"batch_size": self.options["batch_size"]} if "batch_size" in self.options else {}),
-                **{k: v for k, v in self.options.items() if k in ("query", "topic", "path", "endpoint")}
+                **{k: v for k, v in self.options.items() if k in ("query", "topic", "path", "endpoint")},
             },
         ]
 
@@ -76,6 +76,7 @@ class IngestPipeline(Pipeline):
                 "source": self.source,
                 **{k: v for k, v in self.options.items()
                    if k in ("table", "query", "topic", "path", "endpoint", "sample", "sample_size", "batch_size")},
+                **({"connector_config": self.config} if self.config else {}),
             },
             is_sample=self.options.get("sample", False),
             sample_size=self.options.get("sample_size") if self.options.get("sample") else None,
@@ -98,13 +99,16 @@ class IngestPipeline(Pipeline):
             payload={"latency_ms": status.latency_ms},
         )
 
+        is_sample = self.options.get("sample", False)
+        sample_size = self.options.get("sample_size", 10_000)
+
         try:
             reader = get_reader(self.source)
             stream = await reader.read(
                 connector=connector,
                 options=self.options,
-                is_sample=self.options.get("sample", False),
-                sample_size=self.options.get("sample_size", 10_000),
+                is_sample=is_sample,
+                sample_size=sample_size,
             )
 
             batches: list[pl.DataFrame] = []
@@ -113,10 +117,16 @@ class IngestPipeline(Pipeline):
             async for chunk in stream:
                 batches.append(chunk)
                 total_rows += len(chunk)
+
+                if is_sample:
+                    pct = min(10.0 + (total_rows / sample_size) * 70.0, 79.0)
+                else:
+                    pct = min(10.0 + total_rows / 10_000, 79.0)
+
                 yield ProgressEvent(
                     event_type=EventType.PROGRESS,
                     message=f"read {total_rows:,} rows",
-                    progress_pct=min(10.0 + total_rows / max(self.options.get("sample_size", 10_000), 1) * 70.0, 79.0),
+                    progress_pct=round(pct, 2),
                     payload={"rows": total_rows},
                 )
 

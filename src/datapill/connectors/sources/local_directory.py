@@ -15,7 +15,7 @@ from ...utils.streaming import estimate_batch_size
 
 @dataclass
 class LocalConnectorConfig:
-    base_path: str
+    base_path: str = ""
     mkdir: bool = False
     read_only: bool = False
     format_filter: Optional[list[str]] = None
@@ -30,6 +30,8 @@ class LocalDirectoryConnector(BaseConnector[LocalConnectorConfig]):
 
     async def connect(self) -> ConnectionStatus:
         async def probe():
+            if not self.config.base_path:
+                raise ValueError("LocalConnectorConfig.base_path must be set")
             if self.config.mkdir:
                 self.base_path.mkdir(parents=True, exist_ok=True)
             if not self.base_path.exists():

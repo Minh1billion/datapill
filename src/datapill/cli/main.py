@@ -1,7 +1,5 @@
 import typer
-
-from .cmd_ingest import app as ingest_app
-from .cmd_artifact import app as artifact_app
+from importlib.metadata import version
 
 app = typer.Typer(
     name="datapill",
@@ -9,9 +7,19 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 
-app.add_typer(ingest_app, name="ingest")
-app.add_typer(artifact_app, name="artifact")
+def version_callback(value: bool):
+    if value:
+        print(f"datapill {version('datapill')}")
+        raise typer.Exit()
 
-
-def main() -> None:
-    app()
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version and exit",
+    )
+):
+    pass

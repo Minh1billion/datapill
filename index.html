@@ -196,6 +196,9 @@
     <a href="#artifact-purge" class="sidebar-item sidebar-sub">artifact purge</a>
     <a href="#artifact-usage" class="sidebar-item sidebar-sub">artifact usage</a>
 
+    <a href="#profile" class="sidebar-item">datapill profile</a>
+    <a href="#profile-run" class="sidebar-item sidebar-sub">profile run</a>
+    <a href="#profile-show" class="sidebar-item sidebar-sub">profile show</a>
     <div class="sidebar-section-label">Connectors</div>
     <a href="#sources" class="sidebar-item">Supported Sources</a>
     <a href="#config-postgres" class="sidebar-item sidebar-sub">PostgreSQL</a>
@@ -251,11 +254,11 @@
       <h3>Verify the installation</h3>
       <div class="code-block">
         <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-        <pre><span class="t-prompt">$</span> datapill --version
+        <pre><span class="t-prompt">$</span> dp --version
 <span class="t-out">datapill 0.1.0</span>
 
-<span class="t-prompt">$</span> datapill --help
-<span class="t-out">Usage: datapill [OPTIONS] COMMAND [ARGS]...
+<span class="t-prompt">$</span> dp --help
+<span class="t-out">Usage: dp [OPTIONS] COMMAND [ARGS]...
 
   datapill - lightweight data ingestion and pipeline toolkit.
 
@@ -291,7 +294,7 @@ Commands:
             Verify datapill can reach your database before running a full ingest.
             <div class="code-block">
               <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><span class="t-prompt">$</span> datapill ingest check postgres --config postgres.json
+              <pre><span class="t-prompt">$</span> dp ingest check postgres --config postgres.json
 <span class="t-ok">  ✔ connected  </span><span class="t-out">latency 4ms</span></pre>
             </div>
           </div>
@@ -302,7 +305,7 @@ Commands:
             Run a full ingest and materialize the result to a Parquet artifact.
             <div class="code-block">
               <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><span class="t-prompt">$</span> datapill ingest run postgres \
+              <pre><span class="t-prompt">$</span> dp ingest run postgres \
     <span class="t-flag">--config</span>      <span class="t-arg">postgres.json</span> \
     <span class="t-flag">--table</span>       <span class="t-arg">orders</span> \
     <span class="t-flag">--materialize</span> \
@@ -328,7 +331,7 @@ Commands:
             View metadata for the run you just created.
             <div class="code-block">
               <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><span class="t-prompt">$</span> datapill artifact show a1b2c3d4
+              <pre><span class="t-prompt">$</span> dp artifact show a1b2c3d4
 
 <span class="t-out">  run          </span><span class="t-ok">a1b2c3d4</span>
 <span class="t-out">  pipeline     orders
@@ -352,26 +355,27 @@ Commands:
       <p>Read data from a source and optionally store it as a versioned artifact.</p>
       <div class="code-block">
         <div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
-        <pre><span class="t-cmd">datapill ingest run</span> <span class="t-arg">SOURCE</span> <span class="t-flag">--config</span> <span class="t-arg">FILE</span> [OPTIONS]</pre>
+        <pre><span class="t-cmd">dp ingest run</span> <span class="t-arg">SOURCE</span> <span class="t-flag">--config</span> <span class="t-arg">FILE</span> [OPTIONS]</pre>
       </div>
       <h4>Options</h4>
-      <table class="data-table">
+            <table class="data-table">
         <thead><tr><th>Argument / Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td><code>SOURCE</code> <span class="req-badge">required</span></td><td>string</td><td>-</td><td>Source type: <code>postgres</code>, <code>mysql</code>, <code>sqlite</code>, <code>s3</code>, <code>local</code>, <code>kafka</code>, <code>rest</code></td></tr>
-          <tr><td><code>--config / -c</code> <span class="req-badge">required</span></td><td>path</td><td>-</td><td>Path to connector config <code>.json</code> file</td></tr>
-          <tr><td><code>--table / -t</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>Table name (databases). Expands to <code>SELECT * FROM &lt;table&gt;</code></td></tr>
-          <tr><td><code>--query / -q</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>Raw SQL query. Cannot be combined with <code>--table</code></td></tr>
-          <tr><td><code>--topic</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>Kafka topic name</td></tr>
-          <tr><td><code>--path / -p</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>File path for S3 or local directory sources</td></tr>
-          <tr><td><code>--endpoint / -e</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>REST endpoint path (appended to <code>base_url</code>)</td></tr>
-          <tr><td><code>--params</code> <span class="opt-badge">optional</span></td><td>path</td><td>-</td><td>Path to a <code>.json</code> file with query parameters</td></tr>
-          <tr><td><code>--sample</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>Read a small sample instead of the full dataset</td></tr>
-          <tr><td><code>--sample-size</code> <span class="opt-badge">optional</span></td><td>int</td><td>10 000</td><td>Row count when <code>--sample</code> is active</td></tr>
-          <tr><td><code>--batch-size</code> <span class="opt-badge">optional</span></td><td>int</td><td>connector default</td><td>Rows per streaming batch</td></tr>
-          <tr><td><code>--materialize / -m</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>Write result to Parquet on disk</td></tr>
-          <tr><td><code>--schema</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>Print column names and types after the run</td></tr>
-          <tr><td><code>--store</code> <span class="opt-badge">optional</span></td><td>path</td><td><code>.datapill</code></td><td>Artifact store directory</td></tr>
+          <tr><td><code>SOURCE</code> <span class="req-badge">required</span></td><td>string</td><td>…</td><td>source type: postgres, mysql, sqlite, s3, local, kafka, rest</td></tr>
+          <tr><td><code>--config / -c</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>path to config .json file (required for postgres, mysql, sqlite, kafka, rest, s3; optional for local)</td></tr>
+          <tr><td><code>--table / -t</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>table name (postgres, mysql, sqlite)</td></tr>
+          <tr><td><code>--query / -q</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>raw SQL query (postgres, mysql, sqlite)</td></tr>
+          <tr><td><code>--topic</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>kafka topic</td></tr>
+          <tr><td><code>--path / -p</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>file path (local: full path to file; s3: key within bucket)</td></tr>
+          <tr><td><code>--endpoint / -e</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>REST endpoint path</td></tr>
+          <tr><td><code>--params</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>path to params .json file</td></tr>
+          <tr><td><code>--sample</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>read a sample instead of full data</td></tr>
+          <tr><td><code>--sample-size</code> <span class="opt-badge">optional</span></td><td>int</td><td>10000</td><td>number of rows to sample</td></tr>
+          <tr><td><code>--batch-size</code> <span class="opt-badge">optional</span></td><td>int</td><td>-</td><td>rows per streaming batch</td></tr>
+          <tr><td><code>--materialize / -m</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>write output to parquet artifact</td></tr>
+          <tr><td><code>--store</code> <span class="opt-badge">optional</span></td><td>string</td><td>.datapill</td><td>artifact store directory</td></tr>
+          <tr><td><code>--schema</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>print column schema after ingest</td></tr>
+          <tr><td><code>--mkdir</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>create base_path directory if it does not exist (local source only)</td></tr>
         </tbody>
       </table>
 
@@ -384,7 +388,7 @@ Commands:
       </div>
       <div id="t1" class="tab-pane active">
         <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-        <pre><span class="t-prompt">$</span> datapill ingest run postgres \
+        <pre><span class="t-prompt">$</span> dp ingest run postgres \
     <span class="t-flag">--config</span>  <span class="t-arg">pg.json</span> \
     <span class="t-flag">--query</span>   <span class="t-str">"SELECT id, email FROM users WHERE active = true"</span> \
     <span class="t-flag">--materialize</span> \
@@ -392,13 +396,13 @@ Commands:
       </div>
       <div id="t2" class="tab-pane">
         <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-        <pre><span class="t-prompt">$</span> datapill ingest run mysql \
+        <pre><span class="t-prompt">$</span> dp ingest run mysql \
     <span class="t-flag">--config</span> <span class="t-arg">mysql.json</span> \
     <span class="t-flag">--table</span>  <span class="t-arg">products</span></pre></div>
       </div>
       <div id="t3" class="tab-pane">
         <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-        <pre><span class="t-prompt">$</span> datapill ingest run postgres \
+        <pre><span class="t-prompt">$</span> dp ingest run postgres \
     <span class="t-flag">--config</span>      <span class="t-arg">pg.json</span> \
     <span class="t-flag">--table</span>       <span class="t-arg">events</span> \
     <span class="t-flag">--sample</span> \
@@ -408,7 +412,7 @@ Commands:
       </div>
       <div id="t4" class="tab-pane">
         <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-        <pre><span class="t-prompt">$</span> datapill ingest run s3 \
+        <pre><span class="t-prompt">$</span> dp ingest run s3 \
     <span class="t-flag">--config</span> <span class="t-arg">s3.json</span> \
     <span class="t-flag">--path</span>   <span class="t-str">"data/2026/orders.parquet"</span> \
     <span class="t-flag">--materialize</span></pre></div>
@@ -419,20 +423,31 @@ Commands:
       <h3>ingest check</h3>
       <p>Test a connector's credentials and network reachability without ingesting any data. Reports round-trip latency on success.</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
-      <pre><span class="t-cmd">datapill ingest check</span> <span class="t-arg">SOURCE</span> <span class="t-flag">--config</span> <span class="t-arg">FILE</span></pre></div>
+      <pre><span class="t-cmd">dp ingest check</span> <span class="t-arg">SOURCE</span> <span class="t-flag">--config</span> <span class="t-arg">FILE</span></pre></div>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill ingest check kafka --config kafka.json
+      <pre><span class="t-prompt">$</span> dp ingest check kafka --config kafka.json
 <span class="t-ok">  ✔ connected  </span><span class="t-out">latency 12ms</span>
 
-<span class="t-prompt">$</span> datapill ingest check postgres --config bad.json
+<span class="t-prompt">$</span> dp ingest check postgres --config bad.json
 <span class="t-err">  ✖ connection failed: password authentication failed for user "analyst"</span></pre></div>
-    </section>
+    
+      <h4>Options</h4>
+            <table class="data-table">
+        <thead><tr><th>Argument / Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>SOURCE</code> <span class="req-badge">required</span></td><td>string</td><td>…</td><td>source type</td></tr>
+          <tr><td><code>--config / -c</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>path to config .json file</td></tr>
+          <tr><td><code>--path / -p</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>file path (for local source)</td></tr>
+          <tr><td><code>--mkdir</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>create base_path directory if it does not exist (local source only)</td></tr>
+        </tbody>
+      </table>
+</section>
 
     <section id="ingest-sources">
       <h3>ingest sources</h3>
       <p>Print all registered source connector types.</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill ingest sources
+      <pre><span class="t-prompt">$</span> dp ingest sources
 <span class="t-out">kafka
 local
 mysql
@@ -450,9 +465,9 @@ sqlite</span></pre></div>
     <section id="artifact-list">
       <h3>artifact list</h3>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
-      <pre><span class="t-cmd">datapill artifact list</span> [<span class="t-flag">--pipeline</span> <span class="t-arg">NAME</span>] [<span class="t-flag">--limit</span> <span class="t-arg">N</span>] [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
+      <pre><span class="t-cmd">dp artifact list</span> [<span class="t-flag">--pipeline</span> <span class="t-arg">NAME</span>] [<span class="t-flag">--limit</span> <span class="t-arg">N</span>] [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill artifact list --pipeline orders --limit 5
+      <pre><span class="t-prompt">$</span> dp artifact list --pipeline orders --limit 5
 
 <span class="t-out"> run        pipeline  when              sample  mat
  ────────── ───────── ────────────────  ──────  ───
@@ -465,14 +480,14 @@ sqlite</span></pre></div>
       <h3>artifact show</h3>
       <p>Display full metadata for a single artifact by run ID.</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
-      <pre><span class="t-cmd">datapill artifact show</span> <span class="t-arg">RUN_ID</span> [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
+      <pre><span class="t-cmd">dp artifact show</span> <span class="t-arg">RUN_ID</span> [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
     </section>
 
     <section id="artifact-lineage">
       <h3>artifact lineage</h3>
       <p>Trace the ancestry chain of an artifact back to its root. Useful when pipelines are chained.</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill artifact lineage a1b2c3d4
+      <pre><span class="t-prompt">$</span> dp artifact lineage a1b2c3d4
 
 <span class="t-out">raw_ingest   0000ffff  2026-04-29 08:00
   └─ clean   1234abcd  2026-04-29 08:15
@@ -483,7 +498,7 @@ sqlite</span></pre></div>
       <h3>artifact delete</h3>
       <p>Delete a single artifact and its associated files on disk. Prompts for confirmation unless <code>--yes</code> is passed.</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill artifact delete a1b2c3d4 --yes
+      <pre><span class="t-prompt">$</span> dp artifact delete a1b2c3d4 --yes
 <span class="t-ok">  ✔ deleted  </span><span class="t-out">a1b2c3d4</span></pre></div>
     </section>
 
@@ -491,7 +506,7 @@ sqlite</span></pre></div>
       <h3>artifact purge</h3>
       <p>Bulk-delete artifacts, keeping the <em>N</em> most recent per pipeline. Use <code>--samples-only</code> to target only sample runs.</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill artifact purge --pipeline orders --keep 3 --yes
+      <pre><span class="t-prompt">$</span> dp artifact purge --pipeline orders --keep 3 --yes
 <span class="t-ok">  ✔ purged  </span><span class="t-out">7 artifact(s)</span></pre></div>
     </section>
 
@@ -499,11 +514,49 @@ sqlite</span></pre></div>
       <h3>artifact usage</h3>
       <p>Show total artifact count and disk usage for the store.</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill artifact usage
+      <pre><span class="t-prompt">$</span> dp artifact usage
 
 <span class="t-out">  artifacts    42
   disk usage   1.3 GB</span></pre></div>
     </section>
+
+    <section id="profile">
+      <h2>datapill profile</h2>
+      <p>Profile a dataset artifact — computes column statistics, histograms, correlations, and data quality warnings.</p>
+    </section>
+
+    <section id="profile-run">
+      <h3>profile run</h3>
+      <p>Run a full statistical profile on a parent ingest or preprocess artifact.</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
+      <pre><span class="t-cmd">dp profile run</span> <span class="t-arg">PARENT_RUN_ID</span> [OPTIONS]</pre></div>
+      <h4>Options</h4>
+            <table class="data-table">
+        <thead><tr><th>Argument / Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>PARENT_RUN_ID</code> <span class="req-badge">required</span></td><td>string</td><td>…</td><td>run id of the parent artifact (ingest or preprocess)</td></tr>
+          <tr><td><code>--mode</code> <span class="opt-badge">optional</span></td><td>string</td><td>full</td><td>&#x27;full&#x27; computes histograms/correlations/patterns, &#x27;summary&#x27; is faster</td></tr>
+          <tr><td><code>--sample-strategy</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>sampling strategy: none | random | reservoir</td></tr>
+          <tr><td><code>--sample-size</code> <span class="opt-badge">optional</span></td><td>int</td><td>100000</td><td>number of rows to use when sample-strategy != none</td></tr>
+          <tr><td><code>--chunk-size</code> <span class="opt-badge">optional</span></td><td>int</td><td>100000</td><td>rows per processing chunk</td></tr>
+          <tr><td><code>--correlation</code> <span class="opt-badge">optional</span></td><td>string</td><td>pearson</td><td>correlation method: pearson | spearman | none</td></tr>
+          <tr><td><code>--correlation-threshold</code> <span class="opt-badge">optional</span></td><td>float</td><td>0.3</td><td>only show pairs with |r| &gt;= threshold</td></tr>
+          <tr><td><code>--no-patterns</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>skip string pattern detection</td></tr>
+          <tr><td><code>--histogram-bins</code> <span class="opt-badge">optional</span></td><td>int</td><td>20</td><td>number of histogram bins for numeric columns</td></tr>
+          <tr><td><code>--cardinality-limit</code> <span class="opt-badge">optional</span></td><td>int</td><td>100</td><td>max distinct values to show in top_values</td></tr>
+          <tr><td><code>--store</code> <span class="opt-badge">optional</span></td><td>string</td><td>.datapill</td><td>artifact store directory</td></tr>
+          <tr><td><code>--schema</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>print column schema after profiling</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="profile-show">
+      <h3>profile show</h3>
+      <p>Display a saved profile result by run ID.</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
+      <pre><span class="t-cmd">dp profile show</span> <span class="t-arg">RUN_ID</span> [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
+    </section>
+
 
     <section id="sources">
       <h2>Supported Sources</h2>
@@ -582,7 +635,7 @@ sqlite</span></pre></div>
 }</pre></div>
       <p>Pass the relative file path with <code>--path</code>:</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill ingest run local \
+      <pre><span class="t-prompt">$</span> dp ingest run local \
     <span class="t-flag">--config</span> <span class="t-arg">local.json</span> \
     <span class="t-flag">--path</span>   <span class="t-str">"2026-05/sales.parquet"</span></pre></div>
     </section>
@@ -601,7 +654,7 @@ sqlite</span></pre></div>
 }</pre></div>
       <p>Specify the topic with <code>--topic</code>:</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill ingest run kafka \
+      <pre><span class="t-prompt">$</span> dp ingest run kafka \
     <span class="t-flag">--config</span>      <span class="t-arg">kafka.json</span> \
     <span class="t-flag">--topic</span>       <span class="t-arg">user-events</span> \
     <span class="t-flag">--sample</span> \
@@ -620,7 +673,7 @@ sqlite</span></pre></div>
   <span class="t-key">"results_key"</span>:     <span class="t-str">"data"</span>    <span class="t-comment">// JSON key that holds the rows array</span>
 }</pre></div>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill ingest run rest \
+      <pre><span class="t-prompt">$</span> dp ingest run rest \
     <span class="t-flag">--config</span>   <span class="t-arg">rest.json</span> \
     <span class="t-flag">--endpoint</span> <span class="t-str">"customers"</span> \
     <span class="t-flag">--materialize</span></pre></div>
@@ -630,7 +683,7 @@ sqlite</span></pre></div>
       <h2>Streaming Large Datasets</h2>
       <p>By default, datapill loads an entire result set into memory. For large tables, add <code>--batch-size</code> to enable chunked streaming:</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> datapill ingest run postgres \
+      <pre><span class="t-prompt">$</span> dp ingest run postgres \
     <span class="t-flag">--config</span>     <span class="t-arg">pg.json</span> \
     <span class="t-flag">--table</span>      <span class="t-arg">events</span> \
     <span class="t-flag">--batch-size</span> <span class="t-num">100000</span> \
@@ -699,7 +752,7 @@ df   = duckdb.sql(<span class="t-str">f"SELECT * FROM read_parquet('{path}') LIM
   const links = document.querySelectorAll('.sidebar-item');
   window.addEventListener('scroll', () => {
     let cur = '';
-    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) cur = s.id; });
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 160) cur = s.id; });
     links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + cur));
   }, { passive: true });
 </script>
