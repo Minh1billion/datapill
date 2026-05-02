@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -56,6 +57,22 @@ class Artifact:
         return f"Artifact({self.pipeline}:{self.run_id[:8]}{parent})"
 
 
+def _row_to_artifact(row: tuple) -> Artifact:
+    run_id, pipeline, parent_run_id, timestamp, is_sample, sample_size, options, schema, materialized, path = row
+    return Artifact(
+        run_id=run_id,
+        pipeline=pipeline,
+        parent_run_id=parent_run_id,
+        timestamp=timestamp if isinstance(timestamp, datetime) else datetime.fromisoformat(str(timestamp)),
+        is_sample=bool(is_sample),
+        sample_size=sample_size,
+        options=json.loads(options),
+        schema=json.loads(schema),
+        materialized=bool(materialized),
+        path=path,
+    )
+
+
 class ArtifactStore:
     def __init__(self, path: Path | str = ".datapill") -> None:
         self.path = Path(path)
@@ -97,42 +114,19 @@ class ArtifactStore:
         row = self._db.execute(
             "SELECT * FROM artifacts WHERE run_id = ?", [run_id]
         ).fetchone()
-        if not row:
-            return None
-        run_id, pipeline, parent_run_id, timestamp, is_sample, sample_size, options, schema, materialized, path = row
-        return Artifact(
-            run_id=run_id,
-            pipeline=pipeline,
-            parent_run_id=parent_run_id,
-            timestamp=timestamp if isinstance(timestamp, datetime) else datetime.fromisoformat(str(timestamp)),
-            is_sample=bool(is_sample),
-            sample_size=sample_size,
-            options=json.loads(options),
-            schema=json.loads(schema),
-            materialized=bool(materialized),
-            path=path,
-        )
+        return _row_to_artifact(row) if row else None
 
     def last(self, pipeline: Optional[str] = None) -> Optional[Artifact]:
-        q = "SELECT * FROM artifacts ORDER BY timestamp DESC LIMIT 1"
         if pipeline:
-            q = "SELECT * FROM artifacts WHERE pipeline = ? ORDER BY timestamp DESC LIMIT 1"
-        row = self._db.execute(q, [pipeline] if pipeline else []).fetchone()
-        if not row:
-            return None
-        run_id, pipeline, parent_run_id, timestamp, is_sample, sample_size, options, schema, materialized, path = row
-        return Artifact(
-            run_id=run_id,
-            pipeline=pipeline,
-            parent_run_id=parent_run_id,
-            timestamp=timestamp if isinstance(timestamp, datetime) else datetime.fromisoformat(str(timestamp)),
-            is_sample=bool(is_sample),
-            sample_size=sample_size,
-            options=json.loads(options),
-            schema=json.loads(schema),
-            materialized=bool(materialized),
-            path=path,
-        )
+            row = self._db.execute(
+                "SELECT * FROM artifacts WHERE pipeline = ? ORDER BY timestamp DESC LIMIT 1",
+                [pipeline],
+            ).fetchone()
+        else:
+            row = self._db.execute(
+                "SELECT * FROM artifacts ORDER BY timestamp DESC LIMIT 1"
+            ).fetchone()
+        return _row_to_artifact(row) if row else None
 
     def list(self, pipeline: Optional[str] = None, limit: int = 20) -> list[Artifact]:
         if pipeline:
@@ -144,21 +138,7 @@ class ArtifactStore:
             rows = self._db.execute(
                 "SELECT * FROM artifacts ORDER BY timestamp DESC LIMIT ?", [limit]
             ).fetchall()
-        result = []
-        for run_id, pipeline, parent_run_id, timestamp, is_sample, sample_size, options, schema, materialized, path in rows:
-            result.append(Artifact(
-                run_id=run_id,
-                pipeline=pipeline,
-                parent_run_id=parent_run_id,
-                timestamp=timestamp if isinstance(timestamp, datetime) else datetime.fromisoformat(str(timestamp)),
-                is_sample=bool(is_sample),
-                sample_size=sample_size,
-                options=json.loads(options),
-                schema=json.loads(schema),
-                materialized=bool(materialized),
-                path=path,
-            ))
-        return result
+        return [_row_to_artifact(r) for r in rows]
 
     def lineage(self, run_id: str) -> list[Artifact]:
         rows = self._db.execute("""
@@ -170,21 +150,59 @@ class ArtifactStore:
             )
             SELECT * FROM chain ORDER BY timestamp ASC
         """, [run_id]).fetchall()
-        result = []
-        for run_id, pipeline, parent_run_id, timestamp, is_sample, sample_size, options, schema, materialized, path in rows:
-            result.append(Artifact(
-                run_id=run_id,
-                pipeline=pipeline,
-                parent_run_id=parent_run_id,
-                timestamp=timestamp if isinstance(timestamp, datetime) else datetime.fromisoformat(str(timestamp)),
-                is_sample=bool(is_sample),
-                sample_size=sample_size,
-                options=json.loads(options),
-                schema=json.loads(schema),
-                materialized=bool(materialized),
-                path=path,
-            ))
-        return result
+        return [_row_to_artifact(r) for r in rows]
+
+    def delete(self, run_id: str) -> bool:
+        row = self._db.execute(
+            "SELECT materialized, path FROM artifacts WHERE run_id = ?", [run_id]
+        ).fetchone()
+        if not row:
+            return False
+        materialized, rel_path = row
+        if materialized and rel_path:
+            abs_path = self.path / rel_path
+            if abs_path.exists():
+                if abs_path.is_dir():
+                    shutil.rmtree(abs_path)
+                else:
+                    abs_path.unlink()
+                parent = abs_path.parent
+                if parent.exists() and not any(parent.iterdir()):
+                    parent.rmdir()
+        self._db.execute("DELETE FROM artifacts WHERE run_id = ?", [run_id])
+        return True
+
+    def purge(
+        self,
+        pipeline: Optional[str] = None,
+        keep: int = 0,
+        only_samples: bool = False,
+    ) -> list[str]:
+        filters: list[str] = []
+        params: list = []
+        if pipeline:
+            filters.append("pipeline = ?")
+            params.append(pipeline)
+        if only_samples:
+            filters.append("is_sample = TRUE")
+        where = ("WHERE " + " AND ".join(filters)) if filters else ""
+        rows = self._db.execute(
+            f"SELECT run_id FROM artifacts {where} ORDER BY timestamp DESC",
+            params,
+        ).fetchall()
+        run_ids = [r[0] for r in rows]
+        to_delete = run_ids[keep:]
+        deleted = []
+        for rid in to_delete:
+            if self.delete(rid):
+                deleted.append(rid)
+        return deleted
+
+    def disk_usage(self) -> int:
+        artifacts_dir = self.path / "artifacts"
+        if not artifacts_dir.exists():
+            return 0
+        return sum(f.stat().st_size for f in artifacts_dir.rglob("*") if f.is_file())
 
     def close(self) -> None:
         self._db.close()

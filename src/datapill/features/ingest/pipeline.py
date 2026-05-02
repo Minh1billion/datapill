@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Any, AsyncGenerator
 
 import polars as pl
@@ -34,6 +32,9 @@ class IngestPipeline(Pipeline):
         if self.source in {"s3", "local"} and not self.options.get("path"):
             errors.append("options must include 'path'")
 
+        if self.source == "rest" and not self.options.get("endpoint"):
+            errors.append("options must include 'endpoint'")
+
         return ValidationResult(ok=not errors, errors=errors)
 
     def plan(self, context: Context) -> ExecutionPlan:
@@ -47,8 +48,10 @@ class IngestPipeline(Pipeline):
             {
                 "action": "read",
                 "mode": "sample" if is_sample else "full",
+                "stream": True,
                 **({"sample_size": sample_size} if is_sample else {}),
-                **{k: v for k, v in self.options.items() if k in ("table", "query", "topic", "path")},
+                **({"batch_size": self.options["batch_size"]} if "batch_size" in self.options else {}),
+                **{k: v for k, v in self.options.items() if k in ("table", "query", "topic", "path", "endpoint")},
             },
         ]
 
@@ -56,7 +59,7 @@ class IngestPipeline(Pipeline):
             steps.append({
                 "action": "materialize",
                 "format": "parquet",
-                "path": f".datapill/artifacts/{context.run_id}/data.parquet",
+                "note": "path resolved at execute time from context.run_id",
             })
 
         return ExecutionPlan(
@@ -72,7 +75,7 @@ class IngestPipeline(Pipeline):
             options={
                 "source": self.source,
                 **{k: v for k, v in self.options.items()
-                   if k in ("table", "query", "topic", "path", "sample", "sample_size")},
+                   if k in ("table", "query", "topic", "path", "endpoint", "sample", "sample_size", "batch_size")},
             },
             is_sample=self.options.get("sample", False),
             sample_size=self.options.get("sample_size") if self.options.get("sample") else None,
@@ -97,24 +100,40 @@ class IngestPipeline(Pipeline):
 
         try:
             reader = get_reader(self.source)
-            df = await reader.read(
+            stream = await reader.read(
                 connector=connector,
                 options=self.options,
                 is_sample=self.options.get("sample", False),
                 sample_size=self.options.get("sample_size", 10_000),
             )
+
+            batches: list[pl.DataFrame] = []
+            total_rows = 0
+
+            async for chunk in stream:
+                batches.append(chunk)
+                total_rows += len(chunk)
+                yield ProgressEvent(
+                    event_type=EventType.PROGRESS,
+                    message=f"read {total_rows:,} rows",
+                    progress_pct=min(10.0 + total_rows / max(self.options.get("sample_size", 10_000), 1) * 70.0, 79.0),
+                    payload={"rows": total_rows},
+                )
+
+            df = pl.concat(batches) if batches else pl.DataFrame()
+
         except Exception as exc:
             yield ProgressEvent(event_type=EventType.ERROR, message=str(exc))
             await connector.cleanup()
             return
-        finally:
-            await connector.cleanup()
+
+        await connector.cleanup()
 
         artifact.schema = {name: str(dtype) for name, dtype in zip(df.columns, df.dtypes)}
 
         yield ProgressEvent(
             event_type=EventType.PROGRESS,
-            message=f"read {len(df):,} rows",
+            message=f"read complete — {len(df):,} rows, {len(df.columns)} columns",
             progress_pct=80.0,
             payload={"rows": len(df), "columns": len(df.columns)},
         )
