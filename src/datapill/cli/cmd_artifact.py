@@ -5,7 +5,20 @@ from rich.table import Table, box
 from rich.text import Text
 
 from ..storage.artifact_store import Artifact, ArtifactStore
-from .shared import C_ACCENT, C_ERR, C_HEAD, C_ID, C_MUTED, C_OK, C_PATH, C_REF, C_TYPE, C_VAL, C_WARN, _rule, err, out, with_spinner
+from .shared import (
+    BOLD_WHITE,
+    ORANGE,
+    GRAY,
+    WHITE,
+    GREEN,
+    RED,
+    YELLOW,
+    CYAN,
+    _rule,
+    err,
+    out,
+    with_spinner,
+)
 
 app = typer.Typer(help="inspect and manage pipeline artifacts")
 
@@ -38,15 +51,22 @@ def list_artifacts(
         store.close()
 
     if not artifacts:
-        out.print("no artifacts found", style=C_MUTED)
+        out.print("no artifacts found", style=GRAY)
         return
 
-    t = Table(box=box.SIMPLE_HEAD, show_edge=False, header_style=C_HEAD, padding=(0, 1), pad_edge=False)
-    t.add_column("run", style=f"bold {C_ID}", no_wrap=True)
-    t.add_column("pipeline", style=C_VAL, no_wrap=True)
-    t.add_column("when", style=C_MUTED, no_wrap=True)
-    t.add_column("rows", justify="right", style=C_TYPE)
-    t.add_column("sample", justify="center", style=C_WARN)
+    t = Table(
+        box=box.SIMPLE,
+        show_edge=False,
+        header_style=BOLD_WHITE,
+        padding=(0, 2),
+        pad_edge=False,
+        border_style=GRAY,
+    )
+    t.add_column("run", style=f"bold {ORANGE}", no_wrap=True)
+    t.add_column("pipeline", style=WHITE, no_wrap=True)
+    t.add_column("when", style=GRAY, no_wrap=True)
+    t.add_column("rows", justify="right", style=GRAY)
+    t.add_column("sample", justify="center", style=YELLOW)
     t.add_column("mat", justify="center")
 
     for a in artifacts:
@@ -56,8 +76,8 @@ def list_artifacts(
             a.pipeline,
             _fmt_ts(a),
             rows_str,
-            Text("y", style=C_WARN) if a.is_sample else "",
-            Text("y", style=C_OK) if a.materialized else Text("·", style=C_MUTED),
+            Text("y", style=YELLOW) if a.is_sample else "",
+            Text("y", style=GREEN) if a.materialized else Text("·", style=GRAY),
         )
 
     out.print(t)
@@ -74,37 +94,43 @@ def show_artifact(
         store.close()
 
     if not artifact:
-        err.print(Text("✖ ", style=f"bold {C_ERR}") + Text(f"artifact not found: {run_id}", style=C_ERR))
+        err.print(Text("[FAIL] ", style=f"bold {RED}") + Text(f"artifact not found: {run_id}", style=RED))
         raise typer.Exit(1)
 
-    t = Table(box=None, show_header=False, show_edge=False, padding=(0, 1), pad_edge=False)
-    t.add_column(style=C_MUTED, no_wrap=True, min_width=12)
+    t = Table(box=None, show_header=False, show_edge=False, padding=(0, 2), pad_edge=False)
+    t.add_column(style=GRAY, no_wrap=True, min_width=14)
     t.add_column(no_wrap=True)
-    t.add_row("run",          Text(artifact.run_id, style=f"bold {C_ID}"))
-    t.add_row("pipeline",     Text(artifact.pipeline, style=C_VAL))
-    t.add_row("timestamp",    Text(_fmt_ts(artifact), style=C_MUTED))
-    t.add_row("sample",       Text(f"yes  ({artifact.sample_size:,} rows)", style=C_WARN) if artifact.is_sample else Text("no", style=C_MUTED))
-    t.add_row("materialized", Text("yes", style=C_OK) if artifact.materialized else Text("no", style=C_MUTED))
+    t.add_row("run", Text(artifact.run_id, style=f"bold {ORANGE}"))
+    t.add_row("pipeline", Text(artifact.pipeline, style=WHITE))
+    t.add_row("timestamp", Text(_fmt_ts(artifact), style=GRAY))
+    t.add_row(
+        "sample",
+        Text(f"yes  ({artifact.sample_size:,} rows)", style=YELLOW) if artifact.is_sample else Text("no", style=GRAY),
+    )
+    t.add_row(
+        "materialized",
+        Text("yes", style=GREEN) if artifact.materialized else Text("no", style=GRAY),
+    )
     if artifact.path:
-        t.add_row("path",     Text(artifact.path, style=C_PATH))
+        t.add_row("path", Text(artifact.path, style=ORANGE))
     if artifact.parent_run_id:
-        t.add_row("parent",   Text(artifact.parent_run_id, style=C_REF))
+        t.add_row("parent", Text(artifact.parent_run_id, style=GRAY))
     out.print(t)
 
     if artifact.schema:
         _rule("schema")
-        st = Table(box=None, show_header=True, show_edge=False, header_style=C_HEAD, padding=(0, 1), pad_edge=False)
-        st.add_column("column", style=f"bold {C_ACCENT}", no_wrap=True)
-        st.add_column("type", style=C_TYPE, no_wrap=True)
+        st = Table(box=None, show_header=True, show_edge=False, header_style=BOLD_WHITE, padding=(0, 2), pad_edge=False)
+        st.add_column("column", style=f"bold {CYAN}", no_wrap=True)
+        st.add_column("type", style=GRAY, no_wrap=True)
         for col, dtype in artifact.schema.items():
             st.add_row(col, dtype)
         out.print(st)
 
     if artifact.options:
         _rule("options")
-        ot = Table(box=None, show_header=True, show_edge=False, header_style=C_HEAD, padding=(0, 1), pad_edge=False)
-        ot.add_column("option", style=C_MUTED, no_wrap=True)
-        ot.add_column("value", style=C_VAL, no_wrap=True)
+        ot = Table(box=None, show_header=True, show_edge=False, header_style=BOLD_WHITE, padding=(0, 2), pad_edge=False)
+        ot.add_column("option", style=GRAY, no_wrap=True)
+        ot.add_column("value", style=WHITE, no_wrap=True)
         for k, v in artifact.options.items():
             ot.add_row(k, str(v))
         out.print(ot)
@@ -123,7 +149,7 @@ def show_lineage(
         store.close()
 
     if not chain:
-        err.print(Text("✖ ", style=f"bold {C_ERR}") + Text(f"artifact not found: {run_id}", style=C_ERR))
+        err.print(Text("[FAIL] ", style=f"bold {RED}") + Text(f"artifact not found: {run_id}", style=RED))
         raise typer.Exit(1)
 
     for i, a in enumerate(chain):
@@ -131,10 +157,10 @@ def show_lineage(
         connector = "└─ " if i > 0 else ""
         is_target = a.run_id == run_id
         out.print(
-            Text(f"{indent}{connector}", style=C_MUTED)
-            + Text(a.pipeline, style=f"bold {C_VAL}" if is_target else C_MUTED)
-            + Text(f"  {a.run_id}", style=C_ID if is_target else C_MUTED)
-            + Text(f"  {_fmt_ts(a)}", style=C_MUTED)
+            Text(f"{indent}{connector}", style=GRAY)
+            + Text(a.pipeline, style=f"bold {WHITE}" if is_target else GRAY)
+            + Text(f"  {a.run_id}", style=ORANGE if is_target else GRAY)
+            + Text(f"  {_fmt_ts(a)}", style=GRAY)
         )
 
 
@@ -148,16 +174,16 @@ def delete_artifact(
     artifact = store.get(run_id)
 
     if not artifact:
-        err.print(Text("✖ ", style=f"bold {C_ERR}") + Text(f"artifact not found: {run_id}", style=C_ERR))
+        err.print(Text("[FAIL] ", style=f"bold {RED}") + Text(f"artifact not found: {run_id}", style=RED))
         store.close()
         raise typer.Exit(1)
 
     if not yes:
         out.print(
-            Text("delete  ", style=C_MUTED)
-            + Text(run_id, style=f"bold {C_VAL}")
-            + Text(f"  {artifact.pipeline}", style=C_MUTED)
-            + (Text("  materialized", style=C_OK) if artifact.materialized else Text(""))
+            Text("delete  ", style=GRAY)
+            + Text(run_id, style=f"bold {WHITE}")
+            + Text(f"  {artifact.pipeline}", style=GRAY)
+            + (Text("  materialized", style=GREEN) if artifact.materialized else Text(""))
         )
         typer.confirm("confirm?", abort=True)
 
@@ -166,9 +192,9 @@ def delete_artifact(
         store.close()
 
     if ok:
-        out.print(Text("  ✔ deleted  ", style=f"bold {C_OK}") + Text(run_id, style=C_MUTED))
+        out.print(Text("  [OK] deleted  ", style=f"bold {GREEN}") + Text(run_id, style=GRAY))
     else:
-        err.print(Text("✖ ", style=f"bold {C_ERR}") + Text("delete failed", style=C_ERR))
+        err.print(Text("[FAIL] ", style=f"bold {RED}") + Text("delete failed", style=RED))
         raise typer.Exit(1)
 
 
@@ -188,13 +214,13 @@ def purge_artifacts(
         candidates = [a for a in candidates if a.is_sample]
 
     if not candidates:
-        out.print("nothing to purge", style=C_MUTED)
+        out.print("nothing to purge", style=GRAY)
         store.close()
         return
 
     out.print(
-        Text(f"  {len(candidates)} artifact(s) will be deleted", style=C_VAL)
-        + (Text(f"  keeping latest {keep}", style=C_MUTED) if keep else Text(""))
+        Text(f"  {len(candidates)} artifact(s) will be deleted", style=WHITE)
+        + (Text(f"  keeping latest {keep}", style=GRAY) if keep else Text(""))
     )
 
     if not yes:
@@ -204,7 +230,7 @@ def purge_artifacts(
         deleted = store.purge(pipeline=pipeline, keep=keep, only_samples=only_samples)
         store.close()
 
-    out.print(Text("  ✔ purged  ", style=f"bold {C_OK}") + Text(f"{len(deleted)} artifact(s)", style=C_VAL))
+    out.print(Text("  [OK] purged  ", style=f"bold {GREEN}") + Text(f"{len(deleted)} artifact(s)", style=WHITE))
 
 
 @app.command("usage")
@@ -217,9 +243,9 @@ def disk_usage(
         count = len(store.list(limit=10_000))
         store.close()
 
-    t = Table(box=None, show_header=False, show_edge=False, padding=(0, 1), pad_edge=False)
-    t.add_column(style=C_MUTED, no_wrap=True, min_width=12)
-    t.add_column(style=f"bold {C_VAL}", no_wrap=True)
+    t = Table(box=None, show_header=False, show_edge=False, padding=(0, 2), pad_edge=False)
+    t.add_column(style=GRAY, no_wrap=True, min_width=14)
+    t.add_column(style=f"bold {WHITE}", no_wrap=True)
     t.add_row("artifacts", str(count))
     t.add_row("disk usage", _fmt_size(total_bytes))
     out.print(t)

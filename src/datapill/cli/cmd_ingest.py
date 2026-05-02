@@ -24,15 +24,15 @@ app = typer.Typer(help="ingest data from a source into datapill")
 def _load_config(value: str) -> dict:
     p = Path(value)
     if not p.exists():
-        typer.echo(f"[fail] config file not found: {p}", err=True)
+        typer.echo(f"[FAIL] config file not found: {p}", err=True)
         raise typer.Exit(1)
     if p.suffix != ".json":
-        typer.echo(f"[fail] config file must be a .json file: {p}", err=True)
+        typer.echo(f"[FAIL] config file must be a .json file: {p}", err=True)
         raise typer.Exit(1)
     try:
         return json.loads(p.read_text())
     except json.JSONDecodeError as exc:
-        typer.echo(f"[fail] invalid config file {p}: {exc}", err=True)
+        typer.echo(f"[FAIL] invalid config file {p}: {exc}", err=True)
         raise typer.Exit(1)
 
 
@@ -58,7 +58,7 @@ def run(
     options: dict = {}
 
     if table and query:
-        typer.echo("[fail] cannot use both --table and --query", err=True)
+        typer.echo("[FAIL] cannot use both --table and --query", err=True)
         raise typer.Exit(1)
 
     if query:
@@ -87,7 +87,7 @@ def run(
     validation = pipeline.validate(context)
     if not validation.ok:
         for e in validation.errors:
-            typer.echo(f"[fail] {e}", err=True)
+            typer.echo(f"[FAIL] {e}", err=True)
         raise typer.Exit(1)
 
     async def _run() -> None:
@@ -124,7 +124,7 @@ def check_connection(
         if status.ok:
             print_connection_result(status.latency_ms)
         else:
-            typer.echo(f"[fail] {status.error}", err=True)
+            typer.echo(f"[FAIL] {status.error}", err=True)
             raise typer.Exit(1)
         await connector.cleanup()
 
