@@ -6,10 +6,10 @@ import polars as pl
 import pyarrow.parquet as pq
 import aioboto3
 
-from .base import BaseConnector, ConnectionStatus
-from ..utils.connection import timed_connect
-from ..utils.streaming import estimate_batch_size
-from ..utils.file_process import parse_bytes, get_format, resolve_key
+from ..base import BaseConnector, ConnectionStatus
+from ...utils.connection import timed_connect
+from ...utils.streaming import estimate_batch_size
+from ...utils.file_process import parse_bytes, get_format, resolve_key
 
 
 @dataclass

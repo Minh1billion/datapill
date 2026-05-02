@@ -5,8 +5,8 @@ import io
 import asyncpg
 import polars as pl
 
-from .base import BaseConnector, ConnectionStatus
-from ..utils.connection import timed_connect
+from ..base import BaseConnector, ConnectionStatus
+from ...utils.connection import timed_connect
 
 
 @dataclass

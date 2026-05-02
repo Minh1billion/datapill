@@ -1,0 +1,7 @@
+{
+  "brokers": [
+    "localhost:9092"
+  ],
+  "group_id": "datapill-test",
+  "auto_offset_reset": "earliest"
+}

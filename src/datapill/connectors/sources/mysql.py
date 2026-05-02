@@ -5,8 +5,8 @@ import asyncmy
 import connectorx as cx
 import polars as pl
 
-from .base import BaseConnector, ConnectionStatus
-from ..utils.connection import timed_connect
+from ..base import BaseConnector, ConnectionStatus
+from ...utils.connection import timed_connect
 
 
 @dataclass

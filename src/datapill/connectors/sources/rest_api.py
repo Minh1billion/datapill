@@ -4,10 +4,10 @@ import asyncio
 import polars as pl
 import aiohttp
 
-from .base import BaseConnector, ConnectionStatus
-from ..utils.connection import timed_connect
-from ..utils.auth import build_bearer_header, build_basic_auth
-from ..utils.normalization import convert_to_list_of_dicts
+from ..base import BaseConnector, ConnectionStatus
+from ...utils.connection import timed_connect
+from ...utils.auth import build_bearer_header, build_basic_auth
+from ...utils.normalization import convert_to_list_of_dicts
 
 
 @dataclass

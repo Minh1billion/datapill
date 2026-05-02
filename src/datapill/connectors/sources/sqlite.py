@@ -5,8 +5,8 @@ import aiosqlite
 import duckdb
 import polars as pl
 
-from .base import BaseConnector, ConnectionStatus
-from ..utils.connection import timed_connect
+from ..base import BaseConnector, ConnectionStatus
+from ...utils.connection import timed_connect
 
 
 @dataclass
@@ -63,14 +63,14 @@ class SQLiteConnector(BaseConnector[SQLiteConnectorConfig]):
 
         if not stream:
             return await asyncio.to_thread(
-                lambda: [c := duckdb.connect(), c.execute(self._attach), c.sql(sql).pl()][-1]
+                lambda: [c := duckdb.connect(), c.execute(self._attach), c.execute("SET search_path='_src'"), c.sql(sql).pl()][-1]
             )
 
         nb = batch_size or self.config.fetch_size
 
         async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
             reader = await asyncio.to_thread(
-                lambda: [c := duckdb.connect(), c.execute(self._attach), c.sql(sql).fetch_arrow_reader(nb)][-1]
+                lambda: [c := duckdb.connect(), c.execute(self._attach), c.execute("SET search_path='_src'"), c.sql(sql).fetch_arrow_reader(nb)][-1]
             )
             for chunk in reader:
                 yield pl.from_arrow(chunk)

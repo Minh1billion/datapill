@@ -5,9 +5,9 @@ from typing import Optional, AsyncGenerator, Any
 import polars as pl
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 
-from .base import BaseConnector, ConnectionStatus
-from ..utils.connection import timed_connect
-from ..utils.auth import build_sasl_auth
+from ..base import BaseConnector, ConnectionStatus
+from ...utils.connection import timed_connect
+from ...utils.auth import build_sasl_auth
 
 
 @dataclass

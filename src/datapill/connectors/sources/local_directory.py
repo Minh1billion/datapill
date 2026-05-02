@@ -7,10 +7,10 @@ import polars as pl
 import pyarrow.parquet as pq
 import pyarrow as pa
 
-from .base import BaseConnector, ConnectionStatus
-from ..utils.connection import timed_connect
-from ..utils.file_process import resolve_path
-from ..utils.streaming import estimate_batch_size
+from ..base import BaseConnector, ConnectionStatus
+from ...utils.connection import timed_connect
+from ...utils.file_process import resolve_path
+from ...utils.streaming import estimate_batch_size
 
 
 @dataclass
