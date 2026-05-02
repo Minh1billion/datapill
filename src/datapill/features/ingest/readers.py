@@ -23,12 +23,11 @@ class DatabaseReader(BaseReader):
         is_sample: bool,
         sample_size: int,
     ) -> AsyncGenerator[pl.DataFrame, None]:
-        table = options.get("table")
-        query = options.get("query") or (
-            f"SELECT * FROM {table} LIMIT {sample_size}"
-            if is_sample
-            else f"SELECT * FROM {table}"
-        )
+        query = options["query"]
+
+        if is_sample and "limit" not in query.lower():
+            query = f"SELECT * FROM ({query}) AS t LIMIT {sample_size}"
+
         batch_size = options.get("batch_size")
 
         result = await connector.query(query, stream=True, batch_size=batch_size)
@@ -113,6 +112,7 @@ class RestApiReader(BaseReader):
     ) -> AsyncGenerator[pl.DataFrame, None]:
         endpoint = options.get("endpoint", "")
         params = options.get("params")
+        page_size = options.get("page_size", 20)
 
         result = await connector.query(endpoint, params=params, stream=True)
 
@@ -123,6 +123,9 @@ class RestApiReader(BaseReader):
 
             received = 0
             async for df in result:
+                if len(df) == 0:
+                    break
+
                 if is_sample:
                     remaining = sample_size - received
                     if remaining <= 0:
@@ -134,6 +137,10 @@ class RestApiReader(BaseReader):
                         break
                 else:
                     yield df
+                    received += len(df)
+
+                if len(df) < page_size:
+                    break
 
         return _generate()
 

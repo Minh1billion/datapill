@@ -96,10 +96,17 @@ class RestApiConnector(BaseConnector[RestApiConnectorConfig]):
             return pl.DataFrame(rows) if rows else pl.DataFrame()
 
         async def generate() -> AsyncGenerator[pl.DataFrame, Any]:
+            seen_hashes: set[int] = set()
+            max_pages = getattr(self.config, "max_pages", 1000)
+
             if self.config.pagination_type == "page":
                 sem = asyncio.Semaphore(self.config.concurrent_pages)
                 page = 1
+
                 while True:
+                    if page > max_pages:
+                        break
+
                     async def fetch_page(p: int) -> list[dict]:
                         async with sem:
                             d = await self._get_with_retry(
@@ -114,26 +121,52 @@ class RestApiConnector(BaseConnector[RestApiConnectorConfig]):
 
                     batch_pages = list(range(page, page + self.config.concurrent_pages))
                     results = await asyncio.gather(*[fetch_page(p) for p in batch_pages])
-                    empty = False
+
+                    done = False
+
                     for rows in results:
                         if not rows:
-                            empty = True
+                            done = True
                             break
-                        yield pl.DataFrame(rows)
-                    if empty:
+
+                        h = hash(str(rows[:5]))
+                        if h in seen_hashes:
+                            done = True
+                            break
+                        seen_hashes.add(h)
+
+                        df = pl.DataFrame(rows)
+                        yield df
+
+                        if len(rows) < self.config.page_size:
+                            done = True
+                            break
+
+                    if done:
                         break
+
                     page += self.config.concurrent_pages
 
             elif self.config.pagination_type == "cursor":
                 next_url: Optional[str] = url
                 cur_params = params
-                while next_url:
+                steps = 0
+
+                while next_url and steps < max_pages:
                     data = await self._get_with_retry(next_url, cur_params)
                     rows = convert_to_list_of_dicts(data, self.config.results_key)
+
                     if rows:
+                        h = hash(str(rows[:5]))
+                        if h in seen_hashes:
+                            break
+                        seen_hashes.add(h)
+
                         yield pl.DataFrame(rows)
+
                     next_url = data.get(self.config.next_key) if isinstance(data, dict) else None
                     cur_params = None
+                    steps += 1
 
             else:
                 data = await self._get_with_retry(url, params)

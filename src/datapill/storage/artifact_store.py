@@ -36,7 +36,7 @@ class Artifact:
         sample_size: Optional[int] = None,
     ) -> "Artifact":
         return cls(
-            run_id=str(uuid.uuid4()),
+            run_id=str(uuid.uuid4())[:8],
             pipeline=pipeline,
             parent_run_id=parent.run_id if parent else None,
             timestamp=datetime.now(timezone.utc),

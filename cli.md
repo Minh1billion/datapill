@@ -138,37 +138,215 @@ Prints total artifact count and disk usage.
 
 ---
 
-## Minimal Test Sequence
+## Full Test Flow
 
-Run these in order to verify the full stack works.
+Run in order from top to bottom. Each step depends on the previous one succeeding.
+
+---
+
+### Step 0 - Start services & seed
 
 ```bash
-# --- connections ---
+docker compose -f docker-compose.test.yml up -d --wait
+uv run python scripts/seed.py
+uv run datapill --help
+dp ingest sources
+```
+
+**Expected:** sources prints 7 lines: `postgres mysql sqlite s3 local kafka rest`
+
+---
+
+### Step 1 - Check connections
+
+```bash
 dp ingest check postgres --config tests/fixtures/configs/postgres.json
 dp ingest check mysql    --config tests/fixtures/configs/mysql.json
 dp ingest check sqlite   --config tests/fixtures/configs/sqlite.json
 dp ingest check s3       --config tests/fixtures/configs/s3.json
 dp ingest check kafka    --config tests/fixtures/configs/kafka.json
+dp ingest check rest     --config tests/fixtures/configs/rest_api.json
+```
 
-# --- ingest samples ---
-dp ingest run postgres --config tests/fixtures/configs/postgres.json --table employees --sample --sample-size 20 --schema
-dp ingest run mysql    --config tests/fixtures/configs/mysql.json    --table employees --sample --sample-size 20
-dp ingest run sqlite   --config tests/fixtures/configs/sqlite.json   --table employees --schema
-dp ingest run s3       --config tests/fixtures/configs/s3.json       --path data/employees.csv --schema
-dp ingest run local    --config tests/fixtures/configs/local.json    --path data.csv --schema
-dp ingest run kafka    --config tests/fixtures/configs/kafka.json    --topic employees --sample --sample-size 30 --schema
+**Expected per command:** `+ connected  X.Xms` then `ok`
 
-# --- materialize one ---
-dp ingest run postgres --config tests/fixtures/configs/postgres.json --table employees --materialize --schema
+> **REST:** uses `jsonplaceholder.typicode.com` - public, no auth required.  
+> Update `tests/fixtures/configs/rest_api.json` before running this step:
+> ```json
+> {
+>   "base_url": "https://jsonplaceholder.typicode.com",
+>   "pagination_type": "page",
+>   "page_param": "_page",
+>   "page_size_param": "_limit",
+>   "page_size": 20,
+>   "results_key": null
+> }
+> ```
 
-# --- inspect artifacts ---
+---
+
+### Step 2 - Ingest sample (no disk write)
+
+```bash
+# postgres - sample 20 rows, print schema
+dp ingest run postgres \
+  --config tests/fixtures/configs/postgres.json \
+  --table employees --sample --sample-size 20 --schema
+
+# postgres - raw query
+dp ingest run postgres \
+  --config tests/fixtures/configs/postgres.json \
+  --query "SELECT * FROM departments" --schema
+
+# mysql - sample
+dp ingest run mysql \
+  --config tests/fixtures/configs/mysql.json \
+  --table employees --sample --sample-size 20 --schema
+
+# sqlite - full table (100 rows)
+dp ingest run sqlite \
+  --config tests/fixtures/configs/sqlite.json \
+  --table employees --schema
+
+# sqlite - raw query
+dp ingest run sqlite \
+  --config tests/fixtures/configs/sqlite.json \
+  --query "SELECT dept, COUNT(*) as n FROM employees GROUP BY dept" --schema
+
+# s3 - csv
+dp ingest run s3 \
+  --config tests/fixtures/configs/s3.json \
+  --path data/employees.csv --schema
+
+# s3 - parquet
+dp ingest run s3 \
+  --config tests/fixtures/configs/s3.json \
+  --path data/employees.parquet --schema
+
+# s3 - ndjson
+dp ingest run s3 \
+  --config tests/fixtures/configs/s3.json \
+  --path data/employees.ndjson --schema
+
+# local - csv
+dp ingest run local \
+  --config tests/fixtures/configs/local.json \
+  --path data.csv --schema
+
+# local - parquet
+dp ingest run local \
+  --config tests/fixtures/configs/local.json \
+  --path data.parquet --schema
+
+# local - large file 1k rows, streaming batch 100
+dp ingest run local \
+  --config tests/fixtures/configs/local.json \
+  --path data_1k.csv --batch-size 100 --schema
+
+# kafka - ALWAYS use --sample to avoid blocking
+dp ingest run kafka \
+  --config tests/fixtures/configs/kafka.json \
+  --topic employees --sample --sample-size 30 --schema
+
+# rest - /posts (200 records, paginated)
+dp ingest run rest \
+  --config tests/fixtures/configs/rest_api.json \
+  --endpoint posts --schema
+
+# rest - sample 20 rows
+dp ingest run rest \
+  --config tests/fixtures/configs/rest_api.json \
+  --endpoint posts --sample --sample-size 20 --schema
+
+# rest - different endpoint
+dp ingest run rest \
+  --config tests/fixtures/configs/rest_api.json \
+  --endpoint comments --sample --sample-size 30 --schema
+```
+
+**Expected per command:** `✓ N rows  M cols` + schema if `--schema` is set
+
+---
+
+### Step 3 - Full ingest + materialize (write parquet to disk)
+
+```bash
+# postgres - full 100 rows, write parquet
+dp ingest run postgres \
+  --config tests/fixtures/configs/postgres.json \
+  --table employees --materialize --schema
+
+# mysql - full, write parquet
+dp ingest run mysql \
+  --config tests/fixtures/configs/mysql.json \
+  --table employees --materialize
+
+# sqlite - full, write parquet
+dp ingest run sqlite \
+  --config tests/fixtures/configs/sqlite.json \
+  --table employees --materialize
+
+# s3 - csv, write parquet
+dp ingest run s3 \
+  --config tests/fixtures/configs/s3.json \
+  --path data/employees.csv --materialize
+
+# local - 1k rows, batch + materialize
+dp ingest run local \
+  --config tests/fixtures/configs/local.json \
+  --path data_1k.csv --batch-size 200 --materialize --schema
+
+# rest - full /posts, write parquet
+dp ingest run rest \
+  --config tests/fixtures/configs/rest_api.json \
+  --endpoint /posts --materialize --schema
+```
+
+**Expected:** output includes `path  artifacts/<run_id>/data.parquet`
+
+---
+
+### Step 4 - Inspect artifact store
+
+```bash
+# List all artifacts
 dp artifact list
-dp artifact show <run_id>        # use run_id from output above
+
+# Show full detail of a materialized artifact (get run_id from list above)
+dp artifact show <run_id>
+
+# Trace lineage
+dp artifact lineage <run_id>
+
+# Show disk usage
+dp artifact usage
+```
+
+**Expected `artifact list`:** table with more than 10 rows, `materialized` column shows `y` for step 3 runs
+
+---
+
+### Step 5 - Manage artifacts
+
+```bash
+# Delete one specific sample artifact (get run_id from list)
+dp artifact delete <run_id> --yes
+
+# Purge all sample artifacts
+dp artifact purge --samples-only --yes
+
+# Verify after purge
+dp artifact list
 dp artifact usage
 
-# --- cleanup ---
+# Purge all, keep 3 most recent
 dp artifact purge --keep 3 --yes
+
+# Confirm only 3 remain
+dp artifact list
 ```
+
+**Expected at end:** `artifact list` shows exactly 3 rows, `artifact usage` reflects correct count
 
 ---
 
@@ -195,6 +373,7 @@ A successful `artifact list` prints a table with columns:
 | Symptom | Fix |
 |---|---|
 | Kafka hangs | Always use `--sample` with kafka |
+| REST `results_key` error | Set `"results_key": null` in rest_api.json when using jsonplaceholder |
 | S3 `NoSuchBucket` | Wait for `minio-init` container to finish |
 | `artifact not found` | Run `artifact list` first to get a valid `run_id` |
 | Import errors | Run `uv sync` to install all dependencies |

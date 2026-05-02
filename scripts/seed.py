@@ -245,12 +245,7 @@ def seed_configs() -> None:
             "auto_offset_reset": "earliest",
         },
         "rest_api.json": {
-            "base_url": "http://localhost:8080",
-            "pagination_type": "page",
-            "page_param": "page",
-            "page_size_param": "page_size",
-            "page_size": 20,
-            "results_key": "results",
+            "base_url": "https://jsonplaceholder.typicode.com",
         },
     }
 

@@ -23,8 +23,8 @@ class IngestPipeline(Pipeline):
             errors.append(f"unknown source: {self.source!r}")
 
         if self.source in {"postgres", "mysql", "sqlite"}:
-            if not self.options.get("table") and not self.options.get("query"):
-                errors.append("options must include 'table' or 'query'")
+            if not self.options.get("query"):
+                errors.append("options must include 'query' (or use --table)")
 
         if self.source == "kafka" and not self.options.get("topic"):
             errors.append("options must include 'topic'")
@@ -51,7 +51,7 @@ class IngestPipeline(Pipeline):
                 "stream": True,
                 **({"sample_size": sample_size} if is_sample else {}),
                 **({"batch_size": self.options["batch_size"]} if "batch_size" in self.options else {}),
-                **{k: v for k, v in self.options.items() if k in ("table", "query", "topic", "path", "endpoint")},
+                **{k: v for k, v in self.options.items() if k in ("query", "topic", "path", "endpoint")}
             },
         ]
 

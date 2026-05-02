@@ -11,13 +11,11 @@ from ..core.events import EventType
 from ..features.ingest.pipeline import IngestPipeline
 from ..storage.artifact_store import ArtifactStore
 from .shared import (
-    exit_on_error,
     print_artifact_path,
     print_connection_result,
-    print_event,
-    print_read_result,
     print_run_summary,
     print_schema,
+    run_pipeline,
 )
 
 app = typer.Typer(help="ingest data from a source into datapill")
@@ -59,10 +57,14 @@ def run(
 
     options: dict = {}
 
-    if table:
-        options["table"] = table
+    if table and query:
+        typer.echo("[fail] cannot use both --table and --query", err=True)
+        raise typer.Exit(1)
+
     if query:
         options["query"] = query
+    elif table:
+        options["query"] = f"SELECT * FROM {table}"
     if topic:
         options["topic"] = topic
     if path:
@@ -84,22 +86,13 @@ def run(
 
     validation = pipeline.validate(context)
     if not validation.ok:
-        for err in validation.errors:
-            typer.echo(f"[fail] {err}", err=True)
+        for e in validation.errors:
+            typer.echo(f"[fail] {e}", err=True)
         raise typer.Exit(1)
 
     async def _run() -> None:
         plan = pipeline.plan(context)
-        async for event in pipeline.execute(plan, context):
-            if event.event_type == EventType.PROGRESS and event.payload:
-                if "latency_ms" in event.payload:
-                    print_connection_result(event.payload["latency_ms"])
-                    continue
-                if "rows" in event.payload and "columns" in event.payload:
-                    print_read_result(event.payload["rows"], event.payload["columns"])
-                    continue
-            print_event(event)
-            exit_on_error(event)
+        await run_pipeline(pipeline.execute(plan, context))
 
         if context.artifact:
             art = context.artifact
@@ -130,7 +123,6 @@ def check_connection(
         status = await connector.connect()
         if status.ok:
             print_connection_result(status.latency_ms)
-            print("ok")
         else:
             typer.echo(f"[fail] {status.error}", err=True)
             raise typer.Exit(1)
