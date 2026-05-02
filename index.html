@@ -173,7 +173,7 @@
   <div class="topnav-divider"></div>
   <div class="topnav-section">Documentation</div>
   <div class="topnav-spacer"></div>
-  <span class="topnav-badge">v0.1.0</span>
+  <span class="topnav-badge">v0.2.9 beta</span>
 </nav>
 
 <div class="page-layout">
@@ -199,6 +199,7 @@
     <a href="#profile" class="sidebar-item">datapill profile</a>
     <a href="#profile-run" class="sidebar-item sidebar-sub">profile run</a>
     <a href="#profile-show" class="sidebar-item sidebar-sub">profile show</a>
+    <a href="#profile-warnings" class="sidebar-item sidebar-sub">profile warnings</a>
     <div class="sidebar-section-label">Connectors</div>
     <a href="#sources" class="sidebar-item">Supported Sources</a>
     <a href="#config-postgres" class="sidebar-item sidebar-sub">PostgreSQL</a>
@@ -225,7 +226,7 @@
 
     <section id="overview">
       <h1>Getting Started with the datapill CLI</h1>
-      <p class="intro-meta">Last updated: May 2, 2026 &nbsp;|&nbsp; Version: 0.1.0</p>
+      <p class="intro-meta">Last updated: May 2, 2026 &nbsp;|&nbsp; Version: 0.2.9 beta</p>
       <hr class="intro-divider" />
       <p><strong>datapill</strong> is a command-line tool for ingesting, inspecting, and managing data pipelines. It connects to databases, object storage, message queues, and REST APIs - streaming data into tracked <em>artifacts</em> you can query, compare, and version.</p>
 
@@ -255,7 +256,7 @@
       <div class="code-block">
         <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
         <pre><span class="t-prompt">$</span> dp --version
-<span class="t-out">datapill 0.1.0</span>
+<span class="t-out">datapill 0.2.9 beta</span>
 
 <span class="t-prompt">$</span> dp --help
 <span class="t-out">Usage: dp [OPTIONS] COMMAND [ARGS]...
@@ -264,55 +265,39 @@
 
 Commands:
   artifact  inspect and manage pipeline artifacts
-  ingest    ingest data from a source into datapill</span></pre>
+  ingest    ingest data from a source into datapill
+  profile   profile a dataset artifact</span></pre>
       </div>
     </section>
 
     <section id="quickstart">
       <h2>Quick Start</h2>
-      <p>The following steps walk you through ingesting a table from PostgreSQL end-to-end.</p>
+      <p>The following steps walk you through ingesting a local CSV/Parquet file, profiling it, and inspecting the results — no database required.</p>
       <ol class="steps">
         <li>
           <div class="step-body">
-            <strong>Create a config file</strong>
-            Save your connection parameters as a <code>.json</code> file. Keep this file out of version control.
+            <strong>Check your local file is reachable</strong>
+            Verify datapill can open your file before running a full ingest.
             <div class="code-block">
-              <div class="code-block-header"><span class="code-block-lang">postgres.json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre>{
-  <span class="t-key">"host"</span>:     <span class="t-str">"db.example.com"</span>,
-  <span class="t-key">"port"</span>:      <span class="t-num">5432</span>,
-  <span class="t-key">"database"</span>: <span class="t-str">"sales_db"</span>,
-  <span class="t-key">"user"</span>:     <span class="t-str">"analyst"</span>,
-  <span class="t-key">"password"</span>: <span class="t-str">"s3cr3t"</span>
-}</pre>
+              <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="t-prompt">$</span> dp ingest check local --path /data/exports/orders.parquet
+<span class="t-ok">  ✔ connected  </span><span class="t-out">latency 1ms</span></pre>
             </div>
           </div>
         </li>
         <li>
           <div class="step-body">
-            <strong>Check the connection</strong>
-            Verify datapill can reach your database before running a full ingest.
+            <strong>Ingest the file</strong>
+            Run a full ingest and materialize the result as a versioned Parquet artifact.
             <div class="code-block">
               <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><span class="t-prompt">$</span> dp ingest check postgres --config postgres.json
-<span class="t-ok">  ✔ connected  </span><span class="t-out">latency 4ms</span></pre>
-            </div>
-          </div>
-        </li>
-        <li>
-          <div class="step-body">
-            <strong>Ingest a table</strong>
-            Run a full ingest and materialize the result to a Parquet artifact.
-            <div class="code-block">
-              <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-              <pre><span class="t-prompt">$</span> dp ingest run postgres \
-    <span class="t-flag">--config</span>      <span class="t-arg">postgres.json</span> \
-    <span class="t-flag">--table</span>       <span class="t-arg">orders</span> \
+              <pre><span class="t-prompt">$</span> dp ingest run local \
+    <span class="t-flag">--path</span>        <span class="t-str">/data/exports/orders.parquet</span> \
     <span class="t-flag">--materialize</span> \
     <span class="t-flag">--schema</span>
 
 <span class="t-out">  run_id   </span><span class="t-ok">a1b2c3d4</span>
-<span class="t-out">  ref      orders:a1b2c3d4
+<span class="t-out">  ref      local:a1b2c3d4
 
   column          type
   ─────────────── ─────────
@@ -321,24 +306,68 @@ Commands:
   total           Float64
   created_at      Datetime
 
-  artifact  .datapill/artifacts/orders/a1b2c3d4.parquet</span></pre>
+  artifact  .datapill/artifacts/local/a1b2c3d4.parquet</span></pre>
             </div>
           </div>
         </li>
         <li>
           <div class="step-body">
-            <strong>Inspect the artifact</strong>
-            View metadata for the run you just created.
+            <strong>Profile the artifact</strong>
+            Run a statistical profile to detect column types, nulls, correlations, and data-quality warnings.
+            <div class="code-block">
+              <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="t-prompt">$</span> dp profile run a1b2c3d4 --mode full
+
+<span class="t-out">  run_id   </span><span class="t-ok">b2c3d4e5</span>
+<span class="t-out">  ref      profile:b2c3d4e5</span></pre>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <strong>Inspect the profile</strong>
+            View dataset statistics, column summaries, correlations, and warnings.
+            <div class="code-block">
+              <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="t-prompt">$</span> dp profile show b2c3d4e5
+
+<span class="t-out">▸ DATASET
+  run          </span><span class="t-ok">b2c3d4e5</span>
+<span class="t-out">  parent       a1b2c3d4
+  rows         124,532
+  columns      4
+  null %       0.42%
+  duplicate %  0.01%</span></pre>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <strong>Check warnings</strong>
+            Review any data-quality issues flagged during profiling.
+            <div class="code-block">
+              <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+              <pre><span class="t-prompt">$</span> dp profile warnings b2c3d4e5 --severity warn
+
+<span class="t-out">  [WARN ] </span><span class="t-ok">total                   </span><span class="t-out">HIGH_SKEW
+  [WARN ] (dataset)               DUPLICATE_ROWS</span></pre>
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <strong>Inspect the ingest artifact</strong>
+            View metadata for the ingestion run.
             <div class="code-block">
               <div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
               <pre><span class="t-prompt">$</span> dp artifact show a1b2c3d4
 
 <span class="t-out">  run          </span><span class="t-ok">a1b2c3d4</span>
-<span class="t-out">  pipeline     orders
+<span class="t-out">  pipeline     local
   timestamp    2026-05-02 09:14
   sample       no
   materialized yes
-  path         artifacts/orders/a1b2c3d4.parquet</span></pre>
+  path         artifacts/local/a1b2c3d4.parquet</span></pre>
             </div>
           </div>
         </li>
@@ -497,17 +526,76 @@ sqlite</span></pre></div>
     <section id="artifact-delete">
       <h3>artifact delete</h3>
       <p>Delete a single artifact and its associated files on disk. Prompts for confirmation unless <code>--yes</code> is passed.</p>
+      <p>If the artifact has child artifacts (e.g. a profile derived from an ingest), the delete will fail with a list of blocking children. Use <code>--cascade</code> to delete the entire subtree in leaf-to-root order.</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
+      <pre><span class="t-cmd">dp artifact delete</span> <span class="t-arg">RUN_ID</span> [<span class="t-flag">--yes</span>] [<span class="t-flag">--cascade</span>] [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
+      <h4>Options</h4>
+      <table class="data-table">
+        <thead><tr><th>Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>RUN_ID</code> <span class="req-badge">required</span></td><td>string</td><td>…</td><td>run id of the artifact to delete</td></tr>
+          <tr><td><code>--yes / -y</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>skip confirmation prompt</td></tr>
+          <tr><td><code>--cascade</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>also delete all child artifacts (leaf → root order)</td></tr>
+          <tr><td><code>--store</code> <span class="opt-badge">optional</span></td><td>string</td><td>.datapill</td><td>artifact store directory</td></tr>
+        </tbody>
+      </table>
+      <h4>Examples</h4>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> dp artifact delete a1b2c3d4 --yes
-<span class="t-ok">  ✔ deleted  </span><span class="t-out">a1b2c3d4</span></pre></div>
+      <pre><span class="t-comment"># delete a leaf artifact</span>
+<span class="t-prompt">$</span> dp artifact delete a1b2c3d4 --yes
+<span class="t-ok">  [OK] deleted  </span><span class="t-out">a1b2c3d4</span>
+
+<span class="t-comment"># delete fails when children exist</span>
+<span class="t-prompt">$</span> dp artifact delete 0000ffff --yes
+<span class="t-err">  [FAIL] cannot delete 0000ffff: has 2 child artifact(s): 1111aaaa, 2222bbbb</span>
+
+<span class="t-comment"># cascade — shows subtree preview, then deletes leaf → root</span>
+<span class="t-prompt">$</span> dp artifact delete 0000ffff --cascade
+<span class="t-out">  will delete 3 artifact(s):
+    2222bbbb  profile
+    1111aaaa  profile
+    0000ffff  ingest  materialized
+confirm? [y/N]:</span> y
+<span class="t-ok">  [OK] deleted  </span><span class="t-out">0000ffff</span></pre></div>
+      <div class="notice warning">
+        <div class="notice-title">⚠️ Cascade is irreversible</div>
+        <code>--cascade</code> deletes the artifact and every descendant in the lineage tree, including their materialized files on disk. There is no undo.
+      </div>
     </section>
 
     <section id="artifact-purge">
       <h3>artifact purge</h3>
-      <p>Bulk-delete artifacts, keeping the <em>N</em> most recent per pipeline. Use <code>--samples-only</code> to target only sample runs.</p>
+      <p>Bulk-delete root artifacts and their entire subtrees, keeping the <em>N</em> most recent roots. <code>--keep</code> counts <strong>root artifacts</strong> (ingests with no parent), not individual artifact records — so <code>--keep 3</code> always preserves 3 complete lineage trees.</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
+      <pre><span class="t-cmd">dp artifact purge</span> [<span class="t-flag">--pipeline</span> <span class="t-arg">NAME</span>] [<span class="t-flag">--keep</span> <span class="t-arg">N</span>] [<span class="t-flag">--samples-only</span>] [<span class="t-flag">--yes</span>] [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
+      <h4>Options</h4>
+      <table class="data-table">
+        <thead><tr><th>Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>--pipeline / -p</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>limit to a specific pipeline name</td></tr>
+          <tr><td><code>--keep / -k</code> <span class="opt-badge">optional</span></td><td>int</td><td>0</td><td>number of most recent root artifacts to keep</td></tr>
+          <tr><td><code>--samples-only</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>only delete sample artifacts within each subtree</td></tr>
+          <tr><td><code>--yes / -y</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>skip confirmation prompt</td></tr>
+          <tr><td><code>--store</code> <span class="opt-badge">optional</span></td><td>string</td><td>.datapill</td><td>artifact store directory</td></tr>
+        </tbody>
+      </table>
+      <h4>Examples</h4>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
-      <pre><span class="t-prompt">$</span> dp artifact purge --pipeline orders --keep 3 --yes
-<span class="t-ok">  ✔ purged  </span><span class="t-out">7 artifact(s)</span></pre></div>
+      <pre><span class="t-comment"># keep the 3 most recent root artifacts, purge everything older</span>
+<span class="t-prompt">$</span> dp artifact purge --keep 3 --yes
+<span class="t-ok">  [OK] purged  </span><span class="t-out">9 artifact(s)</span>
+
+<span class="t-comment"># purge all roots for a specific pipeline (keeps none)</span>
+<span class="t-prompt">$</span> dp artifact purge --pipeline ingest --yes
+<span class="t-ok">  [OK] purged  </span><span class="t-out">7 artifact(s)</span>
+
+<span class="t-comment"># purge only sample runs, keep 5 recent roots</span>
+<span class="t-prompt">$</span> dp artifact purge --keep 5 --samples-only --yes
+<span class="t-ok">  [OK] purged  </span><span class="t-out">3 artifact(s)</span></pre></div>
+      <div class="notice info">
+        <div class="notice-title">ℹ️ Subtree semantics</div>
+        Each root that falls outside <code>--keep</code> is deleted together with all its descendants (profiles, preprocessed runs, etc.) in leaf-to-root order. A root with a child that is inside the keep window will not be deleted.
+      </div>
     </section>
 
     <section id="artifact-usage">
@@ -552,9 +640,72 @@ sqlite</span></pre></div>
 
     <section id="profile-show">
       <h3>profile show</h3>
-      <p>Display a saved profile result by run ID.</p>
+      <p>Display a saved profile result by run ID. Reads from the materialized JSON file if available, otherwise falls back to the summary stored in the artifact options.</p>
       <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
       <pre><span class="t-cmd">dp profile show</span> <span class="t-arg">RUN_ID</span> [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
+      <h4>Options</h4>
+      <table class="data-table">
+        <thead><tr><th>Argument / Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>RUN_ID</code> <span class="req-badge">required</span></td><td>string</td><td>…</td><td>run id of the profile artifact</td></tr>
+          <tr><td><code>--store</code> <span class="opt-badge">optional</span></td><td>string</td><td>.datapill</td><td>artifact store directory</td></tr>
+        </tbody>
+      </table>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><span class="t-prompt">$</span> dp profile show b2c3d4e5
+
+<span class="t-out">▸ DATASET
+  run          </span><span class="t-ok">b2c3d4e5</span>
+<span class="t-out">  parent       a1b2c3d4
+  rows         124,532
+  columns      4
+  memory       9.52 MB
+  null %       0.42%
+  duplicate %  0.01%
+  column types </span><span class="t-ok">3 numeric  1 categorical  0 datetime</span>
+
+<span class="t-out">▸ COLUMNS
+  column        dtype    null %  distinct  mean / top value  warns
+  ──────────    ───────  ──────  ────────  ────────────────  ─────
+  id            Int64    0.0%    124532    –                 ·
+  customer_id   Int64    0.0%    8321      –                 ·
+  total         Float64  0.4%    –         148.32            1
+  created_at    Datetime 0.1%    –         –                 ·</span></pre></div>
+    </section>
+
+
+    <section id="profile-warnings">
+      <h3>profile warnings</h3>
+      <p>List data-quality warnings from a profile artifact. Optionally filter by severity level.</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
+      <pre><span class="t-cmd">dp profile warnings</span> <span class="t-arg">RUN_ID</span> [<span class="t-flag">--severity</span> <span class="t-arg">LEVEL</span>] [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
+      <h4>Options</h4>
+      <table class="data-table">
+        <thead><tr><th>Argument / Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>RUN_ID</code> <span class="req-badge">required</span></td><td>string</td><td>…</td><td>run id of the profile artifact</td></tr>
+          <tr><td><code>--severity</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>filter by severity: <code>error</code> | <code>warn</code> | <code>info</code></td></tr>
+          <tr><td><code>--store</code> <span class="opt-badge">optional</span></td><td>string</td><td>.datapill</td><td>artifact store directory</td></tr>
+        </tbody>
+      </table>
+      <h4>Examples</h4>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><span class="t-comment"># all warnings for a profile run</span>
+<span class="t-prompt">$</span> dp profile warnings b2c3d4e5
+
+<span class="t-out">  [ERROR] </span><span class="t-ok">customer_id             </span><span class="t-out">HIGH_NULL_RATE
+  [WARN ] total                   HIGH_SKEW
+  [WARN ] (dataset)               DUPLICATE_ROWS
+  [INFO ] created_at              CONSTANT_VALUE</span>
+
+<span class="t-comment"># only errors</span>
+<span class="t-prompt">$</span> dp profile warnings b2c3d4e5 --severity error
+
+<span class="t-out">  [ERROR] </span><span class="t-ok">customer_id             </span><span class="t-out">HIGH_NULL_RATE</span></pre></div>
+      <div class="notice tip">
+        <div class="notice-title">💡 Tip</div>
+        Use <code>dp profile show</code> for a full breakdown including correlations and column stats. <code>profile warnings</code> is a quick filter to surface only actionable issues.
+      </div>
     </section>
 
 
@@ -723,6 +874,8 @@ df   = duckdb.sql(<span class="t-str">f"SELECT * FROM read_parquet('{path}') LIM
         <li>Run a full ingest with <code>--materialize</code> once the sample looks correct.</li>
         <li>Use <code>artifact lineage</code> to trace how a derived dataset was produced.</li>
         <li>Schedule <code>artifact purge --keep 5</code> in CI to prevent unbounded disk growth.</li>
+        <li>Use <code>artifact delete --cascade</code> to remove an entire lineage tree in one command.</li>
+        <li>Delete artifacts leaf-first when not using <code>--cascade</code> — deleting a parent while children exist will fail.</li>
       </ul>
     </section>
   </main>

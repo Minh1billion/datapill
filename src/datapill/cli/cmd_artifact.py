@@ -168,6 +168,7 @@ def show_lineage(
 def delete_artifact(
     run_id: str = typer.Argument(help="run id of the artifact to delete"),
     yes: bool = typer.Option(False, "--yes", "-y", help="skip confirmation"),
+    cascade: bool = typer.Option(False, "--cascade", help="also delete all child artifacts"),
     store_path: str = typer.Option(".datapill", "--store", help="artifact store directory"),
 ) -> None:
     store = _open_store(store_path)
@@ -179,16 +180,31 @@ def delete_artifact(
         raise typer.Exit(1)
 
     if not yes:
-        out.print(
-            Text("delete  ", style=GRAY)
-            + Text(run_id, style=f"bold {WHITE}")
-            + Text(f"  {artifact.pipeline}", style=GRAY)
-            + (Text("  materialized", style=GREEN) if artifact.materialized else Text(""))
-        )
+        if cascade:
+            subtree = store.lineage(run_id)
+            out.print(Text(f"  will delete {len(subtree)} artifact(s):", style=WHITE))
+            for a in reversed(subtree):
+                out.print(
+                    Text(f"    {a.run_id}", style=ORANGE)
+                    + Text(f"  {a.pipeline}", style=GRAY)
+                    + (Text("  materialized", style=GREEN) if a.materialized else Text(""))
+                )
+        else:
+            out.print(
+                Text("delete  ", style=GRAY)
+                + Text(run_id, style=f"bold {WHITE}")
+                + Text(f"  {artifact.pipeline}", style=GRAY)
+                + (Text("  materialized", style=GREEN) if artifact.materialized else Text(""))
+            )
         typer.confirm("confirm?", abort=True)
 
     with with_spinner(f"deleting {run_id}"):
-        ok = store.delete(run_id)
+        try:
+            ok = store.delete(run_id, cascade=cascade)
+        except RuntimeError as e:
+            store.close()
+            err.print(Text("[FAIL] ", style=f"bold {RED}") + Text(str(e), style=RED))
+            raise typer.Exit(1)
         store.close()
 
     if ok:
@@ -201,25 +217,30 @@ def delete_artifact(
 @app.command("purge")
 def purge_artifacts(
     pipeline: Optional[str] = typer.Option(None, "--pipeline", "-p", help="limit to a specific pipeline"),
-    keep: int = typer.Option(0, "--keep", "-k", help="number of most recent artifacts to keep"),
+    keep: int = typer.Option(0, "--keep", "-k", help="number of most recent root artifacts to keep"),
     only_samples: bool = typer.Option(False, "--samples-only", help="only delete sample artifacts"),
     yes: bool = typer.Option(False, "--yes", "-y", help="skip confirmation"),
     store_path: str = typer.Option(".datapill", "--store", help="artifact store directory"),
 ) -> None:
     store = _open_store(store_path)
-    artifacts = store.list(pipeline=pipeline)
 
-    candidates = artifacts[keep:]
-    if only_samples:
-        candidates = [a for a in candidates if a.is_sample]
+    filters, params = ["parent_run_id IS NULL"], []
+    if pipeline:
+        filters.append("pipeline = ?")
+        params.append(pipeline)
+    where = "WHERE " + " AND ".join(filters)
+    roots = store._db.execute(
+        f"SELECT run_id FROM artifacts {where} ORDER BY timestamp DESC", params
+    ).fetchall()
+    roots_to_delete = [r[0] for r in roots][keep:]
 
-    if not candidates:
+    if not roots_to_delete:
         out.print("nothing to purge", style=GRAY)
         store.close()
         return
 
     out.print(
-        Text(f"  {len(candidates)} artifact(s) will be deleted", style=WHITE)
+        Text(f"  {len(roots_to_delete)} root artifact(s) and their subtrees will be deleted", style=WHITE)
         + (Text(f"  keeping latest {keep}", style=GRAY) if keep else Text(""))
     )
 

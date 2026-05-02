@@ -152,7 +152,23 @@ class ArtifactStore:
         """, [run_id]).fetchall()
         return [_row_to_artifact(r) for r in rows]
 
-    def delete(self, run_id: str) -> bool:
+    def delete(self, run_id: str, cascade: bool = False) -> bool:
+        children = self._db.execute(
+            "SELECT run_id FROM artifacts WHERE parent_run_id = ?", [run_id]
+        ).fetchall()
+
+        if children and not cascade:
+            child_ids = ", ".join(r[0] for r in children)
+            raise RuntimeError(
+                f"cannot delete {run_id}: has {len(children)} child artifact(s): {child_ids}"
+            )
+
+        if cascade:
+            subtree = self.lineage(run_id)
+            for artifact in reversed(subtree):
+                if artifact.run_id != run_id:
+                    self.delete(artifact.run_id, cascade=False)
+
         row = self._db.execute(
             "SELECT materialized, path FROM artifacts WHERE run_id = ?", [run_id]
         ).fetchone()
@@ -178,24 +194,26 @@ class ArtifactStore:
         keep: int = 0,
         only_samples: bool = False,
     ) -> list[str]:
-        filters: list[str] = []
-        params: list = []
+        filters, params = ["parent_run_id IS NULL"], []
         if pipeline:
             filters.append("pipeline = ?")
             params.append(pipeline)
-        if only_samples:
-            filters.append("is_sample = TRUE")
-        where = ("WHERE " + " AND ".join(filters)) if filters else ""
-        rows = self._db.execute(
-            f"SELECT run_id FROM artifacts {where} ORDER BY timestamp DESC",
-            params,
+        where = "WHERE " + " AND ".join(filters)
+
+        roots = self._db.execute(
+            f"SELECT run_id FROM artifacts {where} ORDER BY timestamp DESC", params
         ).fetchall()
-        run_ids = [r[0] for r in rows]
-        to_delete = run_ids[keep:]
+        roots_to_delete = [r[0] for r in roots][keep:]
+
         deleted = []
-        for rid in to_delete:
-            if self.delete(rid):
-                deleted.append(rid)
+        for root_id in roots_to_delete:
+            subtree = self.lineage(root_id)
+            for artifact in reversed(subtree):
+                if only_samples and not artifact.is_sample:
+                    continue
+                if self.delete(artifact.run_id):
+                    deleted.append(artifact.run_id)
+
         return deleted
 
     def disk_usage(self) -> int:

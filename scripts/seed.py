@@ -264,7 +264,7 @@ async def main() -> None:
     only = set(args.only) if args.only else {"postgres","mysql","s3","kafka","sqlite","local"}
 
     print("=" * 50)
-    print("datapill — seeding test services")
+    print("datapill - seeding test services")
     print("=" * 50)
 
     seed_configs()
