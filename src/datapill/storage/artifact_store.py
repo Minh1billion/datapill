@@ -140,6 +140,19 @@ class ArtifactStore:
             ).fetchall()
         return [_row_to_artifact(r) for r in rows]
 
+    def subtree(self, run_id: str) -> list[Artifact]:
+        """Return all descendants of run_id (inclusive), ordered leaf-first for safe deletion."""
+        rows = self._db.execute("""
+            WITH RECURSIVE tree AS (
+                SELECT * FROM artifacts WHERE run_id = ?
+                UNION ALL
+                SELECT a.* FROM artifacts a
+                JOIN tree t ON a.parent_run_id = t.run_id
+            )
+            SELECT * FROM tree ORDER BY timestamp DESC
+        """, [run_id]).fetchall()
+        return [_row_to_artifact(r) for r in rows]
+
     def lineage(self, run_id: str) -> list[Artifact]:
         rows = self._db.execute("""
             WITH RECURSIVE chain AS (
@@ -207,8 +220,8 @@ class ArtifactStore:
 
         deleted = []
         for root_id in roots_to_delete:
-            subtree = self.lineage(root_id)
-            for artifact in reversed(subtree):
+            subtree = self.subtree(root_id)  # leaf-first (timestamp DESC)
+            for artifact in subtree:
                 if only_samples and not artifact.is_sample:
                     continue
                 if self.delete(artifact.run_id):

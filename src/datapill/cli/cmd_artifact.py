@@ -70,7 +70,8 @@ def list_artifacts(
     t.add_column("mat", justify="center")
 
     for a in artifacts:
-        rows_str = f"{a.options.get('sample_size', ''):,}" if a.is_sample else ""
+        _ss = a.options.get("sample_size") or a.sample_size
+        rows_str = f"{int(_ss):,}" if a.is_sample and _ss else ""
         t.add_row(
             a.run_id,
             a.pipeline,

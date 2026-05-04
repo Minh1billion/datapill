@@ -1,4 +1,4 @@
-# datapill — Local Development & Testing
+# datapill - Local Development & Testing
 
 This guide walks you through spinning up the full test environment, seeding all data sources, and verifying each connector end-to-end. Follow the steps in order.
 
@@ -54,7 +54,7 @@ The `--wait` flag blocks until every service's healthcheck passes. Expected outp
 ✔ Container datapill-kafka-1      Healthy
 ```
 
-> **Port map** — Postgres `5433`, MySQL `3307`, MinIO API `9000` / Console `9001`, Kafka `9092`. If any port conflicts with a local service, update `docker-compose.test.yml` and the corresponding config in `tests/fixtures/configs/`.
+> **Port map** - Postgres `5433`, MySQL `3307`, MinIO API `9000` / Console `9001`, Kafka `9092`. If any port conflicts with a local service, update `docker-compose.test.yml` and the corresponding config in `tests/fixtures/configs/`.
 
 ---
 
@@ -75,21 +75,45 @@ python scripts/seed.py --only s3 kafka
 Expected output:
 
 ```
-==================================================
-datapill - seeding test services
-==================================================
-→ Configs   ✓ tests/fixtures/configs/  (7 files)
-→ Local files ✓ tests/fixtures/  csv + parquet + ndjson + data_1k.csv
-→ SQLite    ✓ tests/fixtures/test.db  employees(100) + departments(5)
-→ PostgreSQL ✓ employees(100) + departments(5)
-→ MySQL     ✓ employees(100) + departments(5)
-→ MinIO/S3  ✓ data/employees.{csv,parquet,ndjson}
-→ Kafka     ✓ topic=employees (100 messages)
-==================================================
-done
+============================================================
+datapill  -  seeding test data
+============================================================
+→ Configs  ✓ tests/fixtures/configs/  (8 config files)
+           ✓ tests/fixtures/ops/       (4 ops files)
+
+Generating DataFrames…
+  generating employees (150k + ~750 dupes)…
+  generating products (5k)…
+  generating customers (50k)…
+  generating orders (200k)…
+  generating transactions (300k)…
+  generating events (500k)…
+  generating logs (100k)…
+  generating reviews (80k)…
+  generating inventory…
+  generating departments…
+  ✓ total rows across all tables: 1,385,750+
+
+→ Local files  employees, products, customers, orders, transactions,
+               events, logs, reviews, inventory, departments
+               → csv + parquet + ndjson per table
+               → employees_by_dept/  (8 parquet partition files)
+               → orders_by_month/    (~60 parquet partition files)
+               → employees_dirty.csv (injected nulls/bad values)
+→ SQLite    ✓ tests/fixtures/test.db  (9 tables)
+→ PostgreSQL ✓ (9 tables)
+→ MySQL     ✓ (9 tables)
+→ MinIO/S3  ✓ data/{table}.{csv,parquet,ndjson} per table
+→ Kafka     ✓ multiple topics seeded
+============================================================
+done - 1,385,750+ total rows seeded across 10 tables
 ```
 
-Fixture configs land in `tests/fixtures/configs/`. All subsequent `dp` commands reference these files.
+Fixture configs land in `tests/fixtures/configs/`. Preprocess ops examples land in `tests/fixtures/ops/`. All subsequent `dp` commands reference these files.
+
+> **Tables seeded:** `employees` (150k+dupes), `products` (5k), `customers` (50k), `orders` (200k), `transactions` (300k), `events` (500k), `logs` (100k), `reviews` (80k), `inventory` (~12k), `departments` (8).
+
+> **New configs:** `local_dirty.json` (writable base path for testing clean ops), `rest_api.json` (JSONPlaceholder base URL).
 
 ---
 
@@ -125,19 +149,32 @@ dp ingest check kafka \
 ### Local file
 
 ```bash
-# full ingest — parquet
+# full ingest - parquet
 dp ingest run local \
     --config      tests/fixtures/configs/local.json \
     --path        data.parquet \
     --materialize \
     --schema
 
-# sample from a large CSV
+# ingest from any seeded table file
 dp ingest run local \
     --config      tests/fixtures/configs/local.json \
-    --path        data_1k.csv \
+    --path        orders.parquet \
+    --materialize \
+    --schema
+
+# sample a large table
+dp ingest run local \
+    --config      tests/fixtures/configs/local.json \
+    --path        events.csv \
     --sample \
-    --sample-size 200 \
+    --sample-size 5000 \
+    --schema
+
+# ingest dirty CSV for testing clean ops downstream
+dp ingest run local \
+    --config      tests/fixtures/configs/local_dirty.json \
+    --path        employees_dirty.csv \
     --schema
 ```
 
@@ -209,7 +246,7 @@ dp ingest run kafka \
     --topic  employees \
     --materialize
 
-# sample — stops after 20 messages
+# sample - stops after 20 messages
 dp ingest run kafka \
     --config      tests/fixtures/configs/kafka.json \
     --topic       employees \
@@ -221,12 +258,81 @@ Each successful ingest prints a `run_id` (e.g. `a1b2c3d4`). Save the IDs you wan
 
 ---
 
-## 6. Profile an artifact
+## 6. Preprocess an artifact
+
+Use a `run_id` from an ingest step (or a previous preprocess step) as the parent. Ops files live in `tests/fixtures/ops/`.
+
+### Run with inline ops
+
+```bash
+# trim + lowercase email, drop nulls, log-transform salary
+dp preprocess run <INGEST_RUN_ID> \
+    --op clean.drop_null:cols=email,salary \
+    --op parse.trim:cols=full_name,email \
+    --op parse.lower:cols=email \
+    --op transform.log_transform:cols=salary:base=log10 \
+    --materialize \
+    --schema
+```
+
+### Run with an ops file
+
+```bash
+# clean employees - drops nulls, clips age/salary, deduplicates on email
+dp preprocess run <INGEST_RUN_ID> \
+    --ops tests/fixtures/ops/clean_employees.json \
+    --materialize \
+    --schema
+
+# feature engineering - normalize, bin age, one-hot encode dept
+dp preprocess run <INGEST_RUN_ID> \
+    --ops tests/fixtures/ops/feature_engineering.json \
+    --materialize
+
+# clean orders - parse datetime, extract parts, deduplicate
+dp preprocess run <ORDERS_INGEST_RUN_ID> \
+    --ops tests/fixtures/ops/clean_orders.json \
+    --materialize
+
+# aggregate orders by country × status
+dp preprocess run <ORDERS_INGEST_RUN_ID> \
+    --ops tests/fixtures/ops/aggregate_orders.json \
+    --materialize
+```
+
+### Preview without materializing
+
+```bash
+# inspect the first 20 rows after ops are applied (join ops are skipped)
+dp preprocess preview <PREPROCESS_RUN_ID> --rows 20
+```
+
+### Materialize a previously dry-run artifact
+
+```bash
+dp preprocess materialize <PREPROCESS_RUN_ID> --schema
+```
+
+### List available ops
+
+```bash
+# all groups
+dp preprocess ops
+
+# filter to a single group
+dp preprocess ops --group clean
+dp preprocess ops --group transform
+dp preprocess ops --group compose
+```
+
+Each successful preprocess run prints a `run_id`. You can chain preprocess steps (pass a preprocess `run_id` as the parent of another preprocess run), then profile the final artifact.
+
+## 7. Profile an artifact
 
 Use the `run_id` from an ingest step above. Substitute `<RUN_ID>` accordingly.
 
 ```bash
-# full profile — histograms, correlations, pattern detection, materialized JSON
+# full profile - histograms, correlations, pattern detection, materialized JSON
 dp profile run <RUN_ID> \
     --mode full \
     --correlation pearson \
@@ -259,7 +365,7 @@ dp profile warnings <PROFILE_RUN_ID> --severity warn
 
 ---
 
-## 7. Manage artifacts
+## 8. Manage artifacts
 
 ```bash
 # list all artifacts (most recent first)
@@ -290,7 +396,7 @@ dp artifact purge --samples-only --yes
 
 ---
 
-## 8. Tear down
+## 9. Tear down
 
 ```bash
 # stop containers and remove volumes
@@ -305,14 +411,14 @@ rm -rf .datapill
 
 ## Troubleshooting
 
-**`dp: command not found`** — make sure the virtualenv is activated (`source .venv/bin/activate`) and the package is installed (`uv sync`).
+**`dp: command not found`** - make sure the virtualenv is activated (`source .venv/bin/activate`) and the package is installed (`uv sync`).
 
-**Service healthcheck timeout** — MySQL can take ~30 s on first boot. Re-run `docker compose -f docker-compose.test.yml up -d --wait` if any service shows `Waiting`.
+**Service healthcheck timeout** - MySQL can take ~30 s on first boot. Re-run `docker compose -f docker-compose.test.yml up -d --wait` if any service shows `Waiting`.
 
-**Kafka seed fails with `NoBrokersAvailable`** — Kafka's advertised listener is `localhost:9092`. The seed script must run on the host, not inside a container. Wait a few seconds after `--wait` returns and retry.
+**Kafka seed fails with `NoBrokersAvailable`** - Kafka's advertised listener is `localhost:9092`. The seed script must run on the host, not inside a container. Wait a few seconds after `--wait` returns and retry.
 
-**`artifact not found` when profiling** — the `run_id` is case-sensitive and must belong to a pipeline that `profile` accepts (`ingest` or `preprocess`). Run `dp artifact list` to confirm the ID and pipeline name.
+**`artifact not found` when profiling** - the `run_id` is case-sensitive and must belong to a pipeline that `profile` accepts (`ingest` or `preprocess`). Run `dp artifact list` to confirm the ID and pipeline name.
 
-**`cannot delete <id>: has N child artifact(s)`** — the artifact you are trying to delete has downstream artifacts (e.g. a profile run). Either delete children first (leaf to root), or re-run with `--cascade` to remove the entire subtree in one go.
+**`cannot delete <id>: has N child artifact(s)`** - the artifact you are trying to delete has downstream artifacts (e.g. a profile run). Either delete children first (leaf to root), or re-run with `--cascade` to remove the entire subtree in one go.
 
-**Port conflict** — edit the `ports` mapping in `docker-compose.test.yml` and update the matching `host`/`port` fields in the corresponding `tests/fixtures/configs/*.json` file, then re-seed.
+**Port conflict** - edit the `ports` mapping in `docker-compose.test.yml` and update the matching `host`/`port` fields in the corresponding `tests/fixtures/configs/*.json` file, then re-seed.

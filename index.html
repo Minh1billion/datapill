@@ -196,6 +196,11 @@
     <a href="#artifact-purge" class="sidebar-item sidebar-sub">artifact purge</a>
     <a href="#artifact-usage" class="sidebar-item sidebar-sub">artifact usage</a>
 
+    <a href="#preprocess" class="sidebar-item">datapill preprocess</a>
+    <a href="#preprocess-run" class="sidebar-item sidebar-sub">preprocess run</a>
+    <a href="#preprocess-materialize" class="sidebar-item sidebar-sub">preprocess materialize</a>
+    <a href="#preprocess-preview" class="sidebar-item sidebar-sub">preprocess preview</a>
+    <a href="#preprocess-ops" class="sidebar-item sidebar-sub">preprocess ops</a>
     <a href="#profile" class="sidebar-item">datapill profile</a>
     <a href="#profile-run" class="sidebar-item sidebar-sub">profile run</a>
     <a href="#profile-show" class="sidebar-item sidebar-sub">profile show</a>
@@ -608,6 +613,179 @@ confirm? [y/N]:</span> y
   disk usage   1.3 GB</span></pre></div>
     </section>
 
+    <section id="preprocess">
+      <h2>datapill preprocess</h2>
+      <p>Apply transformation operations to an existing ingest or preprocess artifact to produce a cleaned, feature-engineered dataset. Results are tracked as child artifacts linked to their parent via lineage.</p>
+      <div class="notice info">
+        <div class="notice-title">ℹ️ Lazy by default</div>
+        Without <code>--materialize</code>, <code>preprocess run</code> records the op config in the artifact store but does <strong>not</strong> write any data to disk. Call <code>preprocess materialize</code> later to apply and persist the ops when you need the output.
+      </div>
+    </section>
+
+    <section id="preprocess-run">
+      <h3>preprocess run</h3>
+      <p>Apply one or more transformation ops to a parent artifact. Ops can be passed inline with <code>--op</code> or supplied as a JSON file with <code>--ops</code>.</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
+      <pre><span class="t-cmd">dp preprocess run</span> <span class="t-arg">PARENT_RUN_ID</span> [<span class="t-flag">--op</span> <span class="t-arg">OP</span>]... [<span class="t-flag">--ops</span> <span class="t-arg">FILE</span>] [OPTIONS]</pre></div>
+      <h4>Options</h4>
+      <table class="data-table">
+        <thead><tr><th>Argument / Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>PARENT_RUN_ID</code> <span class="req-badge">required</span></td><td>string</td><td>…</td><td>run id of the parent artifact (ingest or preprocess)</td></tr>
+          <tr><td><code>--op</code> <span class="opt-badge">optional</span></td><td>string (repeatable)</td><td>-</td><td>inline op in format <code>group.type:key=value:key=value</code></td></tr>
+          <tr><td><code>--ops</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>path to a JSON file containing an array of op objects</td></tr>
+          <tr><td><code>--materialize / -m</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>apply ops and write output to parquet artifact</td></tr>
+          <tr><td><code>--schema</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>print column schema after run</td></tr>
+          <tr><td><code>--store</code> <span class="opt-badge">optional</span></td><td>string</td><td>.datapill</td><td>artifact store directory</td></tr>
+        </tbody>
+      </table>
+      <h4>Examples</h4>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab(this,'pp1')">Ops file</button>
+        <button class="tab-btn" onclick="switchTab(this,'pp2')">Inline ops</button>
+        <button class="tab-btn" onclick="switchTab(this,'pp3')">Materialize immediately</button>
+      </div>
+      <div id="pp1" class="tab-pane active">
+        <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="t-comment"># apply a pre-written ops file to a parent ingest artifact</span>
+<span class="t-prompt">$</span> dp preprocess run <span class="t-arg">0f34bcc3</span>     <span class="t-flag">--ops</span> <span class="t-arg">tests/fixtures/ops/clean_employees.json</span>     <span class="t-flag">--schema</span>
+<span class="t-ok">[OK] </span><span class="t-out">150,750 rows 21 cols
+⠹ preprocess complete 0:00:00</span>
+<span class="t-out">- RUN
+  run:  146e9c2a
+  ref:  preprocess:146e9c2a</span></pre></div>
+      </div>
+      <div id="pp2" class="tab-pane">
+        <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="t-comment"># chain multiple inline ops</span>
+<span class="t-prompt">$</span> dp preprocess run <span class="t-arg">0f34bcc3</span>     <span class="t-flag">--op</span> <span class="t-str">"clean.drop_null:cols=email,salary"</span>     <span class="t-flag">--op</span> <span class="t-str">"parse.lower:cols=email"</span>     <span class="t-flag">--op</span> <span class="t-str">"transform.log_transform:cols=salary:base=log10"</span></pre></div>
+      </div>
+      <div id="pp3" class="tab-pane">
+        <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+        <pre><span class="t-comment"># run and write parquet in one step</span>
+<span class="t-prompt">$</span> dp preprocess run <span class="t-arg">0f34bcc3</span>     <span class="t-flag">--ops</span>        <span class="t-arg">clean_employees.json</span>     <span class="t-flag">--materialize</span>     <span class="t-flag">--schema</span>
+<span class="t-out">- OUTPUT
+  parquet: artifacts\c22b374a\data.parquet</span></pre></div>
+      </div>
+      <div class="notice warning">
+        <div class="notice-title">⚠️ --op and --ops are mutually exclusive</div>
+        Use one or the other per invocation. Mixing them will produce an error.
+      </div>
+    </section>
+
+    <section id="preprocess-materialize">
+      <h3>preprocess materialize</h3>
+      <p>Replay and persist the ops from an existing (non-materialized) preprocess artifact, writing the result to a parquet file. Creates a new artifact entry linked to the same parent.</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
+      <pre><span class="t-cmd">dp preprocess materialize</span> <span class="t-arg">RUN_ID</span> [<span class="t-flag">--schema</span>] [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
+      <h4>Options</h4>
+      <table class="data-table">
+        <thead><tr><th>Argument / Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>RUN_ID</code> <span class="req-badge">required</span></td><td>string</td><td>…</td><td>run id of the existing preprocess artifact to materialize</td></tr>
+          <tr><td><code>--schema</code> <span class="opt-badge">optional</span></td><td>flag</td><td>false</td><td>print column schema after materializing</td></tr>
+          <tr><td><code>--store</code> <span class="opt-badge">optional</span></td><td>string</td><td>.datapill</td><td>artifact store directory</td></tr>
+        </tbody>
+      </table>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><span class="t-prompt">$</span> dp preprocess materialize <span class="t-arg">146e9c2a</span> --schema
+<span class="t-ok">[OK] </span><span class="t-out">150,750 rows 21 cols
+⠹ preprocess complete 0:00:00</span>
+<span class="t-out">- RUN
+  run:  c22b374a
+  ref:  preprocess:c22b374a
+- OUTPUT
+  parquet: artifacts\c22b374a\data.parquet</span></pre></div>
+      <div class="notice info">
+        <div class="notice-title">ℹ️ Already materialized</div>
+        If the artifact is already materialized, the command prints the existing path and exits without re-running ops.
+      </div>
+    </section>
+
+    <section id="preprocess-preview">
+      <h3>preprocess preview</h3>
+      <p>Show the first <em>N</em> rows of a preprocess artifact without materializing it. If the artifact is materialized, reads directly from parquet. Otherwise, loads the parent sample and replays ops in memory (join ops are skipped).</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
+      <pre><span class="t-cmd">dp preprocess preview</span> <span class="t-arg">RUN_ID</span> [<span class="t-flag">--rows</span> <span class="t-arg">N</span>] [<span class="t-flag">--store</span> <span class="t-arg">PATH</span>]</pre></div>
+      <h4>Options</h4>
+      <table class="data-table">
+        <thead><tr><th>Argument / Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>RUN_ID</code> <span class="req-badge">required</span></td><td>string</td><td>…</td><td>run id of the preprocess artifact</td></tr>
+          <tr><td><code>--rows / -n</code> <span class="opt-badge">optional</span></td><td>int</td><td>20</td><td>number of rows to display</td></tr>
+          <tr><td><code>--store</code> <span class="opt-badge">optional</span></td><td>string</td><td>.datapill</td><td>artifact store directory</td></tr>
+        </tbody>
+      </table>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><span class="t-prompt">$</span> dp preprocess preview <span class="t-arg">146e9c2a</span> --rows 5
+<span class="t-out">- PREVIEW
+  employee_id  first_name  ...  salary           status
+  ───────────────────────────────────────────────────────
+  1            Heidi       ...  3.5117818910...  suspended
+  2            Heidi       ...  3.3123804876...  active
+  ...
+  5 of 100 rows</span></pre></div>
+      <div class="notice tip">
+        <div class="notice-title">💡 Tip</div>
+        Use <code>preview</code> to validate your ops before committing to a full <code>materialize</code>. Join ops are automatically skipped in preview mode since the second dataset may not be loaded.
+      </div>
+    </section>
+
+    <section id="preprocess-ops">
+      <h3>preprocess ops</h3>
+      <p>List all available transformation op types, grouped by category, with required parameters and an example for each.</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">synopsis</span></div>
+      <pre><span class="t-cmd">dp preprocess ops</span> [<span class="t-flag">--group</span> <span class="t-arg">NAME</span>]</pre></div>
+      <h4>Options</h4>
+      <table class="data-table">
+        <thead><tr><th>Flag</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><code>--group / -g</code> <span class="opt-badge">optional</span></td><td>string</td><td>-</td><td>filter to a single group: <code>schema</code> | <code>clean</code> | <code>transform</code> | <code>parse</code> | <code>reshape</code> | <code>compose</code></td></tr>
+        </tbody>
+      </table>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><span class="t-prompt">$</span> dp preprocess ops
+<span class="t-out">- SCHEMA
+  cast              col, dtype          schema.cast:col=age:dtype=Int32
+  rename            old_name, new_name  schema.rename:old_name=new_name
+  drop_columns      cols                schema.drop_columns:cols=a,b,c
+  select_columns    cols                schema.select_columns:cols=id,name
+  reorder_columns   cols                schema.reorder_columns:cols=id,name
+
+- CLEAN
+  fill_null         cols, value         clean.fill_null:cols=salary:value=0
+  drop_null         cols                clean.drop_null:cols=email,name
+  impute            cols, strategy      clean.impute:cols=age:strategy=median
+  clip              cols                clean.clip:cols=score:min=0:max=100
+  winsorize         cols                clean.winsorize:cols=rev:lower=0.05:upper=0.95
+  ...
+
+- TRANSFORM  - PARSE  - RESHAPE  - COMPOSE  ...</span></pre></div>
+      <h4>Op format</h4>
+      <p>Inline ops follow the pattern <code>group.type:key=value:key=value</code>. Multi-value params use comma separation:</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">bash</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre><span class="t-comment"># drop two columns</span>
+<span class="t-prompt">$</span> dp preprocess run <span class="t-arg">0f34bcc3</span> --op <span class="t-str">"schema.drop_columns:cols=phone,tags"</span>
+
+<span class="t-comment"># bin age into buckets</span>
+<span class="t-prompt">$</span> dp preprocess run <span class="t-arg">0f34bcc3</span> --op <span class="t-str">"transform.bin:col=age:breaks=0,25,35,45,55,100"</span>
+
+<span class="t-comment"># one-hot encode a categorical column</span>
+<span class="t-prompt">$</span> dp preprocess run <span class="t-arg">0f34bcc3</span> --op <span class="t-str">"transform.encode:col=dept:method=onehot"</span></pre></div>
+      <h4>Ops JSON file format</h4>
+      <p>A JSON ops file is an array of op objects — the same keys used in inline format, but as structured JSON:</p>
+      <div class="code-block"><div class="code-block-header"><span class="code-block-lang">clean_employees.json</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div>
+      <pre>[
+  { <span class="t-key">"group"</span>: <span class="t-str">"clean"</span>,     <span class="t-key">"type"</span>: <span class="t-str">"drop_null"</span>,     <span class="t-key">"cols"</span>: [<span class="t-str">"email"</span>, <span class="t-str">"salary"</span>] },
+  { <span class="t-key">"group"</span>: <span class="t-str">"clean"</span>,     <span class="t-key">"type"</span>: <span class="t-str">"clip"</span>,          <span class="t-key">"cols"</span>: [<span class="t-str">"age"</span>], <span class="t-key">"min"</span>: <span class="t-num">16</span>, <span class="t-key">"max"</span>: <span class="t-num">70</span> },
+  { <span class="t-key">"group"</span>: <span class="t-str">"clean"</span>,     <span class="t-key">"type"</span>: <span class="t-str">"fill_null"</span>,     <span class="t-key">"cols"</span>: [<span class="t-str">"bonus_pct"</span>], <span class="t-key">"value"</span>: <span class="t-num">0</span> },
+  { <span class="t-key">"group"</span>: <span class="t-str">"schema"</span>,    <span class="t-key">"type"</span>: <span class="t-str">"drop_columns"</span>,  <span class="t-key">"cols"</span>: [<span class="t-str">"tags"</span>, <span class="t-str">"phone"</span>] },
+  { <span class="t-key">"group"</span>: <span class="t-str">"parse"</span>,     <span class="t-key">"type"</span>: <span class="t-str">"lower"</span>,          <span class="t-key">"cols"</span>: [<span class="t-str">"email"</span>] },
+  { <span class="t-key">"group"</span>: <span class="t-str">"transform"</span>, <span class="t-key">"type"</span>: <span class="t-str">"log_transform"</span>, <span class="t-key">"cols"</span>: [<span class="t-str">"salary"</span>], <span class="t-key">"base"</span>: <span class="t-str">"log10"</span> },
+  { <span class="t-key">"group"</span>: <span class="t-str">"reshape"</span>,   <span class="t-key">"type"</span>: <span class="t-str">"dedup"</span>,          <span class="t-key">"cols"</span>: [<span class="t-str">"email"</span>], <span class="t-key">"keep"</span>: <span class="t-str">"first"</span> }
+]</pre></div>
+    </section>
+
     <section id="profile">
       <h2>datapill profile</h2>
       <p>Profile a dataset artifact — computes column statistics, histograms, correlations, and data quality warnings.</p>
@@ -873,6 +1051,8 @@ df   = duckdb.sql(<span class="t-str">f"SELECT * FROM read_parquet('{path}') LIM
         <li>Use <code>--sample</code> first to validate schema and data quality cheaply.</li>
         <li>Run a full ingest with <code>--materialize</code> once the sample looks correct.</li>
         <li>Use <code>artifact lineage</code> to trace how a derived dataset was produced.</li>
+        <li>Use <code>preprocess run</code> without <code>--materialize</code> to record a transformation plan cheaply, then call <code>preprocess materialize</code> only when you need the parquet output.</li>
+        <li>Chain multiple preprocess artifacts (each pointing to the previous as parent) to build multi-step pipelines tracked in full lineage.</li>
         <li>Schedule <code>artifact purge --keep 5</code> in CI to prevent unbounded disk growth.</li>
         <li>Use <code>artifact delete --cascade</code> to remove an entire lineage tree in one command.</li>
         <li>Delete artifacts leaf-first when not using <code>--cascade</code> — deleting a parent while children exist will fail.</li>

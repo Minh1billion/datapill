@@ -27,8 +27,6 @@ _NUMERIC_DTYPES = frozenset({
     pl.Float32, pl.Float64,
 })
 
-_DATETIME_DTYPES = frozenset({pl.Date, pl.Datetime, pl.Duration, pl.Time})
-
 _DTYPE_LABEL: dict[str, str] = {
     "Int8": "integer", "Int16": "integer", "Int32": "integer", "Int64": "integer",
     "UInt8": "integer", "UInt16": "integer", "UInt32": "integer", "UInt64": "integer",
@@ -50,14 +48,14 @@ _PATTERNS: dict[str, re.Pattern] = {
     "ipv4":     re.compile(r"^\d{1,3}(\.\d{1,3}){3}$"),
 }
 
-WARNING_HIGH_NULL       = "HIGH_NULL_RATE"
-WARNING_CONSTANT        = "CONSTANT_COLUMN"
-WARNING_IDENTIFIER      = "POTENTIAL_IDENTIFIER"
+WARNING_HIGH_NULL        = "HIGH_NULL_RATE"
+WARNING_CONSTANT         = "CONSTANT_COLUMN"
+WARNING_IDENTIFIER       = "POTENTIAL_IDENTIFIER"
 WARNING_HIGH_CARDINALITY = "HIGH_CARDINALITY"
-WARNING_SKEWED          = "SKEWED_DISTRIBUTION"
-WARNING_ALL_ZERO        = "ALL_ZEROS"
-WARNING_NEGATIVE        = "HAS_NEGATIVES"
-WARNING_HIGH_DUPLICATE  = "HIGH_DUPLICATE_RATE"
+WARNING_SKEWED           = "SKEWED_DISTRIBUTION"
+WARNING_ALL_ZERO         = "ALL_ZEROS"
+WARNING_NEGATIVE         = "HAS_NEGATIVES"
+WARNING_HIGH_DUPLICATE   = "HIGH_DUPLICATE_RATE"
 
 
 def _infer_dtype_label(dtype: pl.DataType) -> str:
@@ -79,6 +77,149 @@ def _is_datetime(dtype: pl.DataType) -> bool:
 def _chunk_iter(df: pl.DataFrame, chunk_size: int) -> Iterator[pl.DataFrame]:
     for start in range(0, len(df), chunk_size):
         yield df.slice(start, chunk_size)
+
+
+def _profile_datetime(
+    df: pl.DataFrame,
+    col: str,
+    options: ProfileOptions,
+) -> dict[str, Any]:
+    dtype = df[col].dtype
+    series = df[col].drop_nulls()
+    n_valid = len(series)
+
+    result: dict[str, Any] = {
+        "min": None,
+        "max": None,
+        "mean": None,
+        "median": None,
+        "range_days": None,
+        "n_weekdays": None,
+        "n_weekends": None,
+        "dow_distribution": None,
+        "month_distribution": None,
+        "hour_distribution": None,
+        "percentiles": None,
+    }
+
+    if n_valid == 0:
+        return result
+
+    col_min = series.min()
+    col_max = series.max()
+    result["min"] = str(col_min)
+    result["max"] = str(col_max)
+
+    if isinstance(dtype, (pl.Datetime, pl.Date)):
+        date_series = series.cast(pl.Date) if isinstance(dtype, pl.Datetime) else series
+
+        min_date = col_min.date() if isinstance(dtype, pl.Datetime) else col_min
+        max_date = col_max.date() if isinstance(dtype, pl.Datetime) else col_max
+        if min_date is not None and max_date is not None:
+            result["range_days"] = (max_date - min_date).days
+
+        if options.mode == "full":
+            dow_counts = (
+                date_series
+                .to_frame()
+                .select(pl.col(col).dt.weekday().alias("dow"))
+                ["dow"]
+                .value_counts(sort=True)
+            )
+            dow_map = {r["dow"]: r["count"] for r in dow_counts.iter_rows(named=True)}
+            result["dow_distribution"] = {str(k): v for k, v in sorted(dow_map.items())}
+
+            weekday_total = sum(v for k, v in dow_map.items() if k < 5)
+            weekend_total = sum(v for k, v in dow_map.items() if k >= 5)
+            result["n_weekdays"] = weekday_total
+            result["n_weekends"] = weekend_total
+
+            month_counts = (
+                date_series
+                .to_frame()
+                .select(pl.col(col).dt.month().alias("month"))
+                ["month"]
+                .value_counts(sort=True)
+            )
+            result["month_distribution"] = {
+                str(r["month"]): r["count"]
+                for r in sorted(month_counts.iter_rows(named=True), key=lambda x: x["month"])
+            }
+
+        if isinstance(dtype, pl.Datetime):
+            epoch_ms = series.cast(pl.Int64)
+            mean_ms = epoch_ms.mean()
+            if mean_ms is not None:
+                result["mean"] = str(pl.Series([int(mean_ms)]).cast(pl.Datetime(time_unit=dtype.time_unit or "us"))[0])
+
+            if options.mode == "full":
+                hour_counts = (
+                    series
+                    .to_frame()
+                    .select(pl.col(col).dt.hour().alias("hour"))
+                    ["hour"]
+                    .value_counts(sort=True)
+                )
+                result["hour_distribution"] = {
+                    str(r["hour"]): r["count"]
+                    for r in sorted(hour_counts.iter_rows(named=True), key=lambda x: x["hour"])
+                }
+
+                pcts: dict[str, str | None] = {}
+                for q in options.numeric_percentiles:
+                    try:
+                        ms_val = epoch_ms.quantile(q, interpolation="linear")
+                        if ms_val is not None:
+                            pcts[str(q)] = str(
+                                pl.Series([int(ms_val)]).cast(pl.Datetime(time_unit=dtype.time_unit or "us"))[0]
+                            )
+                        else:
+                            pcts[str(q)] = None
+                    except Exception:
+                        pcts[str(q)] = None
+                result["median"] = pcts.get("0.5")
+                result["percentiles"] = pcts
+
+    elif isinstance(dtype, pl.Duration):
+        epoch_us = series.cast(pl.Int64)
+        mean_us = epoch_us.mean()
+        if mean_us is not None:
+            result["mean"] = str(pl.Series([int(mean_us)]).cast(pl.Duration)[0])
+
+        if options.mode == "full":
+            pcts: dict[str, str | None] = {}
+            for q in options.numeric_percentiles:
+                try:
+                    us_val = epoch_us.quantile(q, interpolation="linear")
+                    if us_val is not None:
+                        pcts[str(q)] = str(pl.Series([int(us_val)]).cast(pl.Duration)[0])
+                    else:
+                        pcts[str(q)] = None
+                except Exception:
+                    pcts[str(q)] = None
+            result["median"] = pcts.get("0.5")
+            result["percentiles"] = pcts
+
+    elif isinstance(dtype, pl.Time):
+        sec_series = series.cast(pl.Int64)
+        mean_ns = sec_series.mean()
+        if mean_ns is not None:
+            result["mean"] = str(pl.Series([int(mean_ns)]).cast(pl.Time)[0])
+
+        if options.mode == "full":
+            hour_counts = (
+                series
+                .to_frame()
+                .select(pl.col(col).dt.hour().alias("hour"))
+                ["hour"]
+                .value_counts(sort=True)
+            )
+            result["hour_distribution"] = {
+                str(r["hour"]): r["count"]
+                for r in sorted(hour_counts.iter_rows(named=True), key=lambda x: x["hour"])
+            }
+
+    return result
 
 
 def compute_column_profile(
@@ -141,7 +282,6 @@ def compute_column_profile(
         online_m2 = 0.0
         online_m3 = 0.0
         online_m4 = 0.0
-        sum_val = 0.0
         n_zeros = 0
         n_neg = 0
 
@@ -160,18 +300,17 @@ def compute_column_profile(
                 online_m4 += term1 * delta_n2 * (online_n * online_n - 3 * online_n + 3) + 6 * delta_n2 * online_m2 - 4 * delta_n * online_m3
                 online_m3 += term1 * delta_n * (online_n - 2) - 3 * delta_n * online_m2
                 online_m2 += term1
-                sum_val += x
             n_zeros += int((clean == 0).sum())
             n_neg += int((clean < 0).sum())
 
-        variance = online_m2 / online_n if online_n > 1 else 0.0
+        variance = online_m2 / (online_n - 1) if online_n > 1 else 0.0
         std = math.sqrt(variance) if variance > 0 else 0.0
         skewness = None
         kurtosis = None
         if online_n >= 3 and std > 0:
             skewness = round((online_m3 / online_n) / (std ** 3), 6)
         if online_n >= 4 and std > 0:
-            kurtosis = round((online_m4 / online_n) / (variance ** 2) - 3, 6)
+            kurtosis = round((online_m4 / online_n) / ((online_m2 / online_n) ** 2) - 3, 6)
 
         result["min"] = col_min
         result["max"] = col_max
@@ -217,8 +356,8 @@ def compute_column_profile(
                 ]
 
     elif _is_datetime(dtype) and (n_rows - null_count) > 0:
-        result["min"] = str(df[col].min())
-        result["max"] = str(df[col].max())
+        dt_profile = _profile_datetime(df, col, options)
+        result.update(dt_profile)
 
     if exact_distinct <= options.cardinality_limit or dtype_label in ("boolean", "categorical"):
         try:

@@ -176,7 +176,10 @@ def show_profile(
 
             mean_or_top = ""
             if cp.get("mean") is not None:
-                mean_or_top = f"{cp['mean']:.4g}"
+                try:
+                    mean_or_top = f"{float(cp['mean']):.4g}"
+                except (TypeError, ValueError):
+                    mean_or_top = str(cp["mean"])
             elif cp.get("top_values"):
                 top = cp["top_values"]
                 if top:

@@ -8,7 +8,7 @@ from ...core.context import Context
 from ...core.events import EventType, ProgressEvent
 from ...storage.artifact_store import Artifact
 from ..base import ExecutionPlan, Pipeline, ValidationResult
-from .loader import load_dataframe
+from ...utils.loader import load_dataframe
 from .stats import (
     ProfileOptions,
     collect_dataset_warnings,

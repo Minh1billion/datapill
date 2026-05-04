@@ -10,6 +10,7 @@ tests/fixtures/**_1M.**
 .coverage
 htmlcov/
 dist/
+docs
 *.egg-info/
 *.pyc
 *.pyo

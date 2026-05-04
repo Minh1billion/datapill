@@ -1,7 +1,0 @@
-{
-  "bucket": "testbucket",
-  "region": "us-east-1",
-  "access_key": "minioadmin",
-  "secret_key": "minioadmin",
-  "endpoint_url": "http://localhost:9000"
-}

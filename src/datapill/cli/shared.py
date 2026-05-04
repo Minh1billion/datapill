@@ -9,8 +9,12 @@ from rich.text import Text
 
 from ..core.events import EventType, ProgressEvent
 
-out = Console()
-err = Console(stderr=True)
+# Windows legacy console (cp1252) cannot render braille spinner characters.
+# Force UTF-8 output when possible, otherwise fall back to ASCII spinner.
+_IS_LEGACY_WINDOWS = sys.platform == "win32" and sys.stdout.encoding.lower() in ("cp1252", "cp850", "cp437")
+
+out = Console(highlight=False)
+err = Console(stderr=True, highlight=False)
 
 BOLD_WHITE = "bold white"
 ORANGE = "bold #FF9900"
@@ -27,8 +31,8 @@ DARK_BLUE = "bold #232F3E"
 def _rule(label: str = "") -> None:
     out.print()
     if label:
-        out.print(Text(f"▸ {label.upper()}", style=BOLD_WHITE))
-        out.print(Text("─" * out.width, style=GRAY))
+        out.print(Text(f"- {label.upper()}", style=BOLD_WHITE))
+        out.print(Text("-" * 80, style=GRAY))
 
 
 def _print(renderable: Any) -> None:
@@ -36,8 +40,9 @@ def _print(renderable: Any) -> None:
 
 
 def make_progress() -> tuple[Progress, Any]:
+    spinner_name = "line" if _IS_LEGACY_WINDOWS else "dots"
     progress = Progress(
-        SpinnerColumn(spinner_name="dots", style=ORANGE),
+        SpinnerColumn(spinner_name=spinner_name, style=ORANGE),
         TextColumn("[progress.description]{task.description}", style=WHITE),
         TimeElapsedColumn(),
         console=out,
@@ -127,7 +132,7 @@ def print_schema(schema: dict[str, str]) -> None:
     t.add_column("column", style=CYAN)
     t.add_column("type", justify="right", style=GRAY)
     for col, dtype in schema.items():
-        t.add_row(f"• {col}", dtype)
+        t.add_row(f"* {col}", dtype)
     out.print(t)
     out.print()
 
@@ -135,7 +140,7 @@ def print_schema(schema: dict[str, str]) -> None:
 def print_artifact_path(path: str) -> None:
     _rule("output")
     out.print(
-        Text("📦 path: ", style=GRAY)
+        Text("path: ", style=GRAY)
         + Text(path, style=f"bold {ORANGE}")
     )
     out.print()
